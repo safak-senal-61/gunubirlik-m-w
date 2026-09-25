@@ -38,6 +38,23 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 - **Her ikisi:** başvurular (kabul/ret/tamamla + yıldızla puanlama), moderasyonlu mesajlaşma, bildirimler, profil düzenleme (PUT /auth/me), şifre değiştirme, 2FA kurulum (QR + secret + yedek kodlar) / kapatma, e-posta değiştirme
 - Rol bazlı alt sekme çubuğu, okunmamış bildirim sayacı
 
+## QR Kod Görünmüyor?
+
+1. **Modu kontrol et** — Terminalde `Development build` yazıyorsa `s` tuşuna bas; `Expo Go` moduna geçsin. QR yalnızca Expo Go modunda çalışır.
+2. **Terminal QR çizemiyor olabilir** — Klasik Windows cmd, bazı SSH ve dar pencereler QR çizemez. Windows Terminal / VS Code terminali / iTerm2 kullan ve pencereyi genişlet (QR en az ~33 sütun ister).
+3. **URL'yi elle gir (QR'sız yöntem):**
+   - Terminalde `› Metro waiting on exp://192.168.x.x:8081` satırındaki adresi kopyala
+   - Expo Go'da **"Enter URL manually"** seçeneğine bu adresi yaz
+4. **Tunnel modu URL verir:**
+   ```bash
+   bunx expo start --go --tunnel
+   # İlk seferde @expo/ngrok kurulumu isterse "y" yaz.
+   # Kurulum sorusu gelmezse önce: npm i -g @expo/ngrok@^4.1.0
+   ```
+   Çıkan `exp://....exp.direct` adresini Expo Go'da "Enter URL manually" ile gir.
+5. **iPhone'da** Expo Go'nun kendi tarayıcısını değil, **Camera** uygulamasını aç; QR'yi okutunca çıkan banner'a dokun (Expo Go otomatik açılır). Android'de Expo Go ana ekranındaki **"Scan QR code"** düğmesini kullan.
+6. **Kendi bilgisayarında çalıştır** — Freebuff web terminalinde değil; telefonun bilgisayara ulaşabilmesi için sunucu senin makinende ve aynı ağda (veya tunnel ile) olmalı.
+
 ## Konfigürasyon
 
 | Ne | Nasıl |
