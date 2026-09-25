@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,8 +8,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, MapPin } from "lucide-react";
-import type { ReactNode } from "react";
+import { useApiAuth } from "@/hooks/use-api-auth";
+import { Bell, LogOut, MessagesSquare } from "lucide-react";
+import { useEffect, useState } from "react";
+import { fetchNotifications } from "@/lib/api";
 import { Link, useNavigate } from "react-router";
 
 export function Logo({ onClick }: { onClick?: () => void }) {
@@ -20,99 +22,90 @@ export function Logo({ onClick }: { onClick?: () => void }) {
       className="flex items-center gap-2 transition-opacity hover:opacity-80"
     >
       <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-extrabold text-primary-foreground shadow-soft">
-        S
+        G
       </div>
-      <span className="text-base font-bold tracking-tight">Selam İş</span>
+      <span className="text-base font-bold tracking-tight">Günübirlik</span>
     </Link>
   );
 }
 
-export const JOB_TYPE_LABELS: Record<string, string> = {
-  full_time: "Tam zamanlı",
-  part_time: "Yarı zamanlı",
-  contract: "Sözleşmeli",
-  internship: "Staj",
-};
+const seekerLinks = [
+  { label: "İş İlanları", to: "/jobs" },
+  { label: "Başvurularım", to: "/applications" },
+  { label: "Mesajlar", to: "/messages" },
+];
 
-export const STATUS_META: Record<
-  string,
-  { label: string; className: string }
-> = {
-  pending: {
-    label: "Beklemede",
-    className: "bg-amber-100 text-amber-800",
-  },
-  accepted: {
-    label: "Kabul edildi",
-    className: "bg-emerald-100 text-emerald-800",
-  },
-  rejected: {
-    label: "Reddedildi",
-    className: "bg-rose-100 text-rose-800",
-  },
-};
-
-export function formatSalary(min: number, max: number) {
-  const fmt = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}b ₺` : `${n} ₺`);
-  return `${fmt(min)} – ${fmt(max)}`;
-}
-
-export function timeAgo(creationTime: number) {
-  const diff = Date.now() - creationTime;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "az önce";
-  if (mins < 60) return `${mins} dk önce`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} sa önce`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} gün önce`;
-  return new Date(creationTime).toLocaleDateString("tr-TR");
-}
+const employerLinks = [
+  { label: "Panelim", to: "/dashboard" },
+  { label: "Başvurular", to: "/applications" },
+  { label: "Mesajlar", to: "/messages" },
+];
 
 export function AppShell({
-  navLinks,
-  user,
-  onSignOut,
   children,
 }: {
-  navLinks: { label: string; to: string }[];
-  user?: { name?: string; email?: string; appRole?: string } | null;
-  onSignOut: () => void;
-  children: ReactNode;
+  children: React.ReactNode;
 }) {
+  const { user, logout } = useApiAuth();
   const navigate = useNavigate();
+  const [unread, setUnread] = useState(0);
+
+  // Poll unread notification count periodically
+  useEffect(() => {
+    let active = true;
+    const load = () => {
+      fetchNotifications()
+        .then((r) => {
+          if (active) setUnread(r.unreadCount);
+        })
+        .catch(() => {});
+    };
+    load();
+    const timer = setInterval(load, 30000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  if (!user) return null;
+
+  const isEmployer = user.role === "EMPLOYER";
+  const navLinks = isEmployer ? employerLinks : seekerLinks;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-40 border-b border-border/70 bg-background/85 backdrop-blur-md">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Logo />
-          <nav className="hidden items-center gap-1 sm:flex">
-            {navLinks.map((link) => (
-              <a
-                key={link.to}
-                href={link.to}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate(link.to);
-                }}
-                className="rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                {link.label}
-              </a>
-            ))}
-          </nav>
-          <div className="flex items-center gap-2">
-            {user?.appRole === "employer" && (
-              <Button
-                size="sm"
-                className="hidden gap-1.5 sm:inline-flex"
-                onClick={() => navigate("/dashboard?new=1")}
-              >
-                <PlusIcon />
-                İlan ver
-              </Button>
-            )}
+          <div className="flex items-center gap-6">
+            <Logo />
+            <nav className="hidden items-center gap-1 md:flex">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className="rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <Link
+              to="/notifications"
+              className="relative flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Bildirimler"
+            >
+              <Bell className="size-5" />
+              {unread > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
+            </Link>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -120,33 +113,40 @@ export function AppShell({
                   className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 >
                   <Avatar className="size-9 border border-border/80 shadow-soft">
+                    {user.avatarUrl && <AvatarImage src={user.avatarUrl} />}
                     <AvatarFallback className="bg-accent text-xs font-bold text-accent-foreground">
-                      {(user?.name || user?.email || "K")
-                        .slice(0, 2)
-                        .toUpperCase()}
+                      {user.fullName.slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-60">
                 <DropdownMenuLabel>
-                  <p className="truncate text-sm font-semibold">
-                    {user?.name || "Misafir kullanıcı"}
+                  <p className="truncate text-sm font-semibold">{user.fullName}</p>
+                  <p className="truncate text-xs font-normal text-muted-foreground">
+                    {isEmployer ? user.companyName : `${user.ratingAvg.toFixed(1)}★ · ${user.ratingCount} değerlendirme`}
                   </p>
-                  {user?.email && (
-                    <p className="truncate text-xs font-normal text-muted-foreground">
-                      {user.email}
-                    </p>
-                  )}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/profile")}>
+                  Profilim
+                </DropdownMenuItem>
                 {navLinks.map((link) => (
-                  <DropdownMenuItem key={link.to} onClick={() => navigate(link.to)}>
+                  <DropdownMenuItem
+                    key={link.to}
+                    className="md:hidden"
+                    onClick={() => navigate(link.to)}
+                  >
                     {link.label}
                   </DropdownMenuItem>
                 ))}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onSignOut}>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    await logout();
+                    navigate("/");
+                  }}
+                >
                   <LogOut className="mr-2 size-4" />
                   Çıkış yap
                 </DropdownMenuItem>
@@ -155,56 +155,75 @@ export function AppShell({
           </div>
         </div>
       </header>
+
       <main className="flex-1">{children}</main>
-      <footer className="border-t border-border/70 py-8">
+
+      {/* Mobile bottom nav */}
+      <nav className="sticky bottom-0 z-40 border-t border-border/70 bg-background/95 backdrop-blur-md md:hidden">
+        <div className="flex">
+          {[
+            ...(isEmployer
+              ? [{ label: "Panel", to: "/dashboard", icon: "briefcase" }]
+              : [{ label: "İşler", to: "/jobs", icon: "briefcase" }]),
+            { label: "Başvuru", to: "/applications", icon: "file" },
+            { label: "Mesaj", to: "/messages", icon: "chat" },
+            { label: "Profil", to: "/profile", icon: "user" },
+          ].map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className="flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium text-muted-foreground"
+            >
+              {item.icon === "briefcase" && <BriefcaseIcon />}
+              {item.icon === "file" && <FileIcon />}
+              {item.icon === "chat" && <MessagesSquare className="size-5" />}
+              {item.icon === "user" && <UserIcon />}
+              {item.label}
+            </Link>
+          ))}
+          <Link
+            to="/notifications"
+            className="relative flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] font-medium text-muted-foreground"
+          >
+            <Bell className="size-5" />
+            Bildirim
+          </Link>
+        </div>
+      </nav>
+
+      <footer className="hidden border-t border-border/60 py-8 md:block">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-2 px-4 text-xs text-muted-foreground sm:flex-row sm:px-6">
           <Logo />
-          <span>© {new Date().getFullYear()} Selam İş · Türkiye'nin iş ağı</span>
+          <span>© {new Date().getFullYear()} Günübirlik İş Bul · Konum bazlı günlük iş platformu</span>
         </div>
       </footer>
     </div>
   );
 }
 
-function PlusIcon() {
+function BriefcaseIcon() {
   return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-    >
-      <path d="M12 5v14M5 12h14" />
+    <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="20" height="14" x="2" y="7" rx="2" />
+      <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
     </svg>
   );
 }
 
-export function EmptyState({
-  icon,
-  title,
-  description,
-  action,
-}: {
-  icon: ReactNode;
-  title: string;
-  description: string;
-  action?: ReactNode;
-}) {
+function FileIcon() {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/60 px-6 py-16 text-center shadow-soft">
-      <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
-        {icon}
-      </div>
-      <p className="text-base font-semibold">{title}</p>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
-      {action && <div className="mt-5">{action}</div>}
-    </div>
+    <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    </svg>
   );
 }
 
-export function JobLocationIcon() {
-  return <MapPin className="size-4 text-muted-foreground" />;
+function UserIcon() {
+  return (
+    <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
 }

@@ -8,294 +8,472 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-
-import { useAuth } from "@/hooks/use-auth";
-import logo from "@/assets/logo.svg";
-import { ArrowRight, Loader2, Mail, UserX } from "lucide-react";
+import { useApiAuth } from "@/hooks/use-api-auth";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Building2,
+  Hammer,
+  Loader2,
+  Mail,
+} from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { requestPasswordReset } from "@/hooks/use-api-auth";
 
-interface AuthProps {
-  redirectAfterAuth?: string;
-}
+type Mode = "login" | "register" | "twofactor" | "forgot";
 
-function resolveRedirectAfterAuth(
-  returnTo: string | null,
-  fallback = "/dashboard",
-) {
+function resolveRedirectAfterAuth(returnTo: string | null, fallback = "/jobs") {
   if (returnTo?.startsWith("/") && !returnTo.startsWith("//")) {
     return returnTo;
   }
   return fallback;
 }
 
-function Auth({ redirectAfterAuth }: AuthProps = {}) {
-  const { isLoading: authLoading, isAuthenticated, signIn } = useAuth();
+function Auth({ redirectAfterAuth }: { redirectAfterAuth?: string }) {
+  const { login, register, isAuthenticated, isLoading: authLoading } = useApiAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirect = resolveRedirectAfterAuth(
     searchParams.get("returnTo"),
     redirectAfterAuth,
   );
-  const [step, setStep] = useState<"signIn" | { email: string }>("signIn");
-  const [otp, setOtp] = useState("");
+  const [mode, setMode] = useState<Mode>("login");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  // login fields
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  // register fields
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [role, setRole] = useState<"WORKER" | "EMPLOYER">("WORKER");
+  const [city, setCity] = useState("İstanbul");
+  const [district, setDistrict] = useState("Kadıköy");
+  const [companyName, setCompanyName] = useState("");
+  // 2FA / forgot
+  const [twoFactorEmail, setTwoFactorEmail] = useState("");
+  const [twoFactorPassword, setTwoFactorPassword] = useState("");
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      navigate(redirect);
+      navigate(redirect, { replace: true });
     }
   }, [authLoading, isAuthenticated, navigate, redirect]);
-  const handleEmailSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+
+  const submitLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
     setError(null);
     try {
-      const formData = new FormData(event.currentTarget);
-      await signIn("email-otp", formData);
-      setStep({ email: formData.get("email") as string });
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Email sign-in error:", error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to send verification code. Please try again.",
-      );
+      await login(email, password);
+      navigate(redirect, { replace: true });
+    } catch (err) {
+      if (err instanceof Error && err.message === "requiresTwoFactor") {
+        setTwoFactorEmail(email);
+        setTwoFactorPassword(password);
+        setMode("twofactor");
+      } else {
+        setError(err instanceof Error ? err.message : "Giriş başarısız");
+      }
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const handleOtpSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const submitTwoFactor = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
     setError(null);
     try {
-      const formData = new FormData(event.currentTarget);
-      await signIn("email-otp", formData);
-
-      console.log("signed in");
-
-      navigate(redirect);
-    } catch (error) {
-      console.error("OTP verification error:", error);
-
-      setError("The verification code you entered is incorrect.");
+      await login(twoFactorEmail, twoFactorPassword, otpCode);
+      navigate(redirect, { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Kod hatalı");
+    } finally {
       setIsLoading(false);
-
-      setOtp("");
     }
   };
 
-  const handleGuestLogin = async () => {
+  const [otpCode, setOtpCode] = useState("");
+
+  const submitRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
     setError(null);
     try {
-      console.log("Attempting anonymous sign in...");
-      await signIn("anonymous");
-      console.log("Anonymous sign in successful");
-      navigate(redirect);
-    } catch (error) {
-      console.error("Guest login error:", error);
-      console.error("Error details:", JSON.stringify(error, null, 2));
-      setError(`Failed to sign in as guest: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      await register({
+        email,
+        password,
+        fullName,
+        phone,
+        role,
+        city,
+        district,
+        ...(role === "EMPLOYER" ? { companyName } : {}),
+      });
+      navigate(redirect, { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Kayıt başarısız");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const submitForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    try {
+      await requestPasswordReset(email);
+      setInfo("Sıfırlama kodu e-postana gönderildi. Gelen kutunu kontrol et.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "İstek başarısız");
+    } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-background">
+      <div className="surface-grid mask-fade-b pointer-events-none absolute inset-0" />
+      <div className="pointer-events-none absolute -top-32 left-1/2 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
 
-      
-      {/* Auth Content */}
-      <div className="flex-1 flex items-center justify-center">
-        <div className="flex items-center justify-center h-full flex-col">
-        <Card className="min-w-[350px] pb-0 border shadow-md">
-          {step === "signIn" ? (
-            <>
-              <CardHeader className="text-center">
-              <div className="flex justify-center">
-                    <img
-                      src={logo}
-                      alt="Lock Icon"
-                      width={64}
-                      height={64}
-                      className="rounded-lg mb-4 mt-4 cursor-pointer"
-                      onClick={() => navigate("/")}
-                    />
-                  </div>
-                <CardTitle className="text-xl">Get Started</CardTitle>
-                <CardDescription>
-                  Enter your email to log in or sign up
-                </CardDescription>
-              </CardHeader>
-              <form onSubmit={handleEmailSubmit}>
-                <CardContent>
-                  
-                  <div className="relative flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+      <div className="relative flex flex-1 items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="mb-6 flex items-center justify-center gap-2.5">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-soft">
+              <Hammer className="size-5" />
+            </div>
+            <span className="text-xl font-extrabold tracking-tight">Günübirlik</span>
+          </div>
+
+          <Card className="shadow-lift">
+            {mode === "login" && (
+              <>
+                <CardHeader className="text-center">
+                  <CardTitle className="text-xl">Tekrar hoş geldin</CardTitle>
+                  <CardDescription>
+                    Hesabına giriş yap; işe ya da adaylara bir adım daha yaklaş.
+                  </CardDescription>
+                </CardHeader>
+                <form onSubmit={submitLogin}>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="email">E-posta</Label>
                       <Input
-                        name="email"
-                        placeholder="name@example.com"
+                        id="email"
                         type="email"
-                        className="pl-9"
-                        disabled={isLoading}
+                        placeholder="ad@ornek.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
+                        disabled={isLoading}
                       />
                     </div>
-                    <Button
-                      type="submit"
-                      variant="outline"
-                      size="icon"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <ArrowRight className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                  {error && (
-                    <p className="mt-2 text-sm text-red-500">{error}</p>
-                  )}
-                  
-                  <div className="mt-4">
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="password">Şifre</Label>
+                        <button
+                          type="button"
+                          onClick={() => setMode("forgot")}
+                          className="text-xs font-medium text-primary hover:underline"
+                        >
+                          Şifremi unuttum
+                        </button>
                       </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">
-                          Or
-                        </span>
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                    {error && <p className="text-sm text-red-500">{error}</p>}
+                    <Button type="submit" className="w-full gap-1.5" disabled={isLoading}>
+                      {isLoading && <Loader2 className="size-4 animate-spin" />}
+                      Giriş yap
+                      <ArrowRight className="size-4" />
+                    </Button>
+                    <p className="text-center text-sm text-muted-foreground">
+                      Hesabın yok mu?{" "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode("register");
+                          setError(null);
+                        }}
+                        className="font-semibold text-primary hover:underline"
+                      >
+                        Ücretsiz kayıt ol
+                      </button>
+                    </p>
+                  </CardContent>
+                </form>
+              </>
+            )}
+
+            {mode === "register" && (
+              <>
+                <CardHeader className="text-center">
+                  <CardTitle className="text-xl">Aramıza katıl</CardTitle>
+                  <CardDescription>
+                    Günübirlik iş mi arıyorsun, işçi mi çalıştırıyorsun?
+                  </CardDescription>
+                </CardHeader>
+                <form onSubmit={submitRegister}>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setRole("WORKER")}
+                        className={
+                          role === "WORKER"
+                            ? "flex flex-col items-center gap-1.5 rounded-xl border-2 border-primary bg-primary/5 p-4 transition-colors"
+                            : "flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40"
+                        }
+                      >
+                        <Hammer className="size-5 text-primary" />
+                        <span className="text-sm font-semibold">İşçiyim</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRole("EMPLOYER")}
+                        className={
+                          role === "EMPLOYER"
+                            ? "flex flex-col items-center gap-1.5 rounded-xl border-2 border-primary bg-primary/5 p-4 transition-colors"
+                            : "flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40"
+                        }
+                      >
+                        <Building2 className="size-5 text-primary" />
+                        <span className="text-sm font-semibold">İşverenim</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reg-name">Ad Soyad</Label>
+                      <Input
+                        id="reg-name"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Ad Soyad"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reg-email">E-posta</Label>
+                      <Input
+                        id="reg-email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="ad@ornek.com"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reg-phone">Telefon</Label>
+                      <Input
+                        id="reg-phone"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="+905321234567"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reg-pass">Şifre</Label>
+                      <Input
+                        id="reg-pass"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="En az 6 karakter"
+                        minLength={6}
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+
+                    {role === "EMPLOYER" && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-company">Şirket adı</Label>
+                        <Input
+                          id="reg-company"
+                          value={companyName}
+                          onChange={(e) => setCompanyName(e.target.value)}
+                          placeholder="Örn. Yılmaz İnşaat Ltd. Şti."
+                          required
+                          disabled={isLoading}
+                        />
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-city">İl</Label>
+                        <Input
+                          id="reg-city"
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          required
+                          disabled={isLoading}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="reg-district">İlçe</Label>
+                        <Input
+                          id="reg-district"
+                          value={district}
+                          onChange={(e) => setDistrict(e.target.value)}
+                          required
+                          disabled={isLoading}
+                        />
                       </div>
                     </div>
-                    
+
+                    {error && <p className="text-sm text-red-500">{error}</p>}
+                    <Button type="submit" className="w-full gap-1.5" disabled={isLoading}>
+                      {isLoading && <Loader2 className="size-4 animate-spin" />}
+                      Hesap oluştur
+                      <ArrowRight className="size-4" />
+                    </Button>
+                    <p className="text-center text-sm text-muted-foreground">
+                      Zaten hesabın var mı?{" "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode("login");
+                          setError(null);
+                        }}
+                        className="font-semibold text-primary hover:underline"
+                      >
+                        Giriş yap
+                      </button>
+                    </p>
+                  </CardContent>
+                </form>
+              </>
+            )}
+
+            {mode === "twofactor" && (
+              <>
+                <CardHeader className="text-center">
+                  <CardTitle className="text-xl">Doğrulama kodu</CardTitle>
+                  <CardDescription>
+                    Authenticator uygulamandaki 6 haneli kodu gir.
+                  </CardDescription>
+                </CardHeader>
+                <form onSubmit={submitTwoFactor}>
+                  <CardContent className="space-y-4">
+                    <input type="hidden" value={twoFactorEmail} />
+                    <div className="flex justify-center">
+                      <InputOTP
+                        value={otpCode}
+                        onChange={setOtpCode}
+                        maxLength={6}
+                        disabled={isLoading}
+                      >
+                        <InputOTPGroup>
+                          {Array.from({ length: 6 }).map((_, i) => (
+                            <InputOTPSlot key={i} index={i} />
+                          ))}
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
+                    {error && <p className="text-center text-sm text-red-500">{error}</p>}
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={isLoading || otpCode.length !== 6}
+                    >
+                      {isLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
+                      Doğrula
+                    </Button>
                     <Button
                       type="button"
-                      variant="outline"
-                      className="w-full mt-4"
-                      onClick={handleGuestLogin}
-                      disabled={isLoading}
-                    >
-                      <UserX className="mr-2 h-4 w-4" />
-                      Continue as Guest
-                    </Button>
-                  </div>
-                </CardContent>
-              </form>
-            </>
-          ) : (
-            <>
-              <CardHeader className="text-center mt-4">
-                <CardTitle>Check your email</CardTitle>
-                <CardDescription>
-                  We've sent a code to {step.email}
-                </CardDescription>
-              </CardHeader>
-              <form onSubmit={handleOtpSubmit}>
-                <CardContent className="pb-4">
-                  <input type="hidden" name="email" value={step.email} />
-                  <input type="hidden" name="code" value={otp} />
-
-                  <div className="flex justify-center">
-                    <InputOTP
-                      value={otp}
-                      onChange={setOtp}
-                      maxLength={6}
-                      disabled={isLoading}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && otp.length === 6 && !isLoading) {
-                          // Find the closest form and submit it
-                          const form = (e.target as HTMLElement).closest("form");
-                          if (form) {
-                            form.requestSubmit();
-                          }
-                        }
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => {
+                        setMode("login");
+                        setError(null);
                       }}
                     >
-                      <InputOTPGroup>
-                        {Array.from({ length: 6 }).map((_, index) => (
-                          <InputOTPSlot key={index} index={index} />
-                        ))}
-                      </InputOTPGroup>
-                    </InputOTP>
-                  </div>
-                  {error && (
-                    <p className="mt-2 text-sm text-red-500 text-center">
-                      {error}
-                    </p>
-                  )}
-                  <p className="text-sm text-muted-foreground text-center mt-4">
-                    Didn't receive a code?{" "}
-                    <Button
-                      variant="link"
-                      className="p-0 h-auto"
-                      onClick={() => setStep("signIn")}
-                    >
-                      Try again
+                      <ArrowLeft className="mr-2 size-4" />
+                      Geri dön
                     </Button>
-                  </p>
-                </CardContent>
-                <CardFooter className="flex-col gap-2">
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isLoading || otp.length !== 6}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Verifying...
-                      </>
-                    ) : (
-                      <>
-                        Verify code
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setStep("signIn")}
-                    disabled={isLoading}
-                    className="w-full"
-                  >
-                    Use different email
-                  </Button>
-                </CardFooter>
-              </form>
-            </>
-          )}
+                  </CardContent>
+                </form>
+              </>
+            )}
 
-          <div className="py-4 px-6 text-xs text-center text-muted-foreground bg-muted border-t rounded-b-lg">
-            Secured by{" "}
-            <a
-              href="https://freebuff.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-primary transition-colors"
-            >
-              freebuff.com
-            </a>
-          </div>
-        </Card>
+            {mode === "forgot" && (
+              <>
+                <CardHeader className="text-center">
+                  <CardTitle className="text-xl">Şifremi unuttum</CardTitle>
+                  <CardDescription>
+                    E-postana sıfırlama kodu göndereceğiz.
+                  </CardDescription>
+                </CardHeader>
+                <form onSubmit={submitForgot}>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="forgot-email">E-posta</Label>
+                      <Input
+                        id="forgot-email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="ad@ornek.com"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                    {info && <p className="text-sm text-emerald-600">{info}</p>}
+                    {error && <p className="text-sm text-red-500">{error}</p>}
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
+                      Kod gönder
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => {
+                        setMode("login");
+                        setError(null);
+                        setInfo(null);
+                      }}
+                    >
+                      <ArrowLeft className="mr-2 size-4" />
+                      Girişe dön
+                    </Button>
+                  </CardContent>
+                </form>
+              </>
+            )}
+          </Card>
         </div>
       </div>
     </div>
   );
 }
 
-export default function AuthPage(props: AuthProps) {
+export default function AuthPage(props: { redirectAfterAuth?: string }) {
   return (
     <Suspense>
       <Auth {...props} />

@@ -1,9 +1,8 @@
 import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
-import { RequireAuth } from "@/components/RequireAuth";
+import { RequireApiAuth } from "@/components/RequireApiAuth";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
-import { ConvexAuthProvider } from "@convex-dev/auth/react";
-import { ConvexReactClient } from "convex/react";
+import { ApiAuthProvider } from "@/hooks/use-api-auth";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
@@ -13,10 +12,12 @@ import "./index.css";
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
-const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
 const Jobs = lazy(() => import("./pages/Jobs.tsx"));
 const JobDetail = lazy(() => import("./pages/JobDetail.tsx"));
 const Applications = lazy(() => import("./pages/Applications.tsx"));
+const Messages = lazy(() => import("./pages/Messages.tsx"));
+const Notifications = lazy(() => import("./pages/Notifications.tsx"));
+const Profile = lazy(() => import("./pages/Profile.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
@@ -84,10 +85,6 @@ class RootErrorBoundary extends React.Component<
   }
 }
 
-const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
-
-
-
 function RouteSyncer() {
   const location = useLocation();
   useEffect(() => {
@@ -111,14 +108,13 @@ function RouteSyncer() {
   return null;
 }
 
-
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RootErrorBoundary>
       <ToolbarErrorBoundary>
         <VlyToolbar />
       </ToolbarErrorBoundary>
-      <ConvexAuthProvider client={convex}>
+      <ApiAuthProvider>
         <BrowserRouter>
           <RouteSyncer />
           <Suspense fallback={<RouteLoading />}>
@@ -126,61 +122,83 @@ createRoot(document.getElementById("root")!).render(
               <Route path="/" element={<Landing />} />
               <Route
                 path="/auth"
-                element={<AuthPage redirectAfterAuth="/dashboard" />}
-              />
-              <Route
-                path="/onboarding"
-                element={
-                  <RequireAuth
-                    title="Devam etmek için giriş yap"
-                    description="Hesap türünü seçebilmek için önce giriş yapmalısın."
-                  >
-                    <Onboarding />
-                  </RequireAuth>
-                }
+                element={<AuthPage redirectAfterAuth="/jobs" />}
               />
               <Route
                 path="/dashboard"
                 element={
-                  <RequireAuth
-                    title="Panele giriş yap"
-                    description="İlanlarını ve başvurularını yönetmek için giriş yap."
+                  <RequireApiAuth
+                    title="İşveren paneli için giriş yap"
+                    description="İlanlarını ve başvurularını yönetmek için giriş yapmalısın."
                   >
                     <Dashboard />
-                  </RequireAuth>
+                  </RequireApiAuth>
                 }
               />
               <Route
                 path="/jobs"
                 element={
-                  <RequireAuth
+                  <RequireApiAuth
                     title="İlanları görmek için giriş yap"
-                    description="Aktif iş ilanlarına göz atmak için giriş yap."
+                    description="Yakınındaki günlük iş ilanlarına göz atmak için giriş yap."
                   >
                     <Jobs />
-                  </RequireAuth>
+                  </RequireApiAuth>
                 }
               />
               <Route
                 path="/jobs/:jobId"
                 element={
-                  <RequireAuth
+                  <RequireApiAuth
                     title="İlanı görmek için giriş yap"
                     description="İlan detaylarını görmek ve başvurmak için giriş yap."
                   >
                     <JobDetail />
-                  </RequireAuth>
+                  </RequireApiAuth>
                 }
               />
               <Route
                 path="/applications"
                 element={
-                  <RequireAuth
-                    title="Başvurularını görmek için giriş yap"
-                    description="Başvuru süreçlerini takip etmek için giriş yap."
+                  <RequireApiAuth
+                    title="Başvurular için giriş yap"
+                    description="Başvuru süreçlerini yönetmek ve takip etmek için giriş yap."
                   >
                     <Applications />
-                  </RequireAuth>
+                  </RequireApiAuth>
+                }
+              />
+              <Route
+                path="/messages"
+                element={
+                  <RequireApiAuth
+                    title="Mesajlar için giriş yap"
+                    description="İşverenler ve işçilerle mesajlaşmak için giriş yap."
+                  >
+                    <Messages />
+                  </RequireApiAuth>
+                }
+              />
+              <Route
+                path="/notifications"
+                element={
+                  <RequireApiAuth
+                    title="Bildirimler için giriş yap"
+                    description="Bildirimlerini görmek için giriş yap."
+                  >
+                    <Notifications />
+                  </RequireApiAuth>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <RequireApiAuth
+                    title="Profil için giriş yap"
+                    description="Hesap bilgilerini görmek ve düzenlemek için giriş yap."
+                  >
+                    <Profile />
+                  </RequireApiAuth>
                 }
               />
               <Route path="*" element={<NotFound />} />
@@ -188,7 +206,7 @@ createRoot(document.getElementById("root")!).render(
           </Suspense>
         </BrowserRouter>
         <Toaster />
-      </ConvexAuthProvider>
+      </ApiAuthProvider>
     </RootErrorBoundary>
   </StrictMode>,
 );
