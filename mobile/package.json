@@ -24,6 +24,7 @@
   "devDependencies": {
     "@babel/core": "^7.25.0",
     "@types/react": "~18.3.12",
+    "eas-cli": "^24.8.0",
     "typescript": "^5.3.0"
   }
 }
