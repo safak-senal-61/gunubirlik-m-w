@@ -351,11 +351,16 @@ export async function markConversationRead(conversationId: string): Promise<void
 export async function fetchNotifications(): Promise<{ items: ApiNotification[]; unreadCount: number }> {
   try {
     const res = await api.get("/notifications");
-    const data = res.data.data as { items?: ApiNotification[]; unreadCount?: number } & Partial<ApiNotification[]>;
+    const data: unknown = res.data.data;
     if (Array.isArray(data)) {
-      return { items: data as ApiNotification[], unreadCount: data.filter((n) => !n.isRead).length };
+      const items = data as ApiNotification[];
+      return { items, unreadCount: items.filter((n) => !n.isRead).length };
     }
-    return { items: data.items ?? [], unreadCount: data.unreadCount ?? 0 };
+    const obj = (data ?? {}) as { items?: ApiNotification[]; unreadCount?: number };
+    return {
+      items: obj.items ?? [],
+      unreadCount: obj.unreadCount ?? obj.items?.filter((n) => !n.isRead).length ?? 0,
+    };
   } catch (err) {
     throw toApiError(err);
   }

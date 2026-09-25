@@ -52,12 +52,16 @@ export const URGENCY_LABELS: Record<Urgency, string> = {
   LOW: "Normal",
   MEDIUM: "Orta",
   HIGH: "Acil",
+  NORMAL: "Normal",
+  URGENT: "Acil",
 };
 
 export const URGENCY_CLASSES: Record<Urgency, string> = {
   LOW: "bg-emerald-100 text-emerald-800",
   MEDIUM: "bg-amber-100 text-amber-800",
   HIGH: "bg-rose-100 text-rose-800",
+  NORMAL: "bg-emerald-100 text-emerald-800",
+  URGENT: "bg-rose-100 text-rose-800",
 };
 
 export function formatWage(amount: number, wageType: string, currency = "TRY") {
