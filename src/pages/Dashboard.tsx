@@ -21,6 +21,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useApiAuth } from "@/hooks/use-api-auth";
 import {
+  addressToFormFields,
+  locateAndReverse,
+  type Coords,
+} from "@/hooks/use-geolocation";
+import {
   createJob,
   deleteJob,
   fetchApplications,
@@ -40,6 +45,7 @@ import {
   Briefcase,
   Inbox,
   Loader2,
+  LocateFixed,
   Plus,
   Users,
 } from "lucide-react";
@@ -268,6 +274,8 @@ function CreateJobForm({ onDone }: { onDone: () => void }) {
   const [city, setCity] = useState("İstanbul");
   const [district, setDistrict] = useState("Kadıköy");
   const [address, setAddress] = useState("");
+  const [latLng, setLatLng] = useState<Coords | null>(null);
+  const [locating, setLocating] = useState(false);
   const [openingsTotal, setOpeningsTotal] = useState("1");
   const [urgency, setUrgency] = useState<"LOW" | "MEDIUM" | "HIGH">("LOW");
   const [requiredSkills, setRequiredSkills] = useState("");
@@ -289,6 +297,23 @@ function CreateJobForm({ onDone }: { onDone: () => void }) {
     if (diff <= 0) diff += 24 * 60;
     return Math.round((diff / 60) * 10) / 10;
   })();
+
+  const grabLocation = async () => {
+    setLocating(true);
+    try {
+      const { coords, address: addr } = await locateAndReverse();
+      const fields = addressToFormFields(addr);
+      if (fields.city) setCity(fields.city);
+      if (fields.district) setDistrict(fields.district);
+      if (fields.addressText) setAddress(fields.addressText);
+      setLatLng(coords);
+      toast.success("Konum alındı ve forma işlendi 📍");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Konum alınamadı");
+    } finally {
+      setLocating(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -318,6 +343,7 @@ function CreateJobForm({ onDone }: { onDone: () => void }) {
         city,
         district,
         ...(address ? { address } : {}),
+        ...(latLng ? { latitude: latLng.lat, longitude: latLng.lng } : {}),
         openingsTotal: openings || 1,
         urgency,
         ...(requiredSkills.trim()
@@ -413,6 +439,31 @@ function CreateJobForm({ onDone }: { onDone: () => void }) {
         <div>
           <Label htmlFor="cj-district" className={label}>İlçe *</Label>
           <Input id="cj-district" value={district} onChange={(e) => setDistrict(e.target.value)} className={input} required />
+        </div>
+      </div>
+
+      {/* Konum Al: GPS + reverse geocoding ile il/ilçe/adres + koordinat */}
+      <div className="rounded-xl border border-border/70 bg-muted/40 p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">İş konumu</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {latLng
+                ? `📍 ${latLng.lat.toFixed(5)}, ${latLng.lng.toFixed(5)} — ilan haritada gösterilecek`
+                : "Konum ekle; işçiler ilanı haritada ve mesafe sıralamasında görsün."}
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <Button type="button" variant="outline" size="sm" className="gap-1.5 bg-card" disabled={locating} onClick={grabLocation}>
+              {locating ? <Loader2 className="size-4 animate-spin" /> : <LocateFixed className="size-4" />}
+              {locating ? "Alınıyor…" : "Konum Al"}
+            </Button>
+            {latLng && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => setLatLng(null)}>
+                Kaldır
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/AppShell";
+import { JobMap } from "@/components/JobMap";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -199,6 +200,27 @@ export default function JobDetail() {
             </div>
           )}
         </div>
+
+        {/* Mini map */}
+        {job.latitude != null && job.longitude != null && (
+          <div className="mt-6 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-soft">
+            <div className="flex items-center justify-between px-6 pt-5">
+              <h2 className="text-base font-bold tracking-tight">Konum</h2>
+              <a
+                href={`https://www.openstreetmap.org/?mlat=${job.latitude}&mlon=${job.longitude}#map=16/${job.latitude}/${job.longitude}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                Büyük haritada aç →
+              </a>
+            </div>
+            <JobMap
+              jobs={[job]}
+              className="mx-4 mb-4 mt-3 h-64 w-[calc(100%-2rem)] overflow-hidden rounded-xl"
+            />
+          </div>
+        )}
 
         {/* Employer card */}
         <div className="mt-6 rounded-2xl border border-border/70 bg-card p-6 shadow-soft">

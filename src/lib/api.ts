@@ -7,6 +7,7 @@ import type {
   ApiMessage,
   ApiNotification,
   ApiUser,
+  GeocodeAddress,
   JobCategory,
   JobStatus,
   Pagination,
@@ -122,6 +123,31 @@ export async function fetchMe(): Promise<ApiUser> {
   }
 }
 
+export interface UpdateProfilePayload {
+  fullName?: string;
+  phone?: string;
+  city?: string;
+  district?: string;
+  companyName?: string;
+  bio?: string;
+  skills?: string[];
+  experienceYears?: number | null;
+  hourlyWageMin?: number | null;
+  hourlyWageMax?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+/** PUT /auth/me — update profile fields. */
+export async function updateMe(payload: UpdateProfilePayload): Promise<ApiUser> {
+  try {
+    const res = await api.put("/auth/me", payload);
+    return res.data.data as ApiUser;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   try {
     await api.post("/auth/change-password", { currentPassword, newPassword });
@@ -152,6 +178,9 @@ export interface JobsQuery {
   district?: string;
   mine?: boolean;
   search?: string;
+  /** Reference coordinates; server adds distanceKm to each job when sent. */
+  lat?: number;
+  lng?: number;
 }
 
 export async function fetchJobs(query: JobsQuery = {}): Promise<{ items: ApiJob[]; pagination: Pagination }> {
@@ -244,6 +273,59 @@ export async function fetchCategories(): Promise<ApiCategory[]> {
     return res.data.data as ApiCategory[];
   } catch (err) {
     throw toApiError(err);
+  }
+}
+
+// ---------------- Geocoding ----------------
+
+/** GET /geocode/reverse — resolve an address from GPS coordinates. */
+export async function reverseGeocode(lat: number, lng: number): Promise<GeocodeAddress> {
+  try {
+    const res = await api.get("/geocode/reverse", { params: { lat, lng } });
+    return res.data.data as GeocodeAddress;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+export interface GeocodeSuggestion {
+  displayName: string;
+  lat: number;
+  lng: number;
+  city: string | null;
+  type: string;
+  importance: number;
+}
+
+async function geocodeList(url: string, q: string): Promise<GeocodeSuggestion[]> {
+  try {
+    const res = await api.get(url, { params: { q } });
+    const data = res.data.data as { items?: GeocodeSuggestion[] } | GeocodeSuggestion[];
+    if (Array.isArray(data)) return data;
+    return data.items ?? [];
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** GET /geocode/suggest — address autocomplete while typing. */
+export function suggestAddress(q: string) {
+  return geocodeList("/geocode/suggest", q);
+}
+
+/** GET /geocode/search — full address search. */
+export function searchAddress(q: string) {
+  return geocodeList("/geocode/search", q);
+}
+
+// ---------------- System ----------------
+
+export async function checkHealth(): Promise<boolean> {
+  try {
+    await api.get("/health");
+    return true;
+  } catch {
+    return false;
   }
 }
 

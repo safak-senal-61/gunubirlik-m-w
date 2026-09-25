@@ -102,6 +102,22 @@ export interface ApiJob {
   savedCount: number;
   /** Present when the current user has applied to this job. */
   myApplication: ApiApplication | null;
+  /** Server-computed distance in km; present when lat/lng sent to GET /jobs. */
+  distanceKm?: number | null;
+}
+
+// ---------------- Geocoding ----------------
+
+/** Response of GET /geocode/reverse — resolved address for coordinates. */
+export interface GeocodeAddress {
+  displayName: string;
+  street: string | null;
+  neighbourhood: string | null;
+  /** Reverse endpoint returns the district in `district`. */
+  district: string | null;
+  city: string | null;
+  country: string | null;
+  postcode: string | null;
 }
 
 export interface ApiApplication {

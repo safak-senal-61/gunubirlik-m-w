@@ -9,10 +9,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useApiAuth } from "@/hooks/use-api-auth";
-import { changePassword, uploadAvatar } from "@/lib/api";
+import { changePassword, updateMe, uploadAvatar } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import {
   Briefcase,
@@ -21,6 +30,7 @@ import {
   Loader2,
   Mail,
   MapPin,
+  Pencil,
   Phone,
   Save,
   Star,
@@ -191,6 +201,13 @@ export default function Profile() {
               {user.bio}
             </div>
           )}
+
+          <div className="mt-5 flex justify-end border-t border-border/60 pt-4">
+            <EditProfileDialog
+              user={user}
+              onSaved={refreshUser}
+            />
+          </div>
         </div>
 
         {/* Security */}
@@ -233,5 +250,178 @@ export default function Profile() {
         </Card>
       </div>
     </AppShell>
+  );
+}
+
+function EditProfileDialog({
+  user,
+  onSaved,
+}: {
+  user: NonNullable<ReturnType<typeof useApiAuth>["user"]>;
+  onSaved: () => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const isEmployer = user.role === "EMPLOYER";
+
+  const [fullName, setFullName] = useState(user.fullName);
+  const [phone, setPhone] = useState(user.phone ?? "");
+  const [city, setCity] = useState(user.city ?? "");
+  const [district, setDistrict] = useState(user.district ?? "");
+  const [companyName, setCompanyName] = useState(user.companyName ?? "");
+  const [bio, setBio] = useState(user.bio ?? "");
+  const [skills, setSkills] = useState(user.skills.join(", "));
+  const [experienceYears, setExperienceYears] = useState(
+    user.experienceYears != null ? String(user.experienceYears) : "",
+  );
+  const [hourlyWageMin, setHourlyWageMin] = useState(
+    user.hourlyWageMin != null ? String(user.hourlyWageMin) : "",
+  );
+  const [hourlyWageMax, setHourlyWageMax] = useState(
+    user.hourlyWageMax != null ? String(user.hourlyWageMax) : "",
+  );
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await updateMe({
+        fullName,
+        phone,
+        city,
+        district,
+        ...(isEmployer && companyName ? { companyName } : {}),
+        bio: bio || undefined,
+        ...(skills.trim()
+          ? { skills: skills.split(",").map((s) => s.trim()).filter(Boolean) }
+          : {}),
+        ...(experienceYears.trim() ? { experienceYears: Number(experienceYears) } : {}),
+        ...(hourlyWageMin.trim() ? { hourlyWageMin: Number(hourlyWageMin) } : {}),
+        ...(hourlyWageMax.trim() ? { hourlyWageMax: Number(hourlyWageMax) } : {}),
+      });
+      await onSaved();
+      toast.success("Profil güncellendi");
+      setOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Profil güncellenemedi");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const label = "text-sm font-semibold";
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="gap-1.5">
+          <Pencil className="size-4" />
+          Profili düzenle
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Profili düzenle</DialogTitle>
+          <DialogDescription>
+            Bilgilerini güncelle; işverenler ve işçiler bu bilgileri görür.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="ep-name">Ad Soyad</Label>
+            <Input id="ep-name" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ep-phone">Telefon</Label>
+            <Input id="ep-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+905321234567" />
+          </div>
+          {isEmployer && (
+            <div className="space-y-1.5">
+              <Label htmlFor="ep-company">Şirket adı</Label>
+              <Input id="ep-company" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="ep-city">İl</Label>
+              <Input id="ep-city" value={city} onChange={(e) => setCity(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ep-district">İlçe</Label>
+              <Input id="ep-district" value={district} onChange={(e) => setDistrict(e.target.value)} />
+            </div>
+          </div>
+
+          {!isEmployer && (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="ep-skills">
+                  Beceriler <span className="text-xs font-normal text-muted-foreground">(virgülle ayır)</span>
+                </Label>
+                <Input
+                  id="ep-skills"
+                  value={skills}
+                  onChange={(e) => setSkills(e.target.value)}
+                  placeholder="Boyacı, Tesisatçı"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="ep-exp">Deneyim (yıl)</Label>
+                  <Input
+                    id="ep-exp"
+                    type="number"
+                    min="0"
+                    value={experienceYears}
+                    onChange={(e) => setExperienceYears(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ep-wmin">Saatlik min ₺</Label>
+                  <Input
+                    id="ep-wmin"
+                    type="number"
+                    min="0"
+                    value={hourlyWageMin}
+                    onChange={(e) => setHourlyWageMin(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ep-wmax">Saatlik max ₺</Label>
+                  <Input
+                    id="ep-wmax"
+                    type="number"
+                    min="0"
+                    value={hourlyWageMax}
+                    onChange={(e) => setHourlyWageMax(e.target.value)}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="ep-bio">Hakkımda</Label>
+            <Textarea
+              id="ep-bio"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Kendini kısaca tanıt…"
+              className="min-h-20"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={saving}>
+              Vazgeç
+            </Button>
+            <Button type="submit" className="gap-1.5" disabled={saving}>
+              {saving && <Loader2 className="size-4 animate-spin" />}
+              Kaydet
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
