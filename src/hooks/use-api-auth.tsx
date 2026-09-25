@@ -16,6 +16,8 @@ interface ApiAuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, password: string, twoFactorCode?: string) => Promise<void>;
   register: (payload: API.RegisterPayload) => Promise<void>;
+  /** Google ID token ile giriş; token'ı backend'e takas eder. */
+  loginWithGoogle: (idToken: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -75,6 +77,16 @@ export function ApiAuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const loginWithGoogle = useCallback(async (idToken: string) => {
+    const result = await API.googleLogin(idToken);
+    if (result.token) API.setToken(result.token);
+    if (result.user) {
+      setUser(result.user);
+    } else {
+      setUser(await API.fetchMe());
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     await API.logout();
     setUser(null);
@@ -92,10 +104,11 @@ export function ApiAuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!user,
       login,
       register,
+      loginWithGoogle,
       logout,
       refreshUser,
     }),
-    [user, isLoading, login, register, logout, refreshUser],
+    [user, isLoading, login, register, loginWithGoogle, logout, refreshUser],
   );
 
   return <ApiAuthContext.Provider value={value}>{children}</ApiAuthContext.Provider>;

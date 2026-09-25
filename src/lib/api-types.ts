@@ -55,6 +55,21 @@ export interface ApiUser {
   bio: string | null;
   createdAt: string;
   updatedAt: string;
+  // Güvenlik / hesap alanları (backend tam kullanıcı objesi)
+  twoFactorEnabled?: boolean;
+  emailVerified?: boolean;
+  provider?: "LOCAL" | "GOOGLE" | string;
+  googleId?: string | null;
+  isAvailable?: boolean;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  companyTaxId?: string | null;
+  isSuspended?: boolean;
+  suspendedUntil?: string | null;
+  isPermanentlyBanned?: boolean;
+  warningCount?: number;
+  flagCount?: number;
 }
 
 /** Employer info embedded in job objects (subset of ApiUser). */

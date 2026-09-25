@@ -79,7 +79,16 @@ export async function login(email: string, password: string, twoFactorCode?: str
       password,
       ...(twoFactorCode ? { twoFactorCode } : {}),
     });
-    return res.data.data as LoginResult;
+    // 2FA gerekliyse backend top-level { success:false, requiresTwoFactor:true, userId } döner (data yok).
+    const body = res.data as {
+      success?: boolean;
+      data?: LoginResult;
+      requiresTwoFactor?: boolean;
+    };
+    if (body?.requiresTwoFactor) {
+      return { requiresTwoFactor: true };
+    }
+    return body.data as LoginResult;
   } catch (err) {
     throw toApiError(err);
   }
@@ -162,6 +171,90 @@ export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
     form.append("avatar", file);
     const res = await api.post("/auth/avatar", form);
     return res.data.data as { avatarUrl: string };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- 2FA ----------------
+
+export interface TwoFactorSetup {
+  /** data:image/png;base64,... QR code for authenticator apps. */
+  qrCode: string;
+  /** Base32 secret to enter manually. */
+  secret: string;
+  /** One-time backup codes. */
+  backupCodes: string[];
+}
+
+/** POST /auth/2fa/setup — generate secret + QR + backup codes. */
+export async function setup2fa(): Promise<TwoFactorSetup> {
+  try {
+    const res = await api.post("/auth/2fa/setup");
+    return res.data.data as TwoFactorSetup;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** POST /auth/2fa/verify — enable 2FA with a 6-digit TOTP code. */
+export async function verify2fa(code: string): Promise<{ enabled: boolean }> {
+  try {
+    const res = await api.post("/auth/2fa/verify", { code });
+    return res.data.data as { enabled: boolean };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** POST /auth/2fa/disable — requires the current TOTP code. */
+export async function disable2fa(code: string): Promise<{ enabled: boolean }> {
+  try {
+    const res = await api.post("/auth/2fa/disable", { code });
+    return res.data.data as { enabled: boolean };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- Google ----------------
+
+export interface GoogleLoginResult {
+  user?: ApiUser;
+  token?: string;
+  isNewUser?: boolean;
+}
+
+/**
+ * POST /auth/google — exchange a Google ID token for a session.
+ * The ID token comes from Google Identity Services on the client
+ * (GoogleSignInButton renders the GIS script and returns credential).
+ */
+export async function googleLogin(idToken: string): Promise<GoogleLoginResult> {
+  try {
+    const res = await api.post("/auth/google", { idToken });
+    return res.data.data as GoogleLoginResult;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- Email change ----------------
+
+/** POST /auth/email-change/request — send a verification code to the current email. */
+export async function requestEmailChange(newEmail: string): Promise<void> {
+  try {
+    await api.post("/auth/email-change/request", { newEmail });
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** POST /auth/email-change/confirm — verify with the code; backend uses the pending request. */
+export async function confirmEmailChange(code: string): Promise<{ email: string }> {
+  try {
+    const res = await api.post("/auth/email-change/confirm", { code });
+    return res.data.data as { email: string };
   } catch (err) {
     throw toApiError(err);
   }

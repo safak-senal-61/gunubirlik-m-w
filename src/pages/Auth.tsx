@@ -14,7 +14,8 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import { useApiAuth } from "@/hooks/use-api-auth";
+import { GoogleSignInButton } from "@/components/GoogleSignInButton";
+import { useApiAuth, requestPasswordReset, resetPassword } from "@/hooks/use-api-auth";
 import {
   ArrowLeft,
   ArrowRight,
@@ -25,9 +26,8 @@ import {
 } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { requestPasswordReset } from "@/hooks/use-api-auth";
 
-type Mode = "login" | "register" | "twofactor" | "forgot";
+type Mode = "login" | "register" | "twofactor" | "forgot" | "reset";
 
 function resolveRedirectAfterAuth(returnTo: string | null, fallback = "/jobs") {
   if (returnTo?.startsWith("/") && !returnTo.startsWith("//")) {
@@ -37,7 +37,7 @@ function resolveRedirectAfterAuth(returnTo: string | null, fallback = "/jobs") {
 }
 
 function Auth({ redirectAfterAuth }: { redirectAfterAuth?: string }) {
-  const { login, register, isAuthenticated, isLoading: authLoading } = useApiAuth();
+  const { login, register, loginWithGoogle, isAuthenticated, isLoading: authLoading } = useApiAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const redirect = resolveRedirectAfterAuth(
@@ -59,9 +59,11 @@ function Auth({ redirectAfterAuth }: { redirectAfterAuth?: string }) {
   const [city, setCity] = useState("İstanbul");
   const [district, setDistrict] = useState("Kadıköy");
   const [companyName, setCompanyName] = useState("");
-  // 2FA / forgot
+  // 2FA / forgot / reset
   const [twoFactorEmail, setTwoFactorEmail] = useState("");
   const [twoFactorPassword, setTwoFactorPassword] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -135,8 +137,26 @@ function Auth({ redirectAfterAuth }: { redirectAfterAuth?: string }) {
     try {
       await requestPasswordReset(email);
       setInfo("Sıfırlama kodu e-postana gönderildi. Gelen kutunu kontrol et.");
+      setMode("reset");
     } catch (err) {
       setError(err instanceof Error ? err.message : "İstek başarısız");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const submitReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    try {
+      await resetPassword(email, resetCode, newPassword);
+      setInfo("Şifren güncellendi. Yeni şifrenle giriş yapabilirsin.");
+      setMode("login");
+      setResetCode("");
+      setNewPassword("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sıfırlama başarısız");
     } finally {
       setIsLoading(false);
     }
@@ -206,6 +226,29 @@ function Auth({ redirectAfterAuth }: { redirectAfterAuth?: string }) {
                       Giriş yap
                       <ArrowRight className="size-4" />
                     </Button>
+
+                    <div className="flex items-center gap-3">
+                      <span className="h-px flex-1 bg-border" />
+                      <span className="text-xs text-muted-foreground">veya</span>
+                      <span className="h-px flex-1 bg-border" />
+                    </div>
+
+                    <GoogleSignInButton
+                      onCredential={async (credential) => {
+                        setIsLoading(true);
+                        setError(null);
+                        try {
+                          await loginWithGoogle(credential);
+                          navigate(redirect, { replace: true });
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : "Google ile giriş başarısız");
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      }}
+                      onError={(msg) => setError(msg)}
+                    />
+
                     <p className="text-center text-sm text-muted-foreground">
                       Hesabın yok mu?{" "}
                       <button
@@ -466,7 +509,76 @@ function Auth({ redirectAfterAuth }: { redirectAfterAuth?: string }) {
                 </form>
               </>
             )}
+
+            {mode === "reset" && (
+              <>
+                <CardHeader className="text-center">
+                  <CardTitle className="text-xl">Yeni şifre belirle</CardTitle>
+                  <CardDescription>
+                    E-postana gelen kodu ve yeni şifreni gir.
+                  </CardDescription>
+                </CardHeader>
+                <form onSubmit={submitReset}>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-center">
+                      <InputOTP
+                        value={resetCode}
+                        onChange={setResetCode}
+                        maxLength={6}
+                        disabled={isLoading}
+                      >
+                        <InputOTPGroup>
+                          {Array.from({ length: 6 }).map((_, i) => (
+                            <InputOTPSlot key={i} index={i} />
+                          ))}
+                        </InputOTPGroup>
+                      </InputOTP>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="reset-pass">Yeni şifre</Label>
+                      <Input
+                        id="reset-pass"
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="En az 6 karakter"
+                        minLength={6}
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                    {error && <p className="text-sm text-red-500">{error}</p>}
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={isLoading || resetCode.length !== 6}
+                    >
+                      {isLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
+                      Şifreyi sıfırla
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full"
+                      onClick={() => {
+                        setMode("forgot");
+                        setError(null);
+                        setInfo(null);
+                      }}
+                    >
+                      <ArrowLeft className="mr-2 size-4" />
+                      Kodu tekrar gönder
+                    </Button>
+                  </CardContent>
+                </form>
+              </>
+            )}
           </Card>
+
+          <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
+            <Mail className="size-3" />
+            Soruların için destek@gunubirlik.space-z.ai
+          </p>
         </div>
       </div>
     </div>
