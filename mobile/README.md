@@ -3,6 +3,17 @@
 Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 `https://gunubirlik.space-z.ai/api/v1`
 
+## Hazır APK (Doğrudan Kurulum)
+
+Telefonuna kurmak için derlenmiş APK (v1.0.0, `com.gunubirlik.app`):
+
+**https://expo.dev/artifacts/eas/0TbnaZKsUzSVNNTBJ2TcRz96ZJOb4GLkZllKvreGHTo.apk**
+
+- Link ~30 gün geçerli (2026-10-09'a kadar); sonra `eas build` ile yeniden derlenir.
+- Android'de linke tıkla → indir → "Bilinmeyen kaynaklara izin ver" deyip kur.
+- Yeni derleme istersen: `cd mobile && EXPO_TOKEN=<token> npx eas build --platform android --profile preview --non-interactive --no-wait`
+- Derleme durumları: https://expo.dev/accounts/manahos/projects/gunubirlik/builds
+
 ## Expo Go ile Açma (En Hızlı Yol)
 
 1. **Expo Go'yu indir** — App Store / Google Play'den "Expo Go" uygulamasını kur.
