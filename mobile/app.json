@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Günübirlik",
+    "slug": "gunubirlik",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "gunubirlik",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gunubirlik.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Yakınındaki günlük işleri ve ilan konumlarını göstermek için konumunu kullanıyoruz.",
+        "NSCameraUsageDescription": "Profil fotoğrafı çekmek için kamera erişimi gerekiyor."
+      }
+    },
+    "android": {
+      "package": "com.gunubirlik.app",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#4f46e5"
+      }
+    },
+    "plugins": [
+      "expo-location"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
