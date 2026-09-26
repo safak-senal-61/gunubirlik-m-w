@@ -2,12 +2,12 @@
   "expo": {
     "name": "Günübirlik",
     "slug": "gunubirlik",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "gunubirlik",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
@@ -22,6 +22,7 @@
     },
     "android": {
       "package": "com.gunubirlik.app",
+      "versionCode": 2,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

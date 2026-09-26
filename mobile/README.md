@@ -5,13 +5,16 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 
 ## Hazır APK (Doğrudan Kurulum)
 
-Telefonuna kurmak için derlenmiş APK (v1.0.0, `com.gunubirlik.app`):
+> ⚠️ **v1.0.0 APK'sında beyaz ekran sorunu vardı** (SDK 52 yeni mimarisi kaynaklı). v1.0.1'de `newArchEnabled: false` yapıldı + hata görünür hale getirildi.
 
-**https://expo.dev/artifacts/eas/0TbnaZKsUzSVNNTBJ2TcRz96ZJOb4GLkZllKvreGHTo.apk**
+**Yeni derleme (v1.0.1, versionCode 2):**
+- Build durumu: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/74c2b88a-1133-4c4d-aa5e-c0c79b8fea7d
+- Bitince APK linkini almak için: `cd mobile && EXPO_TOKEN=<token> bunx eas-cli@24.8.0 build:view 74c2b88a-1133-4c4d-aa5e-c0c79b8fea7d --json | grep applicationArchiveUrl`
 
-- Link ~30 gün geçerli (2026-10-09'a kadar); sonra `eas build` ile yeniden derlenir.
-- Android'de linke tıkla → indir → "Bilinmeyen kaynaklara izin ver" deyip kur.
-- Yeni derleme istersen: `cd mobile && EXPO_TOKEN=<token> npx eas build --platform android --profile preview --non-interactive --no-wait`
+Eski link (beyaz ekran sorunlu, kullanmayın): ~~https://expo.dev/artifacts/eas/0TbnaZKsUzSVNNTBJ2TcRz96ZJOb4GLkZllKvreGHTo.apk~~
+
+- Android'de linke tıkla → indir → "Bilinmeyen kaynaklara izin ver" deyip kur. Önce eski sürümü kaldır (aynı package, versionCode 2 yüzeysel olarak üzerine kurar ama temiz kurulum garanti olur).
+- Yeni derleme istersen: `cd mobile && EXPO_TOKEN=<token> bunx eas-cli@24.8.0 build --platform android --profile preview --non-interactive --no-wait`
 - Derleme durumları: https://expo.dev/accounts/manahos/projects/gunubirlik/builds
 
 ## Expo Go ile Açma (En Hızlı Yol)

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -17,13 +17,43 @@ import { Card, C, EmptyState, PrimaryButton } from "@/components/ui";
 
 type Tab = "jobs" | "saved" | "applications" | "messages" | "profile";
 
+// Runtime hatasında beyaz ekran yerine hatayı ekranda göster.
+class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error("App crash:", error);
+  }
+
+  render() {
+    const { error } = this.state;
+    if (error) {
+      return (
+        <View style={[styles.flex, styles.center, { padding: 24 }]}>
+          <Text style={styles.h1}>Beklenmeyen bir hata oluştu</Text>
+          <Text style={{ fontSize: 12, color: C.muted, textAlign: "center", marginTop: 8 }}>
+            {String(error?.message ?? error)}
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <Root />
-      </AuthProvider>
-    </SafeAreaProvider>
+    <AppErrorBoundary>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <Root />
+        </AuthProvider>
+      </SafeAreaProvider>
+    </AppErrorBoundary>
   );
 }
 
