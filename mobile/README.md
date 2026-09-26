@@ -25,7 +25,17 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 - 🛠️ **Bakım modu kapısı:** Admin panelden bakıma alınınca (60 sn içinde) uygulamanın TAMAMI — giriş dahil — güzel temalı bakım ekranına döner: API'den başlık/mesaj, geri sayım, iletişim kanalları (WhatsApp/Ara/E-posta/Instagram), "Yeniden dene". Bakım durumu önbellekte tutulur; kapalıyken uygulama anında açılır.
 - 💬 **QR Tara (işçi):** expo-camera ile işveren QR'ını okutur → check-in/check-out backend'e işlenir
 
-**v1.1.1 (versionCode 7) — BUGFİX + HARİTA GÜNCELLEMESİ:**
+**v1.1.2 (versionCode 8) — ÇÖZÜM SÜRÜMÜ (Ayarlar çökmesi düzeltildi):**
+- 🐛 **Ayarlar sekmesi çökmesi düzeltildi:** sekme butonunda aynı `Animated.View` üzerinde hem native (`transform`) hem JS (`backgroundColor`) driver'lı animasyon çalışıyordu → "Attempting to run JS driven animation on animated node that has been moved to native" hatası. Tüm animasyonlar artık tutarlı şekilde JS-driven.
+- Aşağıdaki v1.1.1 değişikliklerinin TAMAMI bu sürümde de mevcut.
+- Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/33eb4483-4c0e-4099-953a-611cf25ff84c
+- APK: (build bitince eklenir)
+
+⚠️ **v1.1.1 (versionCode 7) KURMAYIN** — Ayarlar sekmesi bu sürümde çöker (build iptal edilemeyecek kadar hızlı bitmişti, bu yüzden v1.1.2 ile düzeltildi):
+- Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/2ad4b044-f95b-4a23-8662-8d9882c8a611
+- APK (sorunlu, arşiv): https://expo.dev/artifacts/eas/_3CUDZHSnd8XGh97B2BY8LD-DJkaVxLFWIeFlkh0GB0.apk
+
+**v1.1.1 (versionCode 7) — BUGFİX + HARİTA GÜNCELLEMESİ (çökmeli, v1.1.2'ye geçin):**
 - 🐛 **Bildirim ekranı sonsuz yükleme döngüsü düzeltildi** (uygulama kilitleniyor, menülere geçilemiyordu)
 - 🐛 **İş detay kartı açıkken alt menüye basınca** artık detay kapanıyor ve seçilen sekme açılıyor (önce arka planda değişiyor ama kart ekranda kalıyordu)
 - 🐛 **QR Tara butonu** artık sadece İşler/Başvuru sekmelerinde; Mesajlar ekranında yazma alanını kapatmıyor
