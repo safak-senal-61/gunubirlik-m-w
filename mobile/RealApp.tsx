@@ -5,9 +5,18 @@ import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleS
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import { fetchApplicationsByJob, fetchNotifications, fetchSavedJobs, sendMessage, toggleSaveJob } from "@/lib/api";
+import {
+  fetchApplicationsByJob,
+  fetchMaintenanceStatus,
+  fetchNotifications,
+  fetchSavedJobs,
+  sendMessage,
+  toggleSaveJob,
+  type MaintenanceStatus,
+} from "@/lib/api";
 import type { ApiApplication, ApiJob } from "@/lib/types";
 import AuthScreen from "@/screens/AuthScreen";
+import MaintenanceScreen from "@/screens/MaintenanceScreen";
 import JobsScreen, { JobCard } from "@/screens/JobsScreen";
 import JobDetailScreen from "@/screens/JobDetailScreen";
 import DashboardScreen from "@/screens/DashboardScreen";
@@ -57,12 +66,100 @@ export default function App() {
   return (
     <AppErrorBoundary>
       <SafeAreaProvider>
-        <AuthProvider>
-          <Root />
-        </AuthProvider>
+        <MaintenanceGate>
+          <AuthProvider>
+            <Root />
+          </AuthProvider>
+        </MaintenanceGate>
       </SafeAreaProvider>
     </AppErrorBoundary>
   );
+}
+
+const MAINT_POLL_MS = 60_000; // 1 dakikada bir bakım durumu kontrolü
+const MAINT_CACHE_KEY = "gb_maint_cache";
+
+/**
+ * Bakım modu kapısı: admin panelden bakıma aldığında (60 sn içinde) uygulamanın
+ * TAMAMI — giriş ekranı dahil — bakım ekranına döner, hiçbir şeye erişilemez.
+ * Durum AsyncStorage'a da yazılır: bakım kapalıysa uygulama bekletilmeden açılır.
+ */
+function MaintenanceGate({ children }: { children: ReactNode }) {
+  const [status, setStatus] = useState<MaintenanceStatus | null>(null);
+  const [gateReady, setGateReady] = useState(false);
+
+  const applyStatus = useCallback(async (s: MaintenanceStatus) => {
+    setStatus(s);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const AsyncStorageMod = require("@react-native-async-storage/async-storage");
+      const AS = (AsyncStorageMod.default ?? AsyncStorageMod) as {
+        setItem: (k: string, v: string) => Promise<void>;
+      };
+      await AS.setItem(MAINT_CACHE_KEY, JSON.stringify(s));
+    } catch {
+      // yok say
+    }
+  }, []);
+
+  const check = useCallback(async () => {
+    const s = await fetchMaintenanceStatus();
+    await applyStatus(s);
+    setGateReady(true);
+  }, [applyStatus]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      // Hızlı yol: önbellekte "bakım kapalı" yazıyorsa uygulamayı hemen aç,
+      // doğrulamayı arka planda yap.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const AsyncStorageMod = require("@react-native-async-storage/async-storage");
+        const AS = (AsyncStorageMod.default ?? AsyncStorageMod) as {
+          getItem: (k: string) => Promise<string | null>;
+        };
+        const raw = await AS.getItem(MAINT_CACHE_KEY);
+        if (raw && !cancelled) {
+          const cached = JSON.parse(raw) as MaintenanceStatus;
+          if (!cached.maintenanceMode) {
+            setStatus(cached);
+            setGateReady(true);
+          }
+        }
+      } catch {
+        // yok say
+      }
+      await check();
+    })();
+    const t = setInterval(() => {
+      if (!cancelled) void check();
+    }, MAINT_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [check]);
+
+  if (!gateReady) {
+    return (
+      <View style={[styles.flex, styles.center]}>
+        <Text style={{ fontSize: 26, fontWeight: "800", color: C.primary, marginBottom: 6 }}>Günübirlik</Text>
+        <ActivityIndicator size="large" color={C.primary} />
+      </View>
+    );
+  }
+
+  if (status?.maintenanceMode) {
+    return (
+      <SafeAreaView style={styles.flex} edges={["top", "bottom"]}>
+        <StatusBar style="light" />
+        <MaintenanceScreen status={status} onRetry={check} />
+      </SafeAreaView>
+    );
+  }
+
+  return <>{children}</>;
 }
 
 function Root() {

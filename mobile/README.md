@@ -22,7 +22,8 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 - 🖼️ **Profil fotoğrafı:** galeriden seç + `POST /auth/avatar` yükleme (expo-image-picker)
 - 📊 **İş geçmişi:** tamamlanan işler, toplam kazanç ve istatistikler (Hesap sekmesi)
 - 📜 **Politikalar:** moderasyon kuralları (LOW/HIGH/CRITICAL), yaptırım tablosu, ödeme/ilan onay/topluluk politikaları
-- ⚠️ Not: Backend'de QR başlat/bitir/ödeme endpoint'i yok; QR'lar telefonla okutulabilen dijital fiş/eşleşme kanıtıdır. Ödendi/Aldım adımları yönetim paneli üzerinden yürütülüyor.
+- 🛠️ **Bakım modu kapısı:** Admin panelden bakıma alınınca (60 sn içinde) uygulamanın TAMAMI — giriş dahil — güzel temalı bakım ekranına döner: API'den başlık/mesaj, geri sayım, iletişim kanalları (WhatsApp/Ara/E-posta/Instagram), "Yeniden dene". Bakım durumu önbellekte tutulur; kapalıyken uygulama anında açılır.
+- 💬 **QR Tara (işçi):** expo-camera ile işveren QR'ını okutur → check-in/check-out backend'e işlenir
 
 Önceki sürümler (sorunlu, kurmayın):
 - v1.0.3: teşhis sürümü (modül listesi ekranı)

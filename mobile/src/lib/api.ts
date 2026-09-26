@@ -667,6 +667,35 @@ export async function deleteNotification(id: string): Promise<void> {
   }
 }
 
+// ---------------- Bakım modu ----------------
+
+export interface MaintenanceStatus {
+  maintenanceMode: boolean;
+  maintenanceTitle?: string | null;
+  maintenanceMessage?: string | null;
+  maintenanceEndTime?: string | null;
+  maintenanceStartedAt?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  contactWhatsapp?: string | null;
+  contactInstagram?: string | null;
+  contactTwitter?: string | null;
+  contactWebsite?: string | null;
+  siteName?: string | null;
+  updatedAt?: string | null;
+}
+
+/** Herkese açık bakım durumu. Hata olursa { maintenanceMode:false } döner (uygulama açılır kalır). */
+export async function fetchMaintenanceStatus(): Promise<MaintenanceStatus> {
+  try {
+    const res = await api.get("/maintenance/status");
+    return res.data.data as MaintenanceStatus;
+  } catch {
+    // Bakım endpoint'i erişilemezse uygulamayı kilitleme.
+    return { maintenanceMode: false };
+  }
+}
+
 // ---------------- System ----------------
 
 export async function checkHealth(): Promise<boolean> {
