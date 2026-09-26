@@ -199,3 +199,92 @@ export interface TwoFactorSetup {
   secret: string;
   backupCodes: string[];
 }
+
+/* ================= Cüzdan & Ödemeler ================= */
+
+export type WalletTxType =
+  | "ALL"
+  | "DEPOSIT"
+  | "WITHDRAW"
+  | "TRANSFER"
+  | "QR_PAYMENT"
+  | "JOB_PAYMENT"
+  | "REFUND"
+  | "FEE"
+  | "BONUS";
+
+export interface WalletBalance {
+  balance: number;
+  currency: string;
+  updatedAt: string;
+}
+
+export interface WalletTransaction {
+  id: string;
+  type: WalletTxType | string;
+  /** Pozitif = bakiyeye giriş, negatif = çıkış (₺) */
+  amount: number;
+  balanceAfter?: number | null;
+  description?: string | null;
+  note?: string | null;
+  status?: string | null;
+  reference?: string | null;
+  counterparty?: { id: string; fullName: string } | null;
+  createdAt: string;
+}
+
+export type WalletRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "COMPLETED";
+
+export interface DepositRequest {
+  id: string;
+  userId: string;
+  amount: number;
+  senderName: string;
+  senderIban: string;
+  senderBank?: string | null;
+  senderNote?: string | null;
+  status: WalletRequestStatus;
+  adminNote?: string | null;
+  rejectReason?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface WithdrawRequest {
+  id: string;
+  userId: string;
+  amount: number;
+  recipientName: string;
+  recipientIban: string;
+  recipientBank?: string | null;
+  recipientNote?: string | null;
+  status: WalletRequestStatus;
+  adminNote?: string | null;
+  rejectReason?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface QrPayCode {
+  qrId: string;
+  token: string;
+  qrImageDataUrl: string;
+  expiresAt: string;
+  amount: number;
+  description?: string | null;
+  generator: { id: string; fullName: string };
+}
+
+export interface QrPayScanResult {
+  transactionId: string;
+  balanceAfter: number;
+  amount: number;
+  type: string;
+  status: string;
+  qrPayment: {
+    id: string;
+    amount: number;
+    description?: string | null;
+    generator: { id: string; fullName: string };
+  };
+}

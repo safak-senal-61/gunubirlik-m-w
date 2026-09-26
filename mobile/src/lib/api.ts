@@ -13,13 +13,20 @@ import type {
   ApiMessage,
   ApiNotification,
   ApiUser,
+  DepositRequest,
   GeocodeAddress,
   GeocodeSuggestion,
   JobCategory,
   JobStatus,
   Pagination,
+  QrPayCode,
+  QrPayScanResult,
   TwoFactorSetup,
   UserRole,
+  WalletBalance,
+  WalletTransaction,
+  WalletTxType,
+  WithdrawRequest,
 } from "./types";
 
 export const API_BASE = "https://gunubirlik.space-z.ai/api/v1";
@@ -674,6 +681,181 @@ export async function markAllNotificationsRead(): Promise<void> {
 export async function deleteNotification(id: string): Promise<void> {
   try {
     await api.delete(`/notifications/${id}`);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- Cüzdan & Ödemeler ----------------
+// Para yatma/çekme talepleri elle (EFT/Havale + admin onayı) yürür.
+// Tutar ve IBAN doğrulaması backend'de de yapılır; mobil taraf sadece ön kontrol yapar.
+
+export const MIN_DEPOSIT = 50;
+export const MIN_WITHDRAW = 50;
+export const MIN_TRANSFER = 10;
+
+/** Türkiye IBAN'ı: TR + 2 hane + 1 alan kodu + 5 hane şube + 16 hane hesap (boşluksuz 26 karakter). */
+export function normalizeIban(raw: string): string {
+  return raw.replace(/\s+/g, "").toUpperCase();
+}
+
+export function isValidTrIban(raw: string): boolean {
+  const v = normalizeIban(raw);
+  return /^TR\d{26}$/.test(v);
+}
+
+function toItems<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  const d = data as { items?: unknown } | null;
+  return (d?.items ?? []) as T[];
+}
+
+export async function fetchWalletBalance(): Promise<WalletBalance> {
+  try {
+    const res = await api.get("/wallet/balance");
+    return res.data.data as WalletBalance;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+export async function fetchWalletTransactions(params?: {
+  type?: WalletTxType;
+  page?: number;
+  pageSize?: number;
+}): Promise<WalletTransaction[]> {
+  try {
+    const res = await api.get("/wallet/transactions", {
+      params: {
+        type: params?.type && params.type !== "ALL" ? params.type : undefined,
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 20,
+      },
+    });
+    return toItems<WalletTransaction>(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Para yatırma talebi: kullanıcı banka hesabından EFT/havale yapacak, admin onaylayacak. */
+export async function createDepositRequest(payload: {
+  amount: number;
+  senderName: string;
+  senderIban: string;
+  senderBank?: string;
+  senderNote?: string;
+}): Promise<{ id: string; status: string; amount: number; message?: string }> {
+  try {
+    const res = await api.post("/wallet/deposit-request", {
+      amount: payload.amount,
+      senderName: payload.senderName.trim(),
+      senderIban: normalizeIban(payload.senderIban),
+      ...(payload.senderBank?.trim() ? { senderBank: payload.senderBank.trim() } : {}),
+      ...(payload.senderNote?.trim() ? { senderNote: payload.senderNote.trim() } : {}),
+    });
+    const d = (res.data.data ?? {}) as Record<string, unknown>;
+    return {
+      id: String(d.id ?? ""),
+      status: String(d.status ?? "PENDING"),
+      amount: Number(d.amount ?? payload.amount),
+      message: typeof d.message === "string" ? d.message : res.data.message,
+    };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+export async function fetchDepositRequests(page = 1): Promise<DepositRequest[]> {
+  try {
+    const res = await api.get("/wallet/deposit-requests", { params: { page } });
+    return toItems<DepositRequest>(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Para çekme talebi: bakiye hemen emanete alınır, admin onaylayınca IBAN'a gönderilir. */
+export async function createWithdrawRequest(payload: {
+  amount: number;
+  recipientName: string;
+  recipientIban: string;
+  recipientBank?: string;
+  recipientNote?: string;
+}): Promise<{ id: string; status: string; amount: number; balanceAfter?: number; message?: string }> {
+  try {
+    const res = await api.post("/wallet/withdraw-request", {
+      amount: payload.amount,
+      recipientName: payload.recipientName.trim(),
+      recipientIban: normalizeIban(payload.recipientIban),
+      ...(payload.recipientBank?.trim() ? { recipientBank: payload.recipientBank.trim() } : {}),
+      ...(payload.recipientNote?.trim() ? { recipientNote: payload.recipientNote.trim() } : {}),
+    });
+    const d = (res.data.data ?? {}) as Record<string, unknown>;
+    const req = (d.request ?? d) as Record<string, unknown>;
+    return {
+      id: String(req.id ?? ""),
+      status: String(req.status ?? "PENDING"),
+      amount: Number(req.amount ?? payload.amount),
+      balanceAfter: d.balanceAfter != null ? Number(d.balanceAfter) : undefined,
+      message: typeof d.message === "string" ? d.message : res.data.message,
+    };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+export async function fetchWithdrawRequests(page = 1): Promise<WithdrawRequest[]> {
+  try {
+    const res = await api.get("/wallet/withdraw-requests", { params: { page } });
+    return toItems<WithdrawRequest>(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Başka bir kullanıcıya anında transfer (min 10 ₺). */
+export async function walletTransfer(payload: {
+  recipientId: string;
+  amount: number;
+  description?: string;
+  note?: string;
+}): Promise<{ message?: string; balanceAfter?: number }> {
+  try {
+    const res = await api.post("/wallet/transfer", {
+      recipientId: payload.recipientId,
+      amount: payload.amount,
+      ...(payload.description?.trim() ? { description: payload.description.trim() } : {}),
+      ...(payload.note?.trim() ? { note: payload.note.trim() } : {}),
+    });
+    const d = (res.data.data ?? {}) as Record<string, unknown>;
+    return {
+      message: typeof d.message === "string" ? d.message : res.data.message,
+      balanceAfter: d.balanceAfter != null ? Number(d.balanceAfter) : undefined,
+    };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** QR ile ödeme kodu üretir (5 dk geçerli, tek kullanımlık). İşveren → işçi. */
+export async function generateQrPay(payload: { amount: number; description?: string }): Promise<QrPayCode> {
+  try {
+    const res = await api.post("/wallet/qr-pay/generate", {
+      amount: payload.amount,
+      ...(payload.description?.trim() ? { description: payload.description.trim() } : {}),
+    });
+    return res.data.data as QrPayCode;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** QR ödeme kodunu tarar: para gönderenin bakiyesinden düşülüp alıcıya geçer. */
+export async function scanQrPay(token: string): Promise<QrPayScanResult> {
+  try {
+    const res = await api.post("/wallet/qr-pay/scan", { token });
+    return res.data.data as QrPayScanResult;
   } catch (err) {
     throw toApiError(err);
   }

@@ -30,6 +30,7 @@ import type { ApiApplication, ApiUser } from "@/lib/types";
 import { APPLICATION_STATUS_LABELS, formatWage } from "@/lib/format";
 import { formatDate } from "@/lib/format";
 import { useAuth } from "@/hooks/use-auth";
+import WalletScreen from "@/screens/WalletScreen";
 
 type SettingsTab = "account" | "wallet" | "security" | "notifications" | "policies" | "about";
 
@@ -68,6 +69,11 @@ export default function ProfileScreen({ refreshKey }: { refreshKey: number }) {
         ))}
       </ScrollView>
 
+      {/* Cüzdan kendi kaydırma/pull-to-refresh alanına sahip olduğu için
+          dış ScrollView ile sarılmaz (iç içe ScrollView kilitlenmesin). */}
+      {tab === "wallet" ? (
+        <WalletScreen user={user} />
+      ) : (
       <ScrollView style={styles.flex} contentContainerStyle={styles.wrap}>
         <Animated.View
           style={{
@@ -77,13 +83,13 @@ export default function ProfileScreen({ refreshKey }: { refreshKey: number }) {
           }}
         >
           {tab === "account" && <AccountTab user={user} refreshKey={refreshKey} />}
-          {tab === "wallet" && <WalletTab user={user} />}
           {tab === "security" && <SecurityTab user={user} />}
           {tab === "notifications" && <NotificationsTab />}
           {tab === "policies" && <PoliciesTab />}
           {tab === "about" && <AboutTab onLogout={() => logout()} />}
         </Animated.View>
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -394,109 +400,6 @@ function WorkerStatsSection({ refreshKey }: { refreshKey: number }) {
               <PrimaryButton label={showAll ? "Daha az göster" : `Tümünü göster (${completed.length})`} variant="ghost" onPress={() => setShowAll(!showAll)} />
             )}
             <Text style={styles.miniNote}>💡 Tamamlanan işlerden sonra karşı taraftan puan beklemeyi unutma.</Text>
-          </>
-        )}
-        <PrimaryButton label="Yenile" variant="ghost" onPress={async () => { await load(); await refreshUser(); }} />
-      </Card>
-    </>
-  );
-}
-
-/* ================= CÜZDAN ================= */
-
-function WalletTab({ user }: { user: ApiUser }) {
-  const { refreshUser } = useAuth();
-  const [apps, setApps] = useState<ApiApplication[]>([]);
-  const [loading, setLoading] = useState(true);
-  const isEmployer = user.role === "EMPLOYER";
-
-  const load = useCallback(async () => {
-    try {
-      setApps(await fetchApplications());
-    } catch {
-      // sessiz
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const completed = apps.filter((a) => a.status === "COMPLETED");
-  const pendingPay = apps.filter((a) => a.status === "ACCEPTED");
-  const jobValue = (a: ApiApplication) => (a.job ? a.job.wageAmount * (a.job.wageType === "HOURLY" ? a.job.durationHours : 1) : 0);
-
-  const receivedTotal = completed.reduce((s, a) => s + jobValue(a), 0);
-  const expectedTotal = pendingPay.reduce((s, a) => s + jobValue(a), 0);
-
-  return (
-    <>
-      <Card style={{ gap: 12 }}>
-        <View style={styles.walletHeader}>
-          <Text style={styles.walletTitle}>Cüzdanım</Text>
-          <Badge label={isEmployer ? "İşveren hesabı" : "İşçi hesabı"} color={C.primary} bg={C.primarySoft} />
-        </View>
-        <Text style={styles.walletBalance}>{receivedTotal.toLocaleString("tr-TR")} ₺</Text>
-        <Text style={styles.walletSub}>{isEmployer ? "tamamlanan işlerde ödenen tutar" : "tamamlanan işlerden kazanılan tutar"}</Text>
-
-        <View style={styles.divider} />
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Bekleyen ödeme</Text>
-          <Text style={styles.infoValueStrong}>{expectedTotal.toLocaleString("tr-TR")} ₺ ({pendingPay.length} iş)</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Tamamlanan</Text>
-          <Text style={styles.infoValue}>{completed.length} iş</Text>
-        </View>
-      </Card>
-
-      <Card style={{ gap: 10 }}>
-        <SectionTitle>Ödeme akışı nasıl işler?</SectionTitle>
-        <Text style={styles.flowStep}>1️⃣ İşveren işi <Text style={styles.flowStrong}>Tamamlandı</Text> yapar → sistemde otomatik <Text style={styles.flowStrong}>bekleyen ödeme</Text> oluşur.</Text>
-        <Text style={styles.flowStep}>2️⃣ Platform yönetimi ödeme kaydını onaylar.</Text>
-        <Text style={styles.flowStep}>3️⃣ İşveren ödemeyi <Text style={styles.flowStrong}>Ödendi</Text> işaretler.</Text>
-        <Text style={styles.flowStep}>4️⃣ İşçi <Text style={styles.flowStrong}>Aldım</Text> onayı verir → işlem kapanır.</Text>
-        <Text style={styles.flowStep}>5️⃣ Anlaşmazlıkta <Text style={styles.flowStrong}>İtiraz</Text> → yönetim çözümler.</Text>
-        <Text style={styles.miniNote}>
-          ℹ️ Otomatik ödeme: İşçi, işverenin CHECK_OUT (İşi Bitir) QR'ını okuttuğunda iş COMPLETED olur ve sistemde
-          otomatik PENDING ödeme talebi oluşur. Yönetim onayından sonra işveren ödemeyi işaretler, işçi alım onayı verir.
-        </Text>
-      </Card>
-
-      <Card style={{ gap: 10 }}>
-        <SectionTitle>Ödeme kayıtları</SectionTitle>
-        {loading ? (
-          <Text style={styles.desc}>Yükleniyor…</Text>
-        ) : completed.length === 0 && pendingPay.length === 0 ? (
-          <Text style={styles.desc}>Henüz ödeme kaydı yok. Tamamlanan işler burada listelenir.</Text>
-        ) : (
-          <>
-            {pendingPay.map((a) => (
-              <View key={a.id} style={styles.ledgerRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.historyTitle} numberOfLines={1}>{a.job?.title ?? "İş"}</Text>
-                  <Text style={styles.historyMeta}>{a.job ? new Date(a.job.workDate).toLocaleDateString("tr-TR") : ""}</Text>
-                </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={styles.ledgerAmount}>{jobValue(a).toLocaleString("tr-TR")} ₺</Text>
-                  <Badge label="Bekliyor" color={C.amber} bg={C.amberBg} />
-                </View>
-              </View>
-            ))}
-            {completed.map((a) => (
-              <View key={a.id} style={styles.ledgerRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.historyTitle} numberOfLines={1}>{a.job?.title ?? "İş"}</Text>
-                  <Text style={styles.historyMeta}>{a.job ? new Date(a.job.workDate).toLocaleDateString("tr-TR") : ""}</Text>
-                </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={styles.ledgerAmount}>{jobValue(a).toLocaleString("tr-TR")} ₺</Text>
-                  <Badge label={isEmployer ? "Ödendi" : "Alındı"} color={C.emerald} bg={C.emeraldBg} />
-                </View>
-              </View>
-            ))}
           </>
         )}
         <PrimaryButton label="Yenile" variant="ghost" onPress={async () => { await load(); await refreshUser(); }} />
