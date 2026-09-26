@@ -26,9 +26,13 @@ import { useAuth } from "@/hooks/use-auth";
 export default function JobDetailScreen({
   jobId,
   onBack,
+  onStartChat,
+  onShowQR,
 }: {
   jobId: string;
   onBack: () => void;
+  onStartChat?: (participantId: string, jobId: string) => void;
+  onShowQR?: (job: ApiJob) => void;
 }) {
   const { user } = useAuth();
   const [job, setJob] = useState<ApiJob | null>(null);
@@ -121,6 +125,20 @@ export default function JobDetailScreen({
                 }
               }}
             />
+            {onStartChat && (
+              <PrimaryButton
+                label="💬 Sohbet Et"
+                variant="outline"
+                onPress={() => onStartChat(job.employerId, job.id)}
+              />
+            )}
+            {onShowQR && job.myApplication && (
+              <PrimaryButton
+                label="📱 QR Göster"
+                variant="outline"
+                onPress={() => onShowQR(job)}
+              />
+            )}
             {job.myApplication ? (
               <Badge
                 label={
@@ -137,6 +155,26 @@ export default function JobDetailScreen({
             ) : (
               <Badge label="Başvuruya kapalı" color={C.muted} bg={C.stoneBg} />
             )}
+          </View>
+        )}
+
+        {isOwner && onShowQR && (
+          <View style={styles.actionRow}>
+            <PrimaryButton
+              label="📱 İş QR'ı (Başlat / Bitir)"
+              variant="outline"
+              onPress={() => onShowQR(job)}
+            />
+          </View>
+        )}
+
+        {isOwner && onShowQR && (
+          <View style={styles.actionRow}>
+            <PrimaryButton
+              label="📱 İş QR'ı (Başlat / Bitir)"
+              variant="outline"
+              onPress={() => onShowQR(job)}
+            />
           </View>
         )}
       </Card>

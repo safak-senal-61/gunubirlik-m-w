@@ -10,7 +10,19 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 **ÇÖZÜM SÜRÜMÜ (v1.0.4, versionCode 5):**
 - Kök neden: `"main" has not been registered` — Android release'te root bileşen açıkça kaydedilmeliydi (`registerRootComponent`). Expo Go'da fark edilmiyordu.
 - Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/93dc1498-3b0a-4b41-87f2-fbc1f06668da
+- APK: https://expo.dev/artifacts/eas/sRvJ-6x851GWn73wIroN-akMk0KvrGMRllWsM576f7A.apk
 - `App.tsx` artık `registerRootComponent(RealApp)` çağırıyor; crash-reporter da korunuyor.
+
+**v1.1.0 (versionCode 6) — BÜYÜK ÖZELLİK GÜNCELLEMESİ:**
+- ⚙️ **Sekmeli Ayarlar:** Hesap / Cüzdan / Güvenlik / Bildirim / Politikalar / Hakkında sekmeleri
+- 👛 **Cüzdan:** kazanılan/bekleyen ödeme özeti, ödeme kayıtları, 5 adımlı ödeme akışı açıklaması (backend akışına göre: COMPLETED → PENDING → admin onayı → PAID → RECEIVED)
+- 💬 **Sohbet Et butonu:** ilan detayında ve kabul edilmiş başvurularda → `POST /conversations` ile nezaket mesajı gönderip Mesajlar sekmesine yönlendirir
+- 🔔 **Bildirimler sekmesi:** her iki rolde ayrı sekme + okunmamış rozeti; bildirime dokun → okundu yap + ilgili işi aç; tümünü okundu işaretle / sil
+- 📱 **QR kod:** İşe Başla / İşi Bitir / Ödemeyi Al modları — iş, kişi, tutar ve tarih bilgisi QR içinde; işveren ilan detayından, işçi kabul edilmiş başvurusundan gösterir
+- 🖼️ **Profil fotoğrafı:** galeriden seç + `POST /auth/avatar` yükleme (expo-image-picker)
+- 📊 **İş geçmişi:** tamamlanan işler, toplam kazanç ve istatistikler (Hesap sekmesi)
+- 📜 **Politikalar:** moderasyon kuralları (LOW/HIGH/CRITICAL), yaptırım tablosu, ödeme/ilan onay/topluluk politikaları
+- ⚠️ Not: Backend'de QR başlat/bitir/ödeme endpoint'i yok; QR'lar telefonla okutulabilen dijital fiş/eşleşme kanıtıdır. Ödendi/Aldım adımları yönetim paneli üzerinden yürütülüyor.
 
 Önceki sürümler (sorunlu, kurmayın):
 - v1.0.3: teşhis sürümü (modül listesi ekranı)
@@ -56,7 +68,7 @@ Eski link (beyaz ekran sorunlu, kullanmayın): ~~https://expo.dev/artifacts/eas/
 - **Giriş/Kayıt:** e-posta+şifre, 2FA (authenticator kodu), şifremi unuttum + kodla sıfırlama
 - **İşçi akışı:** ilan listesi (adres autocomplete, GPS konumum, 1–25 km yarıçap filtresi, mesafe/yeni sıralama), ilan detayı, başvuru (mesaj + ücret teklifi), kaydedilenler
 - **İşveren akışı:** panel (istatistikler), ilan ver (**"📍 Konum Al"** → expo-location GPS + backend reverse geocoding ile il/ilçe/adres otomatik dolar), ilan aç/kapat/sil
-- **Her ikisi:** başvurular (kabul/ret/tamamla + yıldızla puanlama), moderasyonlu mesajlaşma, bildirimler, profil düzenleme (PUT /auth/me), şifre değiştirme, 2FA kurulum (QR + secret + yedek kodlar) / kapatma, e-posta değiştirme
+- **Her ikisi:** başvurular (kabul/ret/tamamla + yıldızla puanlama), moderasyonlu mesajlaşma, bildirimler (ayrı sekme, rozet, dokun→okundu+ilişkili işi aç), sekmeli ayarlar (Hesap/Cüzdan/Güvenlik/Bildirim/Politikalar/Hakkında), QR gösterim (başlat/bitir/ödeme), profil fotoğrafı yükleme, şifre değiştirme, 2FA kurulum (QR + secret + yedek kodlar) / kapatma, e-posta değiştirme
 - Rol bazlı alt sekme çubuğu, okunmamış bildirim sayacı
 
 ## QR Kod Görünmüyor?

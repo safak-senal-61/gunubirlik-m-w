@@ -19,7 +19,15 @@ const TYPE_ICONS: Record<string, string> = {
   RATING_RECEIVED: "⭐",
 };
 
-export default function NotificationsScreen({ refreshKey }: { refreshKey: number }) {
+export default function NotificationsScreen({
+  refreshKey,
+  onChanged,
+  onOpenJob,
+}: {
+  refreshKey: number;
+  onChanged?: () => void;
+  onOpenJob?: (jobId: string) => void;
+}) {
   const [items, setItems] = useState<ApiNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -50,6 +58,7 @@ export default function NotificationsScreen({ refreshKey }: { refreshKey: number
           try {
             await deleteNotification(id);
             setItems((prev) => prev.filter((n) => n.id !== id));
+            onChanged?.();
           } catch {
             // sessiz
           }
@@ -75,6 +84,7 @@ export default function NotificationsScreen({ refreshKey }: { refreshKey: number
               try {
                 await markAllNotificationsRead();
                 await load();
+                onChanged?.();
               } catch {
                 // sessiz
               }
@@ -94,7 +104,14 @@ export default function NotificationsScreen({ refreshKey }: { refreshKey: number
               <Pressable
                 style={styles.itemBody}
                 onPress={() => {
-                  if (!n.isRead) markNotificationRead(n.id).then(load);
+                  if (!n.isRead) {
+                    markNotificationRead(n.id)
+                      .then(load)
+                      .then(() => onChanged?.())
+                      .catch(() => {});
+                  }
+                  const jobId = n.data?.jobId;
+                  if (jobId && onOpenJob) onOpenJob(jobId);
                 }}
               >
                 <Text style={styles.icon}>{TYPE_ICONS[n.type] ?? "🔔"}</Text>

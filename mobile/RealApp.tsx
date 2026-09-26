@@ -1,12 +1,12 @@
 // EN ÖNEMLİ IMPORT: crash reporter tüm modül kodundan ÖNCE kurulmalı.
 import "@/lib/crash-reporter";
 import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import { fetchNotifications, fetchSavedJobs, toggleSaveJob } from "@/lib/api";
-import type { ApiJob } from "@/lib/types";
+import { fetchNotifications, fetchSavedJobs, sendMessage, toggleSaveJob } from "@/lib/api";
+import type { ApiApplication, ApiJob } from "@/lib/types";
 import AuthScreen from "@/screens/AuthScreen";
 import JobsScreen, { JobCard } from "@/screens/JobsScreen";
 import JobDetailScreen from "@/screens/JobDetailScreen";
@@ -15,9 +15,14 @@ import ApplicationsScreen from "@/screens/ApplicationsScreen";
 import MessagesScreen from "@/screens/MessagesScreen";
 import NotificationsScreen from "@/screens/NotificationsScreen";
 import ProfileScreen from "@/screens/ProfileScreen";
+import QRScreen, { type QRMode } from "@/screens/QRScreen";
 import { Card, C, EmptyState, PrimaryButton } from "@/components/ui";
 
-type Tab = "jobs" | "saved" | "applications" | "messages" | "profile";
+type Tab = "jobs" | "saved" | "applications" | "messages" | "notifications" | "profile";
+
+type QrTarget =
+  | { kind: "JOB"; mode: QRMode; job: ApiJob }
+  | { kind: "APPLICATION"; mode: QRMode; app: ApiApplication };
 
 // Runtime hatasında beyaz ekran yerine hatayı ekranda göster.
 class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -96,6 +101,8 @@ function MainTabs() {
   const [openJobId, setOpenJobId] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [chatBusy, setChatBusy] = useState(false);
+  const [qrTarget, setQrTarget] = useState<QrTarget | null>(null);
 
   // Bildirim sayacı (30 sn'de bir)
   useEffect(() => {
@@ -118,11 +125,66 @@ function MainTabs() {
   const openJob = useCallback((job: ApiJob) => setOpenJobId(job.id), []);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
+  // "Sohbet Et": karşı tarafa nezaket mesajı gönderip konuşmayı açar (POST /conversations).
+  const startChat = useCallback(
+    async (participantId: string, jobId: string | null) => {
+      if (!participantId || chatBusy) return;
+      setChatBusy(true);
+      try {
+        await sendMessage({
+          recipientId: participantId,
+          ...(jobId ? { jobId } : {}),
+          content: "Merhaba! İlanınız hakkında konuşmak istiyorum. 👋",
+        });
+        setOpenJobId(null);
+        setTab("messages");
+        bumpRefresh();
+      } catch (err) {
+        Alert.alert(
+          "Mesaj gönderilemedi",
+          err instanceof Error ? err.message : "Tekrar deneyin.",
+        );
+      } finally {
+        setChatBusy(false);
+      }
+    },
+    [chatBusy, bumpRefresh],
+  );
+
+  const showJobQR = useCallback((job: ApiJob) => {
+    setQrTarget({ kind: "JOB", mode: "start", job });
+  }, []);
+
+  const showAppQR = useCallback((app: ApiApplication) => {
+    setQrTarget({ kind: "APPLICATION", mode: "start", app });
+  }, []);
+
   if (openJobId) {
     return (
       <View style={styles.flex}>
-        <JobDetailScreen jobId={openJobId} onBack={() => { setOpenJobId(null); bumpRefresh(); }} />
+        <JobDetailScreen
+          jobId={openJobId}
+          onBack={() => { setOpenJobId(null); bumpRefresh(); }}
+          onStartChat={(participantId, jobId) => {
+            setOpenJobId(null);
+            startChat(participantId, jobId);
+          }}
+          onShowQR={showJobQR}
+        />
         <TabBar tab={tab} setTab={setTab} isEmployer={!!isEmployer} unread={unread} />
+        {qrTarget?.kind === "JOB" && (
+          <QRScreen
+            initialMode={qrTarget.mode}
+            kind="JOB"
+            refId={qrTarget.job.id}
+            title={qrTarget.job.title}
+            subtitle={`${qrTarget.job.district}, ${qrTarget.job.city}`}
+            wage={qrTarget.job.wageAmount}
+            wageType={qrTarget.job.wageType}
+            employerName={qrTarget.job.employer.companyName ?? qrTarget.job.employer.fullName}
+            onClose={() => setQrTarget(null)}
+          />
+        )}
       </View>
     );
   }
@@ -137,11 +199,35 @@ function MainTabs() {
             <JobsScreen userCoords={user ? null : null} onOpenJob={openJob} refreshKey={refreshKey} />
           ))}
         {tab === "saved" && <SavedScreen onOpenJob={openJob} refreshKey={refreshKey} />}
-        {tab === "applications" && <ApplicationsScreen refreshKey={refreshKey} />}
+        {tab === "applications" && (
+          <ApplicationsScreen refreshKey={refreshKey} onStartChat={startChat} onShowQR={showAppQR} />
+        )}
         {tab === "messages" && <MessagesScreen refreshKey={refreshKey} />}
+        {tab === "notifications" && (
+          <NotificationsScreen
+            refreshKey={refreshKey}
+            onChanged={bumpRefresh}
+            onOpenJob={(jobId) => setOpenJobId(jobId)}
+          />
+        )}
         {tab === "profile" && <ProfileScreen refreshKey={refreshKey} />}
       </View>
       <TabBar tab={tab} setTab={setTab} isEmployer={!!isEmployer} unread={unread} onNavigate={bumpRefresh} />
+
+      {qrTarget?.kind === "APPLICATION" && (
+        <QRScreen
+          initialMode={qrTarget.mode}
+          kind="APPLICATION"
+          refId={qrTarget.app.id}
+          title={qrTarget.app.job?.title ?? "İş"}
+          subtitle={qrTarget.app.job ? `${qrTarget.app.job.district}, ${qrTarget.app.job.city}` : ""}
+          wage={qrTarget.app.job?.wageAmount ?? qrTarget.app.proposedWage ?? 0}
+          wageType={qrTarget.app.job?.wageType ?? "DAILY"}
+          workerName={qrTarget.app.worker?.fullName}
+          employerName={qrTarget.app.job?.employer?.companyName ?? qrTarget.app.job?.employer?.fullName}
+          onClose={() => setQrTarget(null)}
+        />
+      )}
     </View>
   );
 }
@@ -232,14 +318,16 @@ function TabBar({
         { key: "jobs", icon: "💼", label: "Panel" },
         { key: "applications", icon: "📥", label: "Başvuru" },
         { key: "messages", icon: "💬", label: "Mesaj" },
-        { key: "profile", icon: "👤", label: "Profil" },
+        { key: "notifications", icon: "🔔", label: "Bildirim" },
+        { key: "profile", icon: "⚙️", label: "Ayarlar" },
       ]
     : [
         { key: "jobs", icon: "💼", label: "İşler" },
         { key: "saved", icon: "♡", label: "Kayıtlı" },
         { key: "applications", icon: "📥", label: "Başvuru" },
         { key: "messages", icon: "💬", label: "Mesaj" },
-        { key: "profile", icon: "👤", label: "Profil" },
+        { key: "notifications", icon: "🔔", label: "Bildirim" },
+        { key: "profile", icon: "⚙️", label: "Ayarlar" },
       ];
 
   return (
@@ -255,7 +343,7 @@ function TabBar({
         >
           <Text style={[styles.tabIcon, tab === t.key && styles.tabIconActive]}>{t.icon}</Text>
           <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>{t.label}</Text>
-          {t.key === "applications" && unread > 0 && (
+          {t.key === "notifications" && unread > 0 && (
             <View style={styles.tabBadge}>
               <Text style={styles.tabBadgeText}>{unread > 9 ? "9+" : unread}</Text>
             </View>
@@ -299,6 +387,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   tabBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
+  chatTargetCard: { position: "absolute", left: 16, right: 16, bottom: 80, padding: 14, gap: 10 },
   savedWrap: { padding: 16, paddingBottom: 40, gap: 12 },
   h1: { fontSize: 22, fontWeight: "800", color: C.text },
   sub: { fontSize: 13, color: C.muted, marginTop: -6 },

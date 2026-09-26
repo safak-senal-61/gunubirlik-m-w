@@ -13,7 +13,15 @@ import { useAuth } from "@/hooks/use-auth";
 
 type Filter = "ALL" | ApplicationStatus;
 
-export default function ApplicationsScreen({ refreshKey }: { refreshKey: number }) {
+export default function ApplicationsScreen({
+  refreshKey,
+  onStartChat,
+  onShowQR,
+}: {
+  refreshKey: number;
+  onStartChat?: (participantId: string, jobId: string) => void;
+  onShowQR?: (app: ApiApplication) => void;
+}) {
   const { user } = useAuth();
   const [apps, setApps] = useState<ApiApplication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +78,14 @@ export default function ApplicationsScreen({ refreshKey }: { refreshKey: number 
         <EmptyState emoji="📥" title="Bu filtrede başvuru yok" />
       ) : (
         filtered.map((app) => (
-          <ApplicationCard key={app.id} app={app} isEmployer={!!isEmployer} onChanged={load} />
+          <ApplicationCard
+            key={app.id}
+            app={app}
+            isEmployer={!!isEmployer}
+            onChanged={load}
+            onStartChat={onStartChat}
+            onShowQR={onShowQR}
+          />
         ))
       )}
     </ScrollView>
@@ -81,10 +96,14 @@ function ApplicationCard({
   app,
   isEmployer,
   onChanged,
+  onStartChat,
+  onShowQR,
 }: {
   app: ApiApplication;
   isEmployer: boolean;
   onChanged: () => void;
+  onStartChat?: (participantId: string, jobId: string) => void;
+  onShowQR?: (app: ApiApplication) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [ratingOpen, setRatingOpen] = useState(false);
@@ -140,6 +159,28 @@ function ApplicationCard({
       {app.proposedWage ? <Text style={styles.proposal}>Teklif: {app.proposedWage.toLocaleString("tr-TR")} ₺</Text> : null}
       {app.employerNote ? <Text style={styles.note}>İşveren notu: {app.employerNote}</Text> : null}
       <Text style={styles.time}>{timeAgo(app.createdAt)}</Text>
+
+      {app.status === "ACCEPTED" && onStartChat && app.job && (
+        <View style={styles.chatRow}>
+          <PrimaryButton
+            label="💬 Sohbet Et"
+            variant="outline"
+            onPress={() => {
+              const job = app.job;
+              if (!job) return;
+              const otherId = isEmployer ? app.worker?.id : job.employerId;
+              if (otherId) onStartChat(otherId, app.jobId ?? job.id);
+            }}
+          />
+          {onShowQR && (
+            <PrimaryButton
+              label={isEmployer ? "📱 İş QR'ı" : "📱 QR Göster"}
+              variant="outline"
+              onPress={() => onShowQR(app)}
+            />
+          )}
+        </View>
+      )}
 
       {isEmployer ? (
         <View style={styles.actions}>
@@ -254,6 +295,7 @@ const styles = StyleSheet.create({
   note: { fontSize: 12, color: C.muted, marginTop: 6 },
   time: { fontSize: 11, color: C.muted, marginTop: 6 },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12, borderTopWidth: 1, borderTopColor: "#f3f4f6", paddingTop: 12, alignItems: "center" },
+  chatRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 24 },
   modalCard: { backgroundColor: "#fff", borderRadius: 20, padding: 20, width: "100%", gap: 10 },
   modalDesc: { fontSize: 13, color: C.muted },

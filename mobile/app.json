@@ -2,7 +2,7 @@
   "expo": {
     "name": "Günübirlik",
     "slug": "gunubirlik",
-    "version": "1.0.4",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "gunubirlik",
@@ -23,7 +23,7 @@
     },
     "android": {
       "package": "com.gunubirlik.app",
-      "versionCode": 5,
+      "versionCode": 6,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -36,7 +36,14 @@
       }
     },
     "plugins": [
-      "expo-location"
+      "expo-location",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Profil fotoğrafını seçmek için galerine erişim gerekiyor.",
+          "cameraPermission": "Profil fotoğrafı çekmek için kamera erişimi gerekiyor."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": false
