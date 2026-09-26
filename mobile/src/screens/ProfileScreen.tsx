@@ -100,6 +100,9 @@ function SettingsTabButton({
   active: boolean;
   onPress: () => void;
 }) {
+  // NOT: Bu bileşendeki TÜM animasyonlar useNativeDriver:false ile sürülür.
+  // Aynı Animated.View üzerinde hem native (transform) hem JS (backgroundColor)
+  // animasyonu çalıştırmak "animated node has been moved to native" hatası verir.
   const scale = useRef(new Animated.Value(1)).current;
   const activeAnim = useRef(new Animated.Value(active ? 1 : 0)).current;
 
@@ -124,8 +127,8 @@ function SettingsTabButton({
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={() => Animated.spring(scale, { toValue: 0.88, speed: 40, useNativeDriver: true }).start()}
-      onPressOut={() => Animated.spring(scale, { toValue: 1, friction: 4, tension: 220, useNativeDriver: true }).start()}
+      onPressIn={() => Animated.spring(scale, { toValue: 0.88, speed: 40, useNativeDriver: false }).start()}
+      onPressOut={() => Animated.spring(scale, { toValue: 1, friction: 4, tension: 220, useNativeDriver: false }).start()}
       style={styles.tabBtn}
     >
       <Animated.View style={[styles.tabPill, { backgroundColor: pillBg, transform: [{ scale }] }]}>
