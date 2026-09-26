@@ -1,3 +1,5 @@
+// EN ÖNEMLİ IMPORT: crash reporter tüm modül kodundan ÖNCE kurulmalı.
+import "@/lib/crash-reporter";
 import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -33,7 +35,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error
     const { error } = this.state;
     if (error) {
       return (
-        <View style={[styles.flex, styles.center, { padding: 24 }]}>
+        <View style={[styles.flex, styles.center, { padding: 24, backgroundColor: "#fff" }]}>
           <Text style={styles.h1}>Beklenmeyen bir hata oluştu</Text>
           <Text style={{ fontSize: 12, color: C.muted, textAlign: "center", marginTop: 8 }}>
             {String(error?.message ?? error)}
@@ -63,7 +65,9 @@ function Root() {
   if (isLoading) {
     return (
       <View style={[styles.flex, styles.center]}>
+        <Text style={{ fontSize: 26, fontWeight: "800", color: C.primary, marginBottom: 6 }}>Günübirlik</Text>
         <ActivityIndicator size="large" color={C.primary} />
+        <Text style={{ fontSize: 12, color: C.muted, marginTop: 10 }}>Yükleniyor…</Text>
       </View>
     );
   }

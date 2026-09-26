@@ -7,9 +7,12 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 
 > ⚠️ **v1.0.0 APK'sında beyaz ekran sorunu vardı** (SDK 52 yeni mimarisi kaynaklı). v1.0.1'de `newArchEnabled: false` yapıldı + hata görünür hale getirildi.
 
-**Yeni derleme (v1.0.1, versionCode 2):**
-- Build durumu: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/74c2b88a-1133-4c4d-aa5e-c0c79b8fea7d
-- Bitince APK linkini almak için: `cd mobile && EXPO_TOKEN=<token> bunx eas-cli@24.8.0 build:view 74c2b88a-1133-4c4d-aa5e-c0c79b8fea7d --json | grep applicationArchiveUrl`
+**Yeni derleme (v1.0.2, versionCode 3) — çökme teşhis katmanı eklendi:**
+- Build durumu: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/e513f8ab-3101-4d06-9190-2645369ed94a
+- Bu sürümde uygulama çökerse hata mesajı **ekranda Alert olarak görünür** (ekran görüntüsü alınabilir).
+- Splash görseli de düzeltildi (önceki config'de splash resimsizdi).
+
+v1.0.1 APK: https://expo.dev/artifacts/eas/73YnaUAyekAr-cVxyWdRSz5LXLRS8FHMvO58nIpg3B4.apk (açılışta çökme bildirildi)
 
 Eski link (beyaz ekran sorunlu, kullanmayın): ~~https://expo.dev/artifacts/eas/0TbnaZKsUzSVNNTBJ2TcRz96ZJOb4GLkZllKvreGHTo.apk~~
 
