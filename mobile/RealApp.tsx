@@ -224,6 +224,17 @@ function MainTabs() {
   const openJob = useCallback((job: ApiJob) => setOpenJobId(job.id), []);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
+  // Alt menüye her basışta açık detay kartı KAPANIR + veriler sessizce tazelenir.
+  // (Önceden sadece sekme değişiyor, detay kartı ekranda kalıyordu.)
+  const handleTabPress = useCallback(
+    (t: Tab) => {
+      setOpenJobId(null);
+      setTab(t);
+      bumpRefresh();
+    },
+    [bumpRefresh],
+  );
+
   // "Sohbet Et": karşı tarafa nezaket mesajı gönderip konuşmayı açar (POST /conversations).
   const startChat = useCallback(
     async (participantId: string, jobId: string | null) => {
@@ -287,7 +298,7 @@ function MainTabs() {
             void showJobQR(job);
           }}
         />
-        <TabBar tab={tab} setTab={setTab} isEmployer={!!isEmployer} unread={unread} />
+        <TabBar tab={tab} onPressTab={handleTabPress} isEmployer={!!isEmployer} unread={unread} />
         {qrTarget && (
           <QRScreen
             applicationId={qrTarget.app.id}
@@ -327,9 +338,11 @@ function MainTabs() {
         )}
         {tab === "profile" && <ProfileScreen refreshKey={refreshKey} />}
       </View>
-      <TabBar tab={tab} setTab={setTab} isEmployer={!!isEmployer} unread={unread} onNavigate={bumpRefresh} />
+      <TabBar tab={tab} onPressTab={handleTabPress} isEmployer={!!isEmployer} unread={unread} />
 
-      {!isEmployer && (
+      {/* QR tarama FAB'ı sadece İşler ve Başvuru sekmelerinde görünür;
+          Mesajlar ekranında mesaj yazma/gönderme alanının üstüne biniyordu. */}
+      {!isEmployer && (tab === "jobs" || tab === "applications") && (
         <Pressable style={styles.scanFab} onPress={() => setScannerOpen(true)}>
           <Text style={styles.scanFabText}>📷 QR Tara</Text>
         </Pressable>
@@ -399,12 +412,10 @@ function SavedScreen({ onOpenJob, refreshKey }: { onOpenJob: (job: ApiJob) => vo
       {loading ? (
         <ActivityIndicator style={{ marginTop: 30 }} color={C.primary} />
       ) : jobs.length === 0 ? (
-        <EmptyState emoji="♡" title="Kayıtlı ilan yok" subtitle="İlan kartlarındaki ♡ ile kaydet." />
+        <EmptyState emoji="✓" title="Kayıtlı ilan yok" subtitle="İlan kartlarındaki ♡ simgesine dokunarak ilan kaydet." />
       ) : (
         jobs.map((job) => (
-          <Card key={job.id}>
-            <JobCardInline job={job} onOpen={() => onOpenJob(job)} onUnsave={reload} />
-          </Card>
+          <JobCardInline key={job.id} job={job} onOpen={() => onOpenJob(job)} onUnsave={reload} />
         ))
       )}
     </ScrollView>
@@ -413,46 +424,38 @@ function SavedScreen({ onOpenJob, refreshKey }: { onOpenJob: (job: ApiJob) => vo
 
 function JobCardInline({ job, onOpen, onUnsave }: { job: ApiJob; onOpen: () => void; onUnsave: () => void }) {
   const [busy, setBusy] = useState(false);
+  // Kayıtlı ilan kartı: ♡ yerine yeşil ✓ (kalp tike döner). Kaydı kaldırınca listeden düşer.
   return (
-    <View style={{ gap: 8 }}>
-      <Pressable onPress={onOpen}>
-        <Text style={styles.savedTitle}>{job.title}</Text>
-        <Text style={styles.savedMeta}>
-          {job.district}, {job.city} · {job.wageAmount.toLocaleString("tr-TR")} ₺{job.wageType === "HOURLY" ? "/saat" : "/gün"}
-        </Text>
-      </Pressable>
-      <PrimaryButton
-        label="Kaydı kaldır"
-        variant="ghost"
-        disabled={busy}
-        onPress={async () => {
-          setBusy(true);
-          try {
-            await toggleSaveJob(job.id);
-            onUnsave();
-          } catch {
-            // sessiz
-          } finally {
-            setBusy(false);
-          }
-        }}
-      />
-    </View>
+    <JobCard
+      job={job}
+      isSaved
+      saving={busy}
+      onPress={onOpen}
+      onSave={async () => {
+        setBusy(true);
+        try {
+          await toggleSaveJob(job.id);
+          onUnsave();
+        } catch {
+          // sessiz
+        } finally {
+          setBusy(false);
+        }
+      }}
+    />
   );
 }
 
 function TabBar({
   tab,
-  setTab,
+  onPressTab,
   isEmployer,
   unread,
-  onNavigate,
 }: {
   tab: Tab;
-  setTab: (t: Tab) => void;
+  onPressTab: (t: Tab) => void;
   isEmployer: boolean;
   unread: number;
-  onNavigate?: () => void;
 }) {
   const tabs: { key: Tab; icon: string; label: string }[] = isEmployer
     ? [
@@ -477,10 +480,7 @@ function TabBar({
         <Pressable
           key={t.key}
           style={styles.tabItem}
-          onPress={() => {
-            setTab(t.key);
-            onNavigate?.();
-          }}
+          onPress={() => onPressTab(t.key)}
         >
           <Text style={[styles.tabIcon, tab === t.key && styles.tabIconActive]}>{t.icon}</Text>
           <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>{t.label}</Text>

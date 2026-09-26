@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  Alert,
   Linking,
   Modal,
   Pressable,
@@ -10,8 +11,9 @@ import {
   View,
 } from "react-native";
 import { Badge, Card, C, Loading, PrimaryButton, SectionTitle } from "@/components/ui";
-import { applyToJob, fetchJob, toggleSaveJob } from "@/lib/api";
-import type { ApiJob } from "@/lib/types";
+import LeafletMap from "@/components/LeafletMap";
+import { applyToJob, fetchJob, fetchSavedJobIds, toggleSaveJob } from "@/lib/api";
+import type { ApiApplication, ApiJob } from "@/lib/types";
 import {
   CATEGORY_ICONS,
   JOB_STATUS_LABELS,
@@ -39,6 +41,8 @@ export default function JobDetailScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [applyOpen, setApplyOpen] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [saveBusy, setSaveBusy] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -46,7 +50,26 @@ export default function JobDetailScreen({
       .then(setJob)
       .catch((err) => setError(err instanceof Error ? err.message : "İlan yüklenemedi"))
       .finally(() => setLoading(false));
+    // Bu ilan benim kayıtlılarımda mı? (♡/✓ işaretinin doğru görünmesi için)
+    fetchSavedJobIds()
+      .then((ids) => setIsSaved(ids.includes(jobId)))
+      .catch(() => {});
   }, [jobId]);
+
+  const handleToggleSave = async () => {
+    if (saveBusy) return;
+    setSaveBusy(true);
+    setIsSaved((s) => !s); // optimistik
+    try {
+      const res = await toggleSaveJob(jobId);
+      setIsSaved(res?.saved ?? !isSaved);
+    } catch (err) {
+      setIsSaved((s) => !s); // geri al
+      Alert.alert("Kaydedilemedi", err instanceof Error ? err.message : "Tekrar dene.");
+    } finally {
+      setSaveBusy(false);
+    }
+  };
 
   if (loading) return <Loading />;
   if (error || !job) {
@@ -114,16 +137,14 @@ export default function JobDetailScreen({
 
         {isWorker && !isOwner && (
           <View style={styles.actionRow}>
+            {job.myApplication && (
+              <StatusBanner status={job.myApplication.status} workDate={job.workDate} />
+            )}
             <PrimaryButton
-              label="♡ Kaydet"
+              label={isSaved ? "✓ Kaydedildi" : "♡ Kaydet"}
               variant="outline"
-              onPress={async () => {
-                try {
-                  await toggleSaveJob(job.id);
-                } catch {
-                  // sessiz
-                }
-              }}
+              disabled={saveBusy}
+              onPress={handleToggleSave}
             />
             {onStartChat && (
               <PrimaryButton
@@ -139,32 +160,11 @@ export default function JobDetailScreen({
                 onPress={() => onShowQR(job)}
               />
             )}
-            {job.myApplication ? (
-              <Badge
-                label={
-                  job.myApplication.status === "PENDING" ? "Başvurun beklemede"
-                  : job.myApplication.status === "ACCEPTED" ? "Başvurun kabul edildi ✓"
-                  : job.myApplication.status === "REJECTED" ? "Başvurun reddedildi"
-                  : "İş tamamlandı"
-                }
-                color={C.emerald}
-                bg={C.emeraldBg}
-              />
-            ) : job.status === "OPEN" ? (
+            {job.myApplication ? null : job.status === "OPEN" ? (
               <PrimaryButton label="Bu işe başvur" onPress={() => setApplyOpen(true)} />
             ) : (
               <Badge label="Başvuruya kapalı" color={C.muted} bg={C.stoneBg} />
             )}
-          </View>
-        )}
-
-        {isOwner && onShowQR && (
-          <View style={styles.actionRow}>
-            <PrimaryButton
-              label="📱 İş QR'ı (Başlat / Bitir)"
-              variant="outline"
-              onPress={() => onShowQR(job)}
-            />
           </View>
         )}
 
@@ -201,16 +201,27 @@ export default function JobDetailScreen({
         )}
       </Card>
 
-      {mapUrl && (
-        <Card>
+      {job.latitude != null && job.longitude != null && (
+        <Card style={styles.mapCard}>
           <View style={styles.mapRow}>
-            <SectionTitle>Konum</SectionTitle>
-            <Pressable onPress={() => Linking.openURL(mapUrl)}>
-              <Text style={styles.mapLink}>Haritada aç →</Text>
+            <SectionTitle>📍 İş yeri haritası</SectionTitle>
+            <Pressable
+              onPress={() =>
+                Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${job.latitude},${job.longitude}`)
+              }
+            >
+              <Text style={styles.mapLink}>Haritalarda aç →</Text>
             </Pressable>
           </View>
+          <LeafletMap
+            latitude={job.latitude}
+            longitude={job.longitude}
+            title={job.title}
+            category={job.category}
+            address={job.address}
+          />
           <Text style={styles.mapHint}>
-            {job.address ?? `${job.district}, ${job.city}`} · {job.latitude?.toFixed(4)}, {job.longitude?.toFixed(4)}
+            {job.address ?? `${job.district}, ${job.city}`} · {job.latitude?.toFixed(4)}, {job.longitude?.toFixed(4)} · OSM/Leaflet
           </Text>
         </Card>
       )}
@@ -248,7 +259,35 @@ export default function JobDetailScreen({
   );
 }
 
-function Tile({ emoji, label, value }: { emoji: string; label: string; value: string }) {
+/** Başvuru durumuna göre renkli, ikonlu durum banner'ı. */
+function StatusBanner({ status, workDate }: { status: ApiApplication["status"]; workDate: string }) {
+  const cfg =
+    status === "ACCEPTED"
+      ? { bg: C.emeraldBg, border: "#34d399", icon: "🎉", title: "Başvurun kabul edildi!", desc: "Tebrikler — iş günü: " + new Date(workDate).toLocaleDateString("tr-TR") }
+      : status === "PENDING"
+        ? { bg: C.amberBg, border: "#fbbf24", icon: "⏳", title: "Başvurun değerlendiriliyor", desc: "İşveren başvurunu inceliyor, sonuç bildirimle gelir." }
+        : status === "REJECTED"
+          ? { bg: C.roseBg, border: "#fda4af", icon: "💔", title: "Başvurun reddedildi", desc: "Bu sefer olmadı; yeni ilanlara göz atmaya devam et." }
+          : { bg: C.emeraldBg, border: "#34d399", icon: "🏁", title: "İş tamamlandı", desc: "Ödeme akışı cüzdanında görünür." };
+
+  if (status === "COMPLETED") {
+    cfg.desc = `Tamamlanan iş günü: ${new Date(workDate).toLocaleDateString("tr-TR")} · ödeme cüzdanında görünür.`;
+  }
+
+  return (
+    <View style={[styles.statusBanner, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
+      <View style={styles.statusBannerIconBox}>
+        <Text style={styles.statusBannerIcon}>{cfg.icon}</Text>
+</View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.statusBannerTitle}>{cfg.title}</Text>
+        <Text style={styles.statusBannerDesc}>{cfg.desc}</Text>
+      </View>
+    </View>
+  );
+}
+
+function Tile({ emoji, label, value }: { emoji: string; value: string; label: string }) {
   return (
     <View style={styles.tile}>
       <Text style={styles.tileLabel}>{emoji} {label}</Text>
@@ -346,7 +385,28 @@ const styles = StyleSheet.create({
   note: { fontSize: 13, color: C.text, backgroundColor: "#f5f5f7", borderRadius: 12, padding: 12, marginTop: 12, lineHeight: 20 },
   mapRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   mapLink: { fontSize: 12, fontWeight: "700", color: C.primary },
+  mapCard: { gap: 10 },
   mapHint: { fontSize: 12, color: C.muted, marginTop: 8 },
+  statusBanner: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "center",
+    width: "100%",
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 12,
+  },
+  statusBannerIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusBannerIcon: { fontSize: 20 },
+  statusBannerTitle: { fontSize: 14, fontWeight: "800", color: C.text },
+  statusBannerDesc: { fontSize: 12, color: C.muted, marginTop: 2, lineHeight: 17 },
   employerRow: { flexDirection: "row", gap: 12, alignItems: "center", marginTop: 10 },
   employerAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },
   employerInitial: { fontSize: 18, fontWeight: "800", color: C.primary },

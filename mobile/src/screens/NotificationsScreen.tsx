@@ -49,12 +49,13 @@ export default function NotificationsScreen({
     }
   }, [notifData]);
 
+  // Sekme değişiminde sessiz tazele. DİKKAT: onChanged BURADA ÇAĞRILMAZ —
+  // onChanged refreshKey'i artırdığı için sonsuz reload döngüsüne giriyordu
+  // (bildirim ekranı sürekli yükleniyor hatasının kök nedeni).
   useEffect(() => {
-    if (refreshKey > 0) {
-      reload();
-      onChanged?.();
-    }
-  }, [refreshKey, reload, onChanged]);
+    if (refreshKey > 0) reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   const remove = (id: string) => {
     Alert.alert("Bildirimi sil", "Bu bildirim silinsin mi?", [

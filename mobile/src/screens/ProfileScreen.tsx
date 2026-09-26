@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
+  Easing,
   Image,
   Pressable,
   ScrollView,
@@ -44,28 +46,93 @@ export default function ProfileScreen({ refreshKey }: { refreshKey: number }) {
   const { user, logout } = useAuth();
   const [tab, setTab] = useState<SettingsTab>("account");
 
+  // Sekme geçişinde yumuşak içerik animasyonu (fade + hafif yukarı kayma)
+  const contentAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    contentAnim.setValue(0);
+    Animated.timing(contentAnim, {
+      toValue: 1,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [tab, contentAnim]);
+
   if (!user) return null;
 
   return (
     <View style={styles.flex}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabStrip} contentContainerStyle={styles.tabStripInner}>
         {TABS.map((t) => (
-          <Pressable key={t.key} onPress={() => setTab(t.key)} style={[styles.tabBtn, tab === t.key && styles.tabBtnActive]}>
-            <Text style={[styles.tabIcon, tab === t.key && styles.tabIconActive]}>{t.icon}</Text>
-            <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>{t.label}</Text>
-          </Pressable>
+          <SettingsTabButton key={t.key} icon={t.icon} label={t.label} active={tab === t.key} onPress={() => setTab(t.key)} />
         ))}
       </ScrollView>
 
       <ScrollView style={styles.flex} contentContainerStyle={styles.wrap}>
-        {tab === "account" && <AccountTab user={user} refreshKey={refreshKey} />}
-        {tab === "wallet" && <WalletTab user={user} />}
-        {tab === "security" && <SecurityTab user={user} />}
-        {tab === "notifications" && <NotificationsTab />}
-        {tab === "policies" && <PoliciesTab />}
-        {tab === "about" && <AboutTab onLogout={() => logout()} />}
+        <Animated.View
+          style={{
+            gap: 12,
+            opacity: contentAnim,
+            transform: [{ translateY: contentAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+          }}
+        >
+          {tab === "account" && <AccountTab user={user} refreshKey={refreshKey} />}
+          {tab === "wallet" && <WalletTab user={user} />}
+          {tab === "security" && <SecurityTab user={user} />}
+          {tab === "notifications" && <NotificationsTab />}
+          {tab === "policies" && <PoliciesTab />}
+          {tab === "about" && <AboutTab onLogout={() => logout()} />}
+        </Animated.View>
       </ScrollView>
     </View>
+  );
+}
+
+/** Animasyonlu ayar sekmesi: basışta yay animasyonu + aktifken renk geçişi. */
+function SettingsTabButton({
+  icon,
+  label,
+  active,
+  onPress,
+}: {
+  icon: string;
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+  const activeAnim = useRef(new Animated.Value(active ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(activeAnim, {
+      toValue: active ? 1 : 0,
+      duration: 180,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false, // backgroundColor animasyonu native driver desteklemez
+    }).start();
+  }, [active, activeAnim]);
+
+  const pillBg = activeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["rgba(79,70,229,0)", C.primarySoft],
+  });
+  const labelColor = activeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [C.muted, C.primary],
+  });
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => Animated.spring(scale, { toValue: 0.88, speed: 40, useNativeDriver: true }).start()}
+      onPressOut={() => Animated.spring(scale, { toValue: 1, friction: 4, tension: 220, useNativeDriver: true }).start()}
+      style={styles.tabBtn}
+    >
+      <Animated.View style={[styles.tabPill, { backgroundColor: pillBg, transform: [{ scale }] }]}>
+        <Text style={[styles.tabIcon, active && styles.tabIconActive]}>{icon}</Text>
+        <Animated.Text style={[styles.tabLabel, { color: labelColor }, active && styles.tabLabelActive]}>{label}</Animated.Text>
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -934,13 +1001,13 @@ function Field(props: {
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: C.bg },
   tabStrip: { backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: C.border, flexGrow: 0 },
-  tabStripInner: { flexDirection: "row", gap: 4, paddingHorizontal: 10, paddingVertical: 8 },
-  tabBtn: { alignItems: "center", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, gap: 2 },
-  tabBtnActive: { backgroundColor: C.primarySoft },
+  tabStripInner: { flexDirection: "row", gap: 2, paddingHorizontal: 8, paddingVertical: 8 },
+  tabBtn: { alignItems: "center", justifyContent: "center" },
+  tabPill: { alignItems: "center", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 14, gap: 2 },
   tabIcon: { fontSize: 18, opacity: 0.6 },
   tabIconActive: { opacity: 1 },
   tabLabel: { fontSize: 11, fontWeight: "700", color: C.muted },
-  tabLabelActive: { color: C.primary },
+  tabLabelActive: { fontWeight: "800" },
   wrap: { padding: 16, paddingBottom: 40, gap: 12 },
   idRow: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },

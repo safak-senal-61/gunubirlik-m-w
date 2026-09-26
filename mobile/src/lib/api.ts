@@ -439,6 +439,18 @@ export async function fetchSavedJobs(): Promise<ApiJob[]> {
   }
 }
 
+/**
+ * Kaydedilmiş iş ID'leri (cache'li). JobCard'daki ♡/✓ işaretinin doğru
+ * görünmesi ve tıklandığında gerçekten toggle etmesi için kullanılır.
+ */
+export async function fetchSavedJobIds(): Promise<string[]> {
+  const jobs = await cachedFetch("jobs:saved-ids", async () => {
+    const list = await fetchSavedJobs();
+    return list.map((j) => j.id);
+  });
+  return Array.isArray(jobs) ? jobs : [];
+}
+
 export async function fetchCategories(): Promise<ApiCategory[]> {
   try {
     const res = await api.get("/jobs/categories");

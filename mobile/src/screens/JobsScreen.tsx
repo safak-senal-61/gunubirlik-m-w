@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -15,6 +16,7 @@ import { useCachedList } from "@/hooks/use-cached-list";
 import {
   fetchCategories,
   fetchJobs,
+  fetchSavedJobIds,
   suggestAddress,
   toggleSaveJob,
 } from "@/lib/api";
@@ -52,6 +54,7 @@ export default function JobsScreen({
   const [radiusKm, setRadiusKm] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<"distance" | "new">("new");
   const [saving, setSaving] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   // Konum seçimi (adres autocomplete)
   const [locQuery, setLocQuery] = useState("");
   const [locCoords, setLocCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -59,6 +62,19 @@ export default function JobsScreen({
   const [suggestions, setSuggestions] = useState<GeocodeSuggestion[]>([]);
   const [locating, setLocating] = useState(false);
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Kayıtlı iş ID'leri: ♡/✓ işaretinin doğru görünmesi için.
+  useEffect(() => {
+    let active = true;
+    fetchSavedJobIds()
+      .then((ids) => {
+        if (active) setSavedIds(new Set(ids));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {});
@@ -166,11 +182,25 @@ export default function JobsScreen({
   };
 
   const handleSave = async (job: ApiJob) => {
+    if (saving) return;
+    const willSave = !savedIds.has(job.id);
     setSaving(job.id);
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      if (willSave) next.add(job.id);
+      else next.delete(job.id);
+      return next;
+    });
     try {
       await toggleSaveJob(job.id);
     } catch {
-      // sessiz
+      setSavedIds((prev) => {
+        const next = new Set(prev);
+        if (willSave) next.delete(job.id);
+        else next.add(job.id);
+        return next;
+      });
+      Alert.alert("İşlem başarısız", "İş kaydedilemedi/kaldırılamadı, tekrar dene.");
     } finally {
       setSaving(null);
     }
@@ -311,6 +341,7 @@ export default function JobsScreen({
         <JobCard
           job={item.job}
           distanceKm={item.km}
+          isSaved={savedIds.has(item.job.id)}
           saving={saving === item.job.id}
           onPress={() => onOpenJob(item.job)}
           onSave={() => handleSave(item.job)}
@@ -359,12 +390,14 @@ export default function JobsScreen({
 export function JobCard({
   job,
   distanceKm,
+  isSaved,
   saving,
   onPress,
   onSave,
 }: {
   job: ApiJob;
   distanceKm?: number | null;
+  isSaved?: boolean;
   saving?: boolean;
   onPress: () => void;
   onSave?: () => void;
@@ -385,8 +418,10 @@ export function JobCard({
             </Text>
           </View>
           {onSave && (
-            <Pressable onPress={onSave} disabled={saving} hitSlop={8}>
-              <Text style={styles.saveBtn}>{saving ? "…" : "♡"}</Text>
+            <Pressable onPress={onSave} disabled={saving} hitSlop={8} style={styles.saveHit}>
+              <Text style={[styles.saveBtn, isSaved && styles.saveBtnSaved]}>
+                {saving ? "…" : isSaved ? "✓" : "♡"}
+              </Text>
             </Pressable>
           )}
         </View>
@@ -448,7 +483,9 @@ const styles = StyleSheet.create({
   jobIcon: { fontSize: 18 },
   jobTitle: { fontSize: 15, fontWeight: "800", color: C.text },
   jobEmployer: { fontSize: 12, color: C.muted, marginTop: 2 },
-  saveBtn: { fontSize: 20, color: C.muted, paddingHorizontal: 4 },
+  saveHit: { minWidth: 36, alignItems: "center", justifyContent: "center" },
+  saveBtn: { fontSize: 22, color: C.muted, paddingHorizontal: 4 },
+  saveBtnSaved: { color: C.success, fontWeight: "800", fontSize: 20 },
   badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
   jobMeta: { fontSize: 12, color: C.muted, marginTop: 8 },
   jobFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10, borderTopWidth: 1, borderTopColor: "#f3f4f6", paddingTop: 10 },
