@@ -41,16 +41,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
         return;
       }
+      // Önbellekteki kullanıcı varsa uygulama ANINDA açılır ("Yükleniyor" beklemez),
+      // oturum arka planda sessizce doğrulanır/tazelenir.
+      const cachedUser = await API.getCachedUser();
+      if (cachedUser && !cancelled) {
+        setUser(cachedUser);
+        setIsLoading(false);
+        API.fetchMe()
+          .then(async (me) => {
+            if (!cancelled) {
+              setUser(me);
+              await API.cacheUserForBootstrap(me);
+            }
+          })
+          .catch(async (err) => {
+            if (cancelled) return;
+            const status = err instanceof API.ApiError ? err.status : 0;
+            // 401/403 → token gerçekten geçersiz; network/5xx hatasında oturum KORUNUR.
+            if (status === 401 || status === 403) {
+              await API.setToken(null);
+              await API.cacheUserForBootstrap(null);
+              setUser(null);
+            }
+          });
+        return;
+      }
       try {
         const me = await API.fetchMe();
         if (!cancelled) {
           setUser(me);
           await API.cacheUserForBootstrap(me);
         }
-      } catch {
+      } catch (err) {
         if (!cancelled) {
-          await API.setToken(null);
-          setUser(null);
+          // 401/403 → token gerçekten geçersiz, oturumu kapat.
+          // Network/5xx hatasında oturumu KORU: önbellekteki kullanıcıyla devam et.
+          const status = err instanceof API.ApiError ? err.status : 0;
+          if (status === 401 || status === 403) {
+            await API.setToken(null);
+            await API.cacheUserForBootstrap(null);
+            setUser(null);
+          } else {
+            const cachedUser2 = await API.getCachedUser();
+            setUser(cachedUser2);
+          }
         }
       } finally {
         if (!cancelled) setIsLoading(false);

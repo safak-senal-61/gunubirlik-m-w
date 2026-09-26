@@ -3,6 +3,7 @@ import {
   Alert,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +11,8 @@ import {
   View,
 } from "react-native";
 import { Badge, Card, C, EmptyState, Loading, PrimaryButton, SectionTitle, StatCard } from "@/components/ui";
+import { RefreshHint } from "@/components/RefreshHint";
+import { useCachedList } from "@/hooks/use-cached-list";
 import { createJob, deleteJob, fetchCategories, fetchJobs, updateJob } from "@/lib/api";
 import type { ApiCategory, ApiJob, JobCategory, JobStatus } from "@/lib/types";
 import {
@@ -31,32 +34,45 @@ export default function DashboardScreen({
 }) {
   const { user } = useAuth();
   const [jobs, setJobs] = useState<ApiJob[]>([]);
-  const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetchJobs({ mine: true, limit: 50 });
-      setJobs(res.items);
-    } catch {
-      // sessiz
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const myJobsFetcher = useCallback(() => fetchJobs({ mine: true, limit: 50 }), []);
+  const {
+    data: myJobsData,
+    loading,
+    refreshing,
+    refresh: refreshMyJobs,
+    reload,
+  } = useCachedList("jobs:mine", myJobsFetcher, []);
 
   useEffect(() => {
-    load();
-  }, [load, refreshKey]);
+    if (myJobsData) setJobs(myJobsData.items);
+  }, [myJobsData]);
+
+  useEffect(() => {
+    if (refreshKey > 0) reload();
+  }, [refreshKey, reload]);
 
   const totalApps = jobs.reduce((s, j) => s + j.applicationCount, 0);
   const openJobs = jobs.filter((j) => j.status === "OPEN").length;
 
   return (
-    <ScrollView style={styles.flex} contentContainerStyle={styles.wrap}>
+    <ScrollView
+      style={styles.flex}
+      contentContainerStyle={styles.wrap}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={refreshMyJobs}
+          tintColor={C.primary}
+          colors={[C.primary]}
+          progressBackgroundColor="#fff"
+        />
+      }
+    >
+      <RefreshHint refreshing={refreshing} />
       <Text style={styles.h1}>Merhaba{user?.companyName ? `, ${user.companyName}` : ""} 👋</Text>
-      <Text style={styles.sub}>İlanlarını yönet, başvuruları takip et.</Text>
+      <Text style={styles.sub}>İlanlarını yönet, başvuruları takip et. ↓ Aşağı çekerek yenile.</Text>
 
       <View style={styles.statRow}>
         <StatCard emoji="💼" label="Açık ilan" value={String(openJobs)} />
@@ -72,7 +88,7 @@ export default function DashboardScreen({
         <EmptyState emoji="💼" title="Henüz ilanın yok" subtitle="İlk günübirlik iş ilanını yayınla; işçiler aynı gün başvursun." />
       ) : (
         jobs.map((job) => (
-          <EmployerJobCard key={job.id} job={job} onChanged={load} onPress={() => onOpenJob(job)} />
+          <EmployerJobCard key={job.id} job={job} onChanged={reload} onPress={() => onOpenJob(job)} />
         ))
       )}
 
@@ -81,7 +97,7 @@ export default function DashboardScreen({
         onClose={() => setCreateOpen(false)}
         onCreated={() => {
           setCreateOpen(false);
-          load();
+          reload();
         }}
       />
     </ScrollView>

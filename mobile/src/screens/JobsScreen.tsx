@@ -3,12 +3,15 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { Badge, Card, Chip, C, EmptyState, Loading, PrimaryButton } from "@/components/ui";
+import { RefreshHint } from "@/components/RefreshHint";
+import { useCachedList } from "@/hooks/use-cached-list";
 import {
   fetchCategories,
   fetchJobs,
@@ -43,14 +46,12 @@ export default function JobsScreen({
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [jobs, setJobs] = useState<ApiJob[]>([]);
   const [pagination, setPagination] = useState({ page: 1, total: 0, hasNext: false });
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [category, setCategory] = useState<JobCategory | "ALL">("ALL");
   const [search, setSearch] = useState("");
   const [radiusKm, setRadiusKm] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<"distance" | "new">("new");
   const [saving, setSaving] = useState<string | null>(null);
-
   // Konum seçimi (adres autocomplete)
   const [locQuery, setLocQuery] = useState("");
   const [locCoords, setLocCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -82,29 +83,45 @@ export default function JobsScreen({
 
   const refCoords = locCoords ?? userCoords;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetchJobs({
+  // Sayfalama + filtre parametrelerine göre cache'li çekim (stale-while-revalidate).
+  const listCacheKey = `jobs:${page}:${category}:${search.trim().toLowerCase()}:${refCoords ? `${refCoords.lat.toFixed(3)},${refCoords.lng.toFixed(3)}` : "no"}`;
+  const jobsFetcher = useCallback(
+    () =>
+      fetchJobs({
         page,
         limit: PAGE_SIZE,
         status: "OPEN",
         ...(category !== "ALL" ? { category } : {}),
         ...(search.trim() ? { search: search.trim() } : {}),
         ...(refCoords ? { lat: refCoords.lat, lng: refCoords.lng } : {}),
-      });
-      setJobs(res.items);
-      setPagination({ page: res.pagination.page, total: res.pagination.total, hasNext: res.pagination.hasNext });
-    } catch (err) {
-      // sessiz geç; liste boş görünür
-    } finally {
-      setLoading(false);
-    }
-  }, [page, category, search, refCoords]);
+      }),
+    [page, category, search, refCoords],
+  );
+  const {
+    data: jobsData,
+    loading: jobsLoading,
+    refreshing,
+    refresh: refreshJobs,
+    reload: reloadJobs,
+  } = useCachedList(listCacheKey, jobsFetcher, [listCacheKey]);
 
   useEffect(() => {
-    load();
-  }, [load, refreshKey]);
+    if (jobsData) {
+      setJobs(jobsData.items);
+      setPagination({
+        page: jobsData.pagination.page,
+        total: jobsData.pagination.total,
+        hasNext: jobsData.pagination.hasNext,
+      });
+    }
+  }, [jobsData]);
+  const loading = jobsLoading;
+
+  // Sekme değişiminde (refreshKey) sessiz tazele (cache varsa anında göster, spinner yok).
+  useEffect(() => {
+    if (refreshKey > 0) reloadJobs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   const withDistance = useMemo(
     () =>
@@ -164,10 +181,20 @@ export default function JobsScreen({
       data={visible}
       keyExtractor={({ job }) => job.id}
       contentContainerStyle={styles.list}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={refreshJobs}
+          tintColor={C.primary}
+          colors={[C.primary]}
+          progressBackgroundColor="#fff"
+        />
+      }
       ListHeaderComponent={
         <View style={styles.header}>
+          <RefreshHint refreshing={refreshing} />
           <Text style={styles.h1}>Bugünün işleri</Text>
-          <Text style={styles.sub}>Yakınındaki günlük işleri bul, hemen başvur.</Text>
+          <Text style={styles.sub}>Yakınındaki günlük işleri bul, hemen başvur. ↓ Aşağı çekerek yenile.</Text>
 
           {/* Adres + GPS */}
           <View style={styles.locRow}>

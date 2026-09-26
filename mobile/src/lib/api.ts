@@ -196,6 +196,7 @@ export async function logout(): Promise<void> {
   }
   await setToken(null);
   await cacheUser(null);
+  clearApiCache();
 }
 
 export async function fetchMe(): Promise<ApiUser> {
@@ -532,6 +533,52 @@ export async function rateApplication(id: string, rating: number, comment?: stri
   }
 }
 
+// ---------------- QR ile işe başlama / bitirme ----------------
+
+export type QrType = "CHECK_IN" | "CHECK_OUT";
+
+export interface QrCodeData {
+  token: string;
+  qrImageDataUrl: string;
+  expiresAt: string;
+}
+
+/** İşveren: application için CHECK_IN / CHECK_OUT QR'ı üretir (5 dk geçerli, tek kullanımlık). */
+export async function generateApplicationQr(id: string, type: QrType): Promise<QrCodeData> {
+  try {
+    const res = await api.post(`/applications/${id}/qr-code`, { type });
+    return res.data.data as QrCodeData;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** İşçi: işveren ekranındaki QR'ı taradığında token'ı backend'e gönderir. */
+export async function scanQr(token: string): Promise<{ message: string }> {
+  try {
+    const res = await api.post("/qr/scan", { token });
+    return res.data.data as { message: string };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+export interface QrStatusData {
+  hasActiveQr: boolean;
+  type?: QrType | null;
+  expiresAt?: string | null;
+  scannedAt?: string | null;
+}
+
+export async function fetchQrStatus(id: string): Promise<QrStatusData> {
+  try {
+    const res = await api.get(`/applications/${id}/qr-status`);
+    return res.data.data as QrStatusData;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
 // ---------------- Conversations ----------------
 
 export async function fetchConversations(): Promise<ApiConversation[]> {
@@ -629,4 +676,107 @@ export async function checkHealth(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// ---------------- Basit önbellek (stale-while-revalidate) ----------------
+// Liste uçlarını AsyncStorage'a yazar; uygulama açılışında anında eski veri
+// gösterilir, arka planda tazelenir. Böylece her ekranda "Yükleniyor…" dönmez.
+
+const CACHE_PREFIX = "gb_cache_";
+const CACHE_TTL = 5 * 60 * 1000; // 5 dk sonra arka plan yenilemesi zaten yapılır
+
+const memoryCache = new Map<string, { at: number; data: unknown }>();
+
+async function readCache<T>(key: string): Promise<{ at: number; data: T } | null> {
+  const mem = memoryCache.get(key);
+  if (mem) return mem as { at: number; data: T };
+  try {
+    const s = await getStorage();
+    const raw = await s.getItem(CACHE_PREFIX + key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { at: number; data: T };
+    memoryCache.set(key, parsed);
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCache(key: string, data: unknown): Promise<void> {
+  const entry = { at: Date.now(), data };
+  memoryCache.set(key, entry);
+  try {
+    const s = await getStorage();
+    await s.setItem(CACHE_PREFIX + key, JSON.stringify(entry));
+  } catch {
+    // önbellek yazılamazsa sessiz geç
+  }
+}
+
+export function clearApiCache(): void {
+  memoryCache.clear();
+  void (async () => {
+    try {
+      const s = await getStorage();
+      const raw = await s.getItem(CACHE_PREFIX + "__keys");
+      if (raw) {
+        const keys = JSON.parse(raw) as string[];
+        await Promise.all(keys.map((k) => s.removeItem(CACHE_PREFIX + k)));
+      }
+      await s.removeItem(CACHE_PREFIX + "__keys");
+    } catch {
+      // yok say
+    }
+  })();
+}
+
+async function registerCacheKey(key: string): Promise<void> {
+  try {
+    const s = await getStorage();
+    const raw = await s.getItem(CACHE_PREFIX + "__keys");
+    const keys = raw ? (JSON.parse(raw) as string[]) : [];
+    if (!keys.includes(key)) {
+      keys.push(key);
+      await s.setItem(CACHE_PREFIX + "__keys", JSON.stringify(keys));
+    }
+  } catch {
+    // yok say
+  }
+}
+
+/**
+ * stale-while-revalidate: önce önbellekteki veri döner (anında), sonra ağ tazelemesi yapılır.
+ * `force` ise (pull-to-refresh) doğrudan ağdan çeker. Arka plan yenilemesi bitince
+ * `onUpdate` ile ekran da taze veriyi alır.
+ */
+export async function cachedFetch<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  opts?: { force?: boolean; onUpdate?: (data: T) => void },
+): Promise<{ data: T; fromCache: boolean; cacheAge: number | null }> {
+  if (opts?.force) {
+    const data = await fetcher();
+    await writeCache(key, data);
+    void registerCacheKey(key);
+    return { data, fromCache: false, cacheAge: 0 };
+  }
+  const cached = await readCache<T>(key);
+  const fresh = cached != null && Date.now() - cached.at < CACHE_TTL;
+  if (fresh && cached) {
+    return { data: cached.data, fromCache: true, cacheAge: Date.now() - cached.at };
+  }
+  if (cached) {
+    // Eski veri hemen dönülür; ağ yenilemesi arka planda, bitince onUpdate çağrılır.
+    void fetcher()
+      .then(async (data) => {
+        await writeCache(key, data);
+        opts?.onUpdate?.(data);
+      })
+      .catch(() => {});
+    return { data: cached.data, fromCache: true, cacheAge: Date.now() - cached.at };
+  }
+  const data = await fetcher();
+  await writeCache(key, data);
+  void registerCacheKey(key);
+  return { data, fromCache: false, cacheAge: null };
 }

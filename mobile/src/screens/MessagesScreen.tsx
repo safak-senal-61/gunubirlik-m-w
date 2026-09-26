@@ -5,12 +5,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { Badge, Card, C, EmptyState, Loading } from "@/components/ui";
+import { RefreshHint } from "@/components/RefreshHint";
+import { useCachedList } from "@/hooks/use-cached-list";
 import {
   fetchConversations,
   fetchMessages,
@@ -23,29 +26,35 @@ import { useAuth } from "@/hooks/use-auth";
 
 export default function MessagesScreen({ refreshKey }: { refreshKey: number }) {
   const [conversations, setConversations] = useState<ApiConversation[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ApiConversation | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      setConversations(await fetchConversations());
-    } catch {
-      // sessiz
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const convFetcher = useCallback(() => fetchConversations(), []);
+  const {
+    data: convData,
+    loading,
+    refreshing,
+    refresh: refreshConvs,
+    reload,
+  } = useCachedList("conversations:all", convFetcher, []);
 
   useEffect(() => {
-    load();
-    const t = setInterval(load, 15000);
+    if (convData) setConversations(convData);
+  }, [convData]);
+
+  // Canlı akış için 15 sn'de bir sessiz tazele + sekme değişiminde.
+  useEffect(() => {
+    const t = setInterval(reload, 15000);
     return () => clearInterval(t);
-  }, [load, refreshKey]);
+  }, [reload]);
+
+  useEffect(() => {
+    if (refreshKey > 0) reload();
+  }, [refreshKey, reload]);
 
   const openConv = (conv: ApiConversation) => {
     setSelected(conv);
     if (conv.unreadCount > 0) {
-      markConversationRead(conv.id).then(load);
+      markConversationRead(conv.id).then(reload);
     }
   };
 
@@ -55,7 +64,7 @@ export default function MessagesScreen({ refreshKey }: { refreshKey: number }) {
         conversation={selected}
         onBack={() => {
           setSelected(null);
-          load();
+          reload();
         }}
       />
     );
@@ -76,6 +85,15 @@ export default function MessagesScreen({ refreshKey }: { refreshKey: number }) {
           data={conversations}
           keyExtractor={(c) => c.id}
           contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={refreshConvs}
+              tintColor={C.primary}
+              colors={[C.primary]}
+              progressBackgroundColor="#fff"
+            />
+          }
           renderItem={({ item }) => (
             <Pressable onPress={() => openConv(item)}>
               <Card style={styles.convCard}>

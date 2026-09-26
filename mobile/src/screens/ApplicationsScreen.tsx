@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Badge, Card, C, Chip, EmptyState, Loading, PrimaryButton, SectionTitle } from "@/components/ui";
+import { RefreshHint } from "@/components/RefreshHint";
+import { useCachedList } from "@/hooks/use-cached-list";
 import { fetchApplications, rateApplication, updateApplicationStatus } from "@/lib/api";
 import type { ApiApplication, ApplicationStatus } from "@/lib/types";
 import {
@@ -24,24 +26,26 @@ export default function ApplicationsScreen({
 }) {
   const { user } = useAuth();
   const [apps, setApps] = useState<ApiApplication[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("ALL");
   const isEmployer = user?.role === "EMPLOYER";
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      setApps(await fetchApplications());
-    } catch {
-      // sessiz
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const appsFetcher = useCallback(() => fetchApplications(), []);
+  const {
+    data: appsData,
+    loading,
+    refreshing,
+    refresh: refreshApps,
+    reload,
+  } = useCachedList("applications:all", appsFetcher, []);
 
   useEffect(() => {
-    load();
-  }, [load, refreshKey]);
+    if (appsData) setApps(appsData);
+  }, [appsData]);
+
+  // Sekme değişiminde sessiz tazele (spinner yok).
+  useEffect(() => {
+    if (refreshKey > 0) reload();
+  }, [refreshKey, reload]);
 
   const filtered = filter === "ALL" ? apps : apps.filter((a) => a.status === filter);
   const counts: Record<Filter, number> = {
@@ -53,12 +57,25 @@ export default function ApplicationsScreen({
   };
 
   return (
-    <ScrollView style={styles.flex} contentContainerStyle={styles.wrap}>
+    <ScrollView
+      style={styles.flex}
+      contentContainerStyle={styles.wrap}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={refreshApps}
+          tintColor={C.primary}
+          colors={[C.primary]}
+          progressBackgroundColor="#fff"
+        />
+      }
+    >
+      <RefreshHint refreshing={refreshing} />
       <Text style={styles.h1}>{isEmployer ? "Gelen başvurular" : "Başvurularım"}</Text>
       <Text style={styles.sub}>
         {isEmployer
-          ? "İlanlarına yapılan başvuruları değerlendir, kabul et veya reddet."
-          : "Gönderdiğin başvuruların durumunu buradan takip et."}
+          ? "İlanlarına yapılan başvuruları değerlendir, kabul et veya reddet. ↓ Aşağı çekerek yenile."
+          : "Gönderdiğin başvuruların durumunu buradan takip et. ↓ Aşağı çekerek yenile."}
       </Text>
 
       <View style={styles.chipRow}>
@@ -82,7 +99,7 @@ export default function ApplicationsScreen({
             key={app.id}
             app={app}
             isEmployer={!!isEmployer}
-            onChanged={load}
+            onChanged={reload}
             onStartChat={onStartChat}
             onShowQR={onShowQR}
           />

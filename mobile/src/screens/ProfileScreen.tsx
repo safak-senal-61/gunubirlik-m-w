@@ -348,8 +348,8 @@ function WalletTab({ user }: { user: ApiUser }) {
         <Text style={styles.flowStep}>4️⃣ İşçi <Text style={styles.flowStrong}>Aldım</Text> onayı verir → işlem kapanır.</Text>
         <Text style={styles.flowStep}>5️⃣ Anlaşmazlıkta <Text style={styles.flowStrong}>İtiraz</Text> → yönetim çözümler.</Text>
         <Text style={styles.miniNote}>
-          ℹ️ Ödendi/Aldım adımları şu an backend'de işçi/işveren endpoint'i olarak sunulmuyor; akış yönetim paneli
-          üzerinden yürütülüyor. QR ekranındaki “Ödemeyi Al” kodu, elden ödemede karşılıklı dijital fiş olarak kullanılabilir.
+          ℹ️ Otomatik ödeme: İşçi, işverenin CHECK_OUT (İşi Bitir) QR'ını okuttuğunda iş COMPLETED olur ve sistemde
+          otomatik PENDING ödeme talebi oluşur. Yönetim onayından sonra işveren ödemeyi işaretler, işçi alım onayı verir.
         </Text>
       </Card>
 

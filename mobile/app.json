@@ -43,6 +43,12 @@
           "photosPermission": "Profil fotoğrafını seçmek için galerine erişim gerekiyor.",
           "cameraPermission": "Profil fotoğrafı çekmek için kamera erişimi gerekiyor."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "İşe başlama/bitiş QR kodlarını okutmak için kamera erişimi gerekiyor."
+        }
       ]
     ],
     "experiments": {

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Card, C, EmptyState, Loading, PrimaryButton } from "@/components/ui";
+import { RefreshHint } from "@/components/RefreshHint";
+import { useCachedList } from "@/hooks/use-cached-list";
 import {
   deleteNotification,
   fetchNotifications,
@@ -30,23 +32,29 @@ export default function NotificationsScreen({
 }) {
   const [items, setItems] = useState<ApiNotification[]>([]);
   const [unread, setUnread] = useState(0);
-  const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetchNotifications();
-      setItems(res.items);
-      setUnread(res.unreadCount);
-    } catch {
-      // sessiz
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const notifFetcher = useCallback(() => fetchNotifications(), []);
+  const {
+    data: notifData,
+    loading,
+    refreshing,
+    refresh: refreshNotifs,
+    reload,
+  } = useCachedList("notifications:all", notifFetcher, []);
 
   useEffect(() => {
-    load();
-  }, [load, refreshKey]);
+    if (notifData) {
+      setItems(notifData.items);
+      setUnread(notifData.unreadCount);
+    }
+  }, [notifData]);
+
+  useEffect(() => {
+    if (refreshKey > 0) {
+      reload();
+      onChanged?.();
+    }
+  }, [refreshKey, reload, onChanged]);
 
   const remove = (id: string) => {
     Alert.alert("Bildirimi sil", "Bu bildirim silinsin mi?", [
@@ -57,7 +65,7 @@ export default function NotificationsScreen({
         onPress: async () => {
           try {
             await deleteNotification(id);
-            setItems((prev) => prev.filter((n) => n.id !== id));
+            await reload();
             onChanged?.();
           } catch {
             // sessiz
@@ -83,7 +91,7 @@ export default function NotificationsScreen({
             onPress={async () => {
               try {
                 await markAllNotificationsRead();
-                await load();
+                await reload();
                 onChanged?.();
               } catch {
                 // sessiz
@@ -93,7 +101,22 @@ export default function NotificationsScreen({
         )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.list}>
+      <ScrollView
+        contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              await refreshNotifs();
+              onChanged?.();
+            }}
+            tintColor={C.primary}
+            colors={[C.primary]}
+            progressBackgroundColor="#fff"
+          />
+        }
+      >
+        <RefreshHint refreshing={refreshing} />
         {loading ? (
           <Loading />
         ) : items.length === 0 ? (
@@ -106,7 +129,7 @@ export default function NotificationsScreen({
                 onPress={() => {
                   if (!n.isRead) {
                     markNotificationRead(n.id)
-                      .then(load)
+                      .then(reload)
                       .then(() => onChanged?.())
                       .catch(() => {});
                   }
