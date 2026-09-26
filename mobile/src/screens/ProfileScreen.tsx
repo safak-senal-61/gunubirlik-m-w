@@ -939,14 +939,14 @@ function AboutTab({ onLogout }: { onLogout: () => void }) {
         <Text style={{ fontSize: 44 }}>💼</Text>
         <Text style={{ fontSize: 20, fontWeight: "800", color: C.text }}>Günübirlik</Text>
         <Text style={styles.desc}>Günlük iş bulma ve işçi bulma platformu</Text>
-        <Badge label="Mobil v1.1.0" color={C.primary} bg={C.primarySoft} />
+        <Badge label="Mobil v1.1.1" color={C.primary} bg={C.primarySoft} />
       </Card>
 
       <Card style={{ gap: 10 }}>
         <SectionTitle>Uygulama</SectionTitle>
         <View style={styles.ruleRow}>
           <Text style={styles.ruleText}>Sürüm</Text>
-          <Text style={styles.ruleValue}>1.1.0 (build 6)</Text>
+          <Text style={styles.ruleValue}>1.1.1 (build 7)</Text>
         </View>
         <View style={styles.ruleRow}>
           <Text style={styles.ruleText}>Sunucu</Text>
