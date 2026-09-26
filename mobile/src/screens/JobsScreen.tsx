@@ -11,15 +11,9 @@ import {
   View,
 } from "react-native";
 import { Badge, Card, Chip, C, EmptyState, Loading, PrimaryButton } from "@/components/ui";
-import { RefreshHint } from "@/components/RefreshHint";
 import { useCachedList } from "@/hooks/use-cached-list";
-import {
-  fetchCategories,
-  fetchJobs,
-  fetchSavedJobIds,
-  suggestAddress,
-  toggleSaveJob,
-} from "@/lib/api";
+import { fetchCategories, fetchJobs, suggestAddress } from "@/lib/api";
+import { toggleSaved, useSavedIds } from "@/lib/saved-store";
 import type { ApiCategory, ApiJob, GeocodeSuggestion, JobCategory } from "@/lib/types";
 import {
   CATEGORY_ICONS,
@@ -54,7 +48,8 @@ export default function JobsScreen({
   const [radiusKm, setRadiusKm] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<"distance" | "new">("new");
   const [saving, setSaving] = useState<string | null>(null);
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  // Ortak store: liste, detay ve "Kaydedilenler" ekranı hep aynı durumu görür.
+  const savedIds = useSavedIds();
   // Konum seçimi (adres autocomplete)
   const [locQuery, setLocQuery] = useState("");
   const [locCoords, setLocCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -62,19 +57,6 @@ export default function JobsScreen({
   const [suggestions, setSuggestions] = useState<GeocodeSuggestion[]>([]);
   const [locating, setLocating] = useState(false);
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Kayıtlı iş ID'leri: ♡/✓ işaretinin doğru görünmesi için.
-  useEffect(() => {
-    let active = true;
-    fetchSavedJobIds()
-      .then((ids) => {
-        if (active) setSavedIds(new Set(ids));
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => {
     fetchCategories().then(setCategories).catch(() => {});
@@ -183,23 +165,10 @@ export default function JobsScreen({
 
   const handleSave = async (job: ApiJob) => {
     if (saving) return;
-    const willSave = !savedIds.has(job.id);
     setSaving(job.id);
-    setSavedIds((prev) => {
-      const next = new Set(prev);
-      if (willSave) next.add(job.id);
-      else next.delete(job.id);
-      return next;
-    });
     try {
-      await toggleSaveJob(job.id);
+      await toggleSaved(job.id);
     } catch {
-      setSavedIds((prev) => {
-        const next = new Set(prev);
-        if (willSave) next.delete(job.id);
-        else next.add(job.id);
-        return next;
-      });
       Alert.alert("İşlem başarısız", "İş kaydedilemedi/kaldırılamadı, tekrar dene.");
     } finally {
       setSaving(null);
@@ -222,7 +191,6 @@ export default function JobsScreen({
       }
       ListHeaderComponent={
         <View style={styles.header}>
-          <RefreshHint refreshing={refreshing} />
           <Text style={styles.h1}>Bugünün işleri</Text>
           <Text style={styles.sub}>Yakınındaki günlük işleri bul, hemen başvur. ↓ Aşağı çekerek yenile.</Text>
 
@@ -341,7 +309,7 @@ export default function JobsScreen({
         <JobCard
           job={item.job}
           distanceKm={item.km}
-          isSaved={savedIds.has(item.job.id)}
+          isSaved={savedIds.includes(item.job.id)}
           saving={saving === item.job.id}
           onPress={() => onOpenJob(item.job)}
           onSave={() => handleSave(item.job)}

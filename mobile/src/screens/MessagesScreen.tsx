@@ -12,7 +12,6 @@ import {
   View,
 } from "react-native";
 import { Badge, Card, C, EmptyState, Loading } from "@/components/ui";
-import { RefreshHint } from "@/components/RefreshHint";
 import { useCachedList } from "@/hooks/use-cached-list";
 import {
   fetchConversations,

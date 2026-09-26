@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import { Badge, Card, C, Loading, PrimaryButton, SectionTitle } from "@/components/ui";
 import LeafletMap from "@/components/LeafletMap";
-import { applyToJob, fetchJob, fetchSavedJobIds, toggleSaveJob } from "@/lib/api";
+import { applyToJob, fetchJob } from "@/lib/api";
+import { toggleSaved, useSavedIds } from "@/lib/saved-store";
 import type { ApiApplication, ApiJob } from "@/lib/types";
 import {
   CATEGORY_ICONS,
@@ -41,8 +42,10 @@ export default function JobDetailScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [applyOpen, setApplyOpen] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
   const [saveBusy, setSaveBusy] = useState(false);
+  // Liste ekranıyla aynı store: ana sayfada kaydedilen iş burada da "✓ Kaydedildi" olur.
+  const savedIds = useSavedIds();
+  const isSaved = savedIds.includes(jobId);
 
   useEffect(() => {
     setLoading(true);
@@ -50,21 +53,14 @@ export default function JobDetailScreen({
       .then(setJob)
       .catch((err) => setError(err instanceof Error ? err.message : "İlan yüklenemedi"))
       .finally(() => setLoading(false));
-    // Bu ilan benim kayıtlılarımda mı? (♡/✓ işaretinin doğru görünmesi için)
-    fetchSavedJobIds()
-      .then((ids) => setIsSaved(ids.includes(jobId)))
-      .catch(() => {});
   }, [jobId]);
 
   const handleToggleSave = async () => {
     if (saveBusy) return;
     setSaveBusy(true);
-    setIsSaved((s) => !s); // optimistik
     try {
-      const res = await toggleSaveJob(jobId);
-      setIsSaved(res?.saved ?? !isSaved);
+      await toggleSaved(jobId);
     } catch (err) {
-      setIsSaved((s) => !s); // geri al
       Alert.alert("Kaydedilemedi", err instanceof Error ? err.message : "Tekrar dene.");
     } finally {
       setSaveBusy(false);

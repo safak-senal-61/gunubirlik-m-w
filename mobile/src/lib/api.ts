@@ -444,11 +444,11 @@ export async function fetchSavedJobs(): Promise<ApiJob[]> {
  * görünmesi ve tıklandığında gerçekten toggle etmesi için kullanılır.
  */
 export async function fetchSavedJobIds(): Promise<string[]> {
-  const jobs = await cachedFetch("jobs:saved-ids", async () => {
+  const { data } = await cachedFetch("jobs:saved-ids", async () => {
     const list = await fetchSavedJobs();
     return list.map((j) => j.id);
   });
-  return Array.isArray(jobs) ? jobs : [];
+  return Array.isArray(data) ? data : [];
 }
 
 export async function fetchCategories(): Promise<ApiCategory[]> {
@@ -752,6 +752,19 @@ async function writeCache(key: string, data: unknown): Promise<void> {
   } catch {
     // önbellek yazılamazsa sessiz geç
   }
+}
+
+/** Tek bir cache anahtarını (bellek + AsyncStorage) geçersiz kılar. */
+export function invalidateCacheKey(key: string): void {
+  memoryCache.delete(key);
+  void (async () => {
+    try {
+      const s = await getStorage();
+      await s.removeItem(CACHE_PREFIX + key);
+    } catch {
+      // yok say
+    }
+  })();
 }
 
 export function clearApiCache(): void {

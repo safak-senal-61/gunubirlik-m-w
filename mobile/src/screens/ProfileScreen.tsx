@@ -147,8 +147,10 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
 
   return (
     <>
-      <Card>
-        <View style={styles.idRow}>
+      {/* Modern profil kartı: renkli üst blok + yuvarlak avatar + cam hissi istatistikler */}
+      <View style={styles.profileCard}>
+        <View style={styles.profileGlow} pointerEvents="none" />
+        <View style={styles.profileTop}>
           <Pressable
             onPress={async () => {
               try {
@@ -175,6 +177,7 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
                 Alert.alert("Fotoğraf yüklenemedi", err instanceof Error ? err.message : "Tekrar dene.");
               }
             }}
+            style={styles.avatarRing}
           >
             {user.avatarUrl ? (
               <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} />
@@ -183,40 +186,79 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
                 <Text style={styles.avatarText}>{user.fullName.slice(0, 2).toUpperCase()}</Text>
               </View>
             )}
-            <Text style={styles.avatarEdit}>📷 Değiştir</Text>
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <View style={styles.nameRow}>
-              <Text style={styles.name}>{user.fullName}</Text>
-              {user.isVerified && <Badge label="✓ Doğrulanmış" color={C.emerald} bg={C.emeraldBg} />}
+            <View style={styles.avatarBadge}>
+              <Text style={styles.avatarBadgeText}>📷</Text>
             </View>
-            <Text style={styles.meta}>{user.email}</Text>
-            {user.phone ? <Text style={styles.meta}>{user.phone}</Text> : null}
-            {user.city || user.district ? <Text style={styles.meta}>📍 {user.district}, {user.city}</Text> : null}
-            {isEmployer && user.companyName ? <Text style={styles.meta}>🏢 {user.companyName}</Text> : null}
-          </View>
-          <View style={styles.ratingBox}>
-            <Text style={styles.ratingValue}>⭐ {user.ratingAvg.toFixed(1)}</Text>
-            <Text style={styles.ratingCount}>{user.ratingCount} değerlendirme</Text>
+          </Pressable>
+
+          <View style={{ flex: 1, gap: 4 }}>
+            <View style={styles.nameRow}>
+              <Text style={styles.profileName} numberOfLines={1}>{user.fullName}</Text>
+            </View>
+            <View style={styles.profileChipRow}>
+              <View style={styles.profileChip}>
+                <Text style={styles.profileChipText}>{isEmployer ? "🏢 İşveren" : "🔨 İşçi"}</Text>
+              </View>
+              {user.isVerified && (
+                <View style={[styles.profileChip, styles.profileChipOk]}>
+                  <Text style={[styles.profileChipText, styles.profileChipTextOk]}>✓ Doğrulanmış</Text>
+                </View>
+              )}
+            </View>
+            {isEmployer && user.companyName ? (
+              <Text style={styles.profileCompany} numberOfLines={1}>🏢 {user.companyName}</Text>
+            ) : null}
           </View>
         </View>
 
+        <View style={styles.profileInfoRow}>
+          <InfoPill icon="✉️" text={user.email} />
+          {user.phone ? <InfoPill icon="📞" text={user.phone} /> : null}
+          {user.city || user.district ? <InfoPill icon="📍" text={`${user.district ?? ""}, ${user.city ?? ""}`.trim()} /> : null}
+        </View>
+
+        <View style={styles.profileStats}>
+          <View style={styles.profileStat}>
+            <Text style={styles.profileStatValue}>⭐ {user.ratingAvg.toFixed(1)}</Text>
+            <Text style={styles.profileStatLabel}>{user.ratingCount} değerlendirme</Text>
+          </View>
+          <View style={styles.profileStatDivider} />
+          <View style={styles.profileStat}>
+            <Text style={[styles.profileStatValue, styles.profileStatValueSm]}>{formatDate(user.createdAt)}</Text>
+            <Text style={styles.profileStatLabel}>Üyelik başlangıcı</Text>
+          </View>
+        </View>
+      </View>
+
+      <Card style={{ gap: 12 }}>
         {!isEmployer && user.skills.length > 0 && (
           <View style={styles.skillsRow}>
             {user.skills.map((s) => (
-              <Badge key={s} label={s} color={C.text} bg={C.stoneBg} />
+              <Badge key={s} label={s} color={C.primary} bg={C.primarySoft} />
             ))}
           </View>
         )}
-
         {user.bio ? <Text style={styles.bio}>{user.bio}</Text> : null}
-        <Text style={styles.memberSince}>Üyelik: {formatDate(user.createdAt)}</Text>
+        {!user.bio && (!user.skills.length || isEmployer) ? (
+          <Text style={styles.desc}>
+            {isEmployer ? "Şirket tanıtımını ve iletişim bilgilerini eksiksiz tut, güven kazan." : "Profiline birkaç beceri ve kısa bir tanıtım ekle, daha çok ilan gör."}
+          </Text>
+        ) : null}
       </Card>
 
       <EditProfileSection user={user} onSaved={refreshUser} />
 
       {!isEmployer && <WorkerStatsSection refreshKey={refreshKey} />}
     </>
+  );
+}
+
+function InfoPill({ icon, text }: { icon: string; text: string }) {
+  return (
+    <View style={styles.infoPill}>
+      <Text style={styles.infoPillIcon}>{icon}</Text>
+      <Text style={styles.infoPillText} numberOfLines={1}>{text}</Text>
+    </View>
   );
 }
 
@@ -1013,8 +1055,10 @@ const styles = StyleSheet.create({
   tabLabelActive: { fontWeight: "800" },
   wrap: { padding: 16, paddingBottom: 40, gap: 12 },
   idRow: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
-  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },
-  avatarImg: { width: 56, height: 56, borderRadius: 28 },
+  avatar: { width: 62, height: 62, borderRadius: 31, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },
+  avatarImg: { width: 62, height: 62, borderRadius: 31 },
+  avatarBadge: { position: "absolute", bottom: -2, right: -2, width: 24, height: 24, borderRadius: 12, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
+  avatarBadgeText: { fontSize: 11 },
   avatarText: { fontSize: 18, fontWeight: "800", color: C.primary },
   avatarEdit: { fontSize: 9, fontWeight: "700", color: C.primary, textAlign: "center", marginTop: 3 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
@@ -1026,6 +1070,53 @@ const styles = StyleSheet.create({
   skillsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 12 },
   bio: { fontSize: 13, color: C.text, backgroundColor: "#f5f5f7", borderRadius: 10, padding: 10, marginTop: 10, lineHeight: 20 },
   memberSince: { fontSize: 11, color: C.muted, marginTop: 8 },
+  // --- Modern profil kartı ---
+  profileCard: {
+    backgroundColor: C.primary,
+    borderRadius: 22,
+    padding: 18,
+    gap: 14,
+    overflow: "hidden",
+    shadowColor: C.primary,
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 5,
+  },
+  profileGlow: {
+    position: "absolute",
+    top: -70,
+    right: -50,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: "rgba(255,255,255,0.14)",
+  },
+  profileTop: { flexDirection: "row", gap: 14, alignItems: "center" },
+  avatarRing: {
+    padding: 3,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.55)",
+    backgroundColor: "rgba(255,255,255,0.18)",
+  },
+  profileName: { fontSize: 19, fontWeight: "800", color: "#fff" },
+  profileChipRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+  profileChip: { backgroundColor: "rgba(255,255,255,0.22)", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  profileChipOk: { backgroundColor: "rgba(16,185,129,0.28)" },
+  profileChipText: { fontSize: 10, fontWeight: "700", color: "#fff" },
+  profileChipTextOk: { color: "#a7f3d0" },
+  profileCompany: { fontSize: 12, fontWeight: "600", color: "rgba(255,255,255,0.85)" },
+  profileInfoRow: { gap: 6 },
+  infoPill: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 12, paddingHorizontal: 11, paddingVertical: 8 },
+  infoPillIcon: { fontSize: 12 },
+  infoPillText: { flex: 1, fontSize: 12, color: "#fff", fontWeight: "600" },
+  profileStats: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 16, paddingVertical: 12 },
+  profileStat: { flex: 1, alignItems: "center", gap: 2 },
+  profileStatDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.25)" },
+  profileStatValue: { fontSize: 15, fontWeight: "800", color: "#fff" },
+  profileStatValueSm: { fontSize: 13 },
+  profileStatLabel: { fontSize: 10, fontWeight: "600", color: "rgba(255,255,255,0.8)" },
   desc: { fontSize: 13, color: C.muted, lineHeight: 19 },
   backupTitle: { fontSize: 12, fontWeight: "700", color: C.amber },
   backupCodes: { fontSize: 12, color: C.amber, lineHeight: 20 },

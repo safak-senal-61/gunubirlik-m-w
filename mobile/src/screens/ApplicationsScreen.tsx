@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Badge, Card, C, Chip, EmptyState, Loading, PrimaryButton, SectionTitle } from "@/components/ui";
-import { RefreshHint } from "@/components/RefreshHint";
 import { useCachedList } from "@/hooks/use-cached-list";
 import { fetchApplications, rateApplication, updateApplicationStatus } from "@/lib/api";
 import type { ApiApplication, ApplicationStatus } from "@/lib/types";
@@ -70,7 +69,6 @@ export default function ApplicationsScreen({
         />
       }
     >
-      <RefreshHint refreshing={refreshing} />
       <Text style={styles.h1}>{isEmployer ? "Gelen başvurular" : "Başvurularım"}</Text>
       <Text style={styles.sub}>
         {isEmployer
@@ -124,6 +122,10 @@ function ApplicationCard({
 }) {
   const [busy, setBusy] = useState(false);
   const [ratingOpen, setRatingOpen] = useState(false);
+  // Sunucudan dönen liste bayat olabilir; verilen puanı lokalde tutarak
+  // butonun anında kaybolmasını garanti ederiz.
+  const [localRating, setLocalRating] = useState<number | null>(null);
+  const rating = localRating ?? app.rating ?? null;
 
   const act = async (status: "ACCEPTED" | "REJECTED" | "COMPLETED") => {
     setBusy(true);
@@ -210,30 +212,31 @@ function ApplicationCard({
           {app.status === "ACCEPTED" && (
             <PrimaryButton label="Tamamlandı" disabled={busy} onPress={() => act("COMPLETED")} />
           )}
-          {app.status === "COMPLETED" && !app.rating && (
+          {app.status === "COMPLETED" && !rating && (
             <PrimaryButton label="⭐ Puan ver" variant="outline" onPress={() => setRatingOpen(true)} />
           )}
-          {app.rating ? <Badge label={`⭐ ${app.rating}/5`} color={C.amber} bg={C.amberBg} /> : null}
+          {rating ? <Badge label={`⭐ ${rating}/5`} color={C.amber} bg={C.amberBg} /> : null}
         </View>
       ) : (
-        app.status === "COMPLETED" && !app.rating && (
+        app.status === "COMPLETED" && !rating && (
           <View style={styles.actions}>
             <PrimaryButton label="⭐ İşvereni puanla" variant="outline" onPress={() => setRatingOpen(true)} />
           </View>
         )
       )}
-      {!isEmployer && app.rating ? (
+      {!isEmployer && rating ? (
         <View style={styles.actions}>
-          <Badge label={`⭐ ${app.rating}/5`} color={C.amber} bg={C.amberBg} />
+          <Badge label={`⭐ ${rating}/5`} color={C.amber} bg={C.amberBg} />
         </View>
       ) : null}
 
       <RatingModal
         open={ratingOpen}
         onClose={() => setRatingOpen(false)}
-        onSubmit={async (rating, comment) => {
+        onSubmit={async (value, comment) => {
           try {
-            await rateApplication(app.id, rating, comment);
+            await rateApplication(app.id, value, comment);
+            setLocalRating(value); // buton anında kaybolsun
             setRatingOpen(false);
             onChanged();
           } catch {

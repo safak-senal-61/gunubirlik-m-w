@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Card, C, EmptyState, Loading, PrimaryButton } from "@/components/ui";
-import { RefreshHint } from "@/components/RefreshHint";
 import { useCachedList } from "@/hooks/use-cached-list";
 import {
   deleteNotification,
@@ -117,7 +116,6 @@ export default function NotificationsScreen({
           />
         }
       >
-        <RefreshHint refreshing={refreshing} />
         {loading ? (
           <Loading />
         ) : items.length === 0 ? (

@@ -11,7 +11,6 @@ import {
   View,
 } from "react-native";
 import { Badge, Card, C, EmptyState, Loading, PrimaryButton, SectionTitle, StatCard } from "@/components/ui";
-import { RefreshHint } from "@/components/RefreshHint";
 import { useCachedList } from "@/hooks/use-cached-list";
 import { createJob, deleteJob, fetchCategories, fetchJobs, updateJob } from "@/lib/api";
 import type { ApiCategory, ApiJob, JobCategory, JobStatus } from "@/lib/types";
@@ -70,7 +69,6 @@ export default function DashboardScreen({
         />
       }
     >
-      <RefreshHint refreshing={refreshing} />
       <Text style={styles.h1}>Merhaba{user?.companyName ? `, ${user.companyName}` : ""} 👋</Text>
       <Text style={styles.sub}>İlanlarını yönet, başvuruları takip et. ↓ Aşağı çekerek yenile.</Text>
 

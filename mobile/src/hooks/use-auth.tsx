@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import * as API from "@/lib/api";
+import { resetSavedIds } from "@/lib/saved-store";
 import type { ApiUser } from "@/lib/types";
 
 export class TwoFactorRequiredError extends Error {
@@ -124,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await API.logout();
+    resetSavedIds();
     setUser(null);
   }, []);
 

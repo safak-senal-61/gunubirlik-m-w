@@ -11,9 +11,9 @@ import {
   fetchNotifications,
   fetchSavedJobs,
   sendMessage,
-  toggleSaveJob,
   type MaintenanceStatus,
 } from "@/lib/api";
+import { toggleSaved, useSavedIds } from "@/lib/saved-store";
 import type { ApiApplication, ApiJob } from "@/lib/types";
 import AuthScreen from "@/screens/AuthScreen";
 import MaintenanceScreen from "@/screens/MaintenanceScreen";
@@ -27,7 +27,6 @@ import ProfileScreen from "@/screens/ProfileScreen";
 import QRScreen from "@/screens/QRScreen";
 import QrScannerScreen from "@/screens/QrScannerScreen";
 import { Card, C, EmptyState, PrimaryButton } from "@/components/ui";
-import { RefreshHint } from "@/components/RefreshHint";
 import { useCachedList } from "@/hooks/use-cached-list";
 
 type Tab = "jobs" | "saved" | "applications" | "messages" | "notifications" | "profile";
@@ -406,7 +405,6 @@ function SavedScreen({ onOpenJob, refreshKey }: { onOpenJob: (job: ApiJob) => vo
         />
       }
     >
-      <RefreshHint refreshing={refreshing} />
       <Text style={styles.h1}>Kaydedilenler</Text>
       <Text style={styles.sub}>Daha sonra başvurmak için kaydettiğin ilanlar. ↓ Aşağı çekerek yenile.</Text>
       {loading ? (
@@ -424,17 +422,18 @@ function SavedScreen({ onOpenJob, refreshKey }: { onOpenJob: (job: ApiJob) => vo
 
 function JobCardInline({ job, onOpen, onUnsave }: { job: ApiJob; onOpen: () => void; onUnsave: () => void }) {
   const [busy, setBusy] = useState(false);
+  const savedIds = useSavedIds();
   // Kayıtlı ilan kartı: ♡ yerine yeşil ✓ (kalp tike döner). Kaydı kaldırınca listeden düşer.
   return (
     <JobCard
       job={job}
-      isSaved
+      isSaved={savedIds.includes(job.id)}
       saving={busy}
       onPress={onOpen}
       onSave={async () => {
         setBusy(true);
         try {
-          await toggleSaveJob(job.id);
+          await toggleSaved(job.id);
           onUnsave();
         } catch {
           // sessiz
