@@ -7,14 +7,13 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 
 > ⚠️ **v1.0.0 APK'sında beyaz ekran sorunu vardı** (SDK 52 yeni mimarisi kaynaklı). v1.0.1'de `newArchEnabled: false` yapıldı + hata görünür hale getirildi.
 
-**GÜNCEL APK (v1.0.2, versionCode 3) — kurun:**
+**TEŞHİS SÜRÜMÜ (v1.0.3, versionCode 4):**
+- Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/cacd7e0a-4825-4ae5-90f0-b65502458467
+- Açılınca modül listesi gösterir; ✗ işaretli satır çökmenin kaynağıdır. Ekran görüntüsünü geliştiriciye gönderin.
+- Gerçek uygulama `RealApp.tsx`'te; teşhis bitince `App.tsx` tekrar ona bağlanacak.
 
-**https://expo.dev/artifacts/eas/e5W2yrPyvpD5kYARij4BmHqjTt_aDXN2L9fWlBXmMNU.apk**
-
-- Bu sürümde uygulama çökerse hata mesajı **ekranda Alert olarak görünür** (ekran görüntüsü alınabilir).
-- Splash görseli de düzeltildi (önceki config'de splash resimsizdi).
-
-Eski sürümler (sorunlu, kurmayın):
+Önceki sürümler (sorunlu, kurmayın):
+- v1.0.2: https://expo.dev/artifacts/eas/e5W2yrPyvpD5kYARij4BmHqjTt_aDXN2L9fWlBXmMNU.apk
 - v1.0.1: https://expo.dev/artifacts/eas/73YnaUAyekAr-cVxyWdRSz5LXLRS8FHMvO58nIpg3B4.apk (açılışta çökme)
 - v1.0.0: https://expo.dev/artifacts/eas/0TbnaZKsUzSVNNTBJ2TcRz96ZJOb4GLkZllKvreGHTo.apk (beyaz ekran)
 

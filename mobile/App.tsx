@@ -1,307 +1,118 @@
-// EN ÖNEMLİ IMPORT: crash reporter tüm modül kodundan ÖNCE kurulmalı.
+// TEŞHİS GİRİŞ NOKTASI (v1.0.3)
+// Gerçek uygulama RealApp.tsx'te. Bu dosya, modülleri TEK TEK yükleyip
+// sonucunu ekranda canlı gösterir. Hangi adımda kalırsa / hata yazarsa,
+// çökmeye neden olan modül o olur — tahmin yerine kesin teşhis.
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { registerRootComponent } from "expo";
+
 import "@/lib/crash-reporter";
-import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import { fetchNotifications, fetchSavedJobs, toggleSaveJob } from "@/lib/api";
-import type { ApiJob } from "@/lib/types";
-import AuthScreen from "@/screens/AuthScreen";
-import JobsScreen, { JobCard } from "@/screens/JobsScreen";
-import JobDetailScreen from "@/screens/JobDetailScreen";
-import DashboardScreen from "@/screens/DashboardScreen";
-import ApplicationsScreen from "@/screens/ApplicationsScreen";
-import MessagesScreen from "@/screens/MessagesScreen";
-import NotificationsScreen from "@/screens/NotificationsScreen";
-import ProfileScreen from "@/screens/ProfileScreen";
-import { Card, C, EmptyState, PrimaryButton } from "@/components/ui";
 
-type Tab = "jobs" | "saved" | "applications" | "messages" | "profile";
+type Step = { name: string; status: "pending" | "running" | "ok" | "fail"; detail?: string };
 
-// Runtime hatasında beyaz ekran yerine hatayı ekranda göster.
-class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
-  state: { error: Error | null } = { error: null };
+const MODULES: { name: string; load: () => unknown }[] = [
+  { name: "react-native (core)", load: () => require("react-native") },
+  { name: "expo-status-bar", load: () => require("expo-status-bar") },
+  { name: "react-native-safe-area-context", load: () => require("react-native-safe-area-context") },
+  { name: "@react-native-async-storage/async-storage", load: () => require("@react-native-async-storage/async-storage") },
+  { name: "axios", load: () => require("axios") },
+  { name: "expo-location", load: () => require("expo-location") },
+  { name: "src/lib/types", load: () => require("./src/lib/types") },
+  { name: "src/lib/api", load: () => require("./src/lib/api") },
+  { name: "src/components/ui", load: () => require("./src/components/ui") },
+  { name: "src/hooks/use-auth", load: () => require("./src/hooks/use-auth") },
+  { name: "src/hooks/use-location", load: () => require("./src/hooks/use-location") },
+  { name: "src/screens/AuthScreen", load: () => require("./src/screens/AuthScreen") },
+  { name: "src/screens/JobsScreen", load: () => require("./src/screens/JobsScreen") },
+  { name: "src/screens/JobDetailScreen", load: () => require("./src/screens/JobDetailScreen") },
+  { name: "src/screens/DashboardScreen", load: () => require("./src/screens/DashboardScreen") },
+  { name: "src/screens/ApplicationsScreen", load: () => require("./src/screens/ApplicationsScreen") },
+  { name: "src/screens/MessagesScreen", load: () => require("./src/screens/MessagesScreen") },
+  { name: "src/screens/NotificationsScreen", load: () => require("./src/screens/NotificationsScreen") },
+  { name: "src/screens/ProfileScreen", load: () => require("./src/screens/ProfileScreen") },
+  { name: "RealApp (gerçek uygulama)", load: () => require("./RealApp") },
+];
 
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
+function DiagApp() {
+  const [steps, setSteps] = useState<Step[]>(MODULES.map((m) => ({ name: m.name, status: "pending" })));
+  const [done, setDone] = useState(false);
+  const running = useRef(false);
 
-  componentDidCatch(error: Error) {
-    console.error("App crash:", error);
-  }
-
-  render() {
-    const { error } = this.state;
-    if (error) {
-      return (
-        <View style={[styles.flex, styles.center, { padding: 24, backgroundColor: "#fff" }]}>
-          <Text style={styles.h1}>Beklenmeyen bir hata oluştu</Text>
-          <Text style={{ fontSize: 12, color: C.muted, textAlign: "center", marginTop: 8 }}>
-            {String(error?.message ?? error)}
-          </Text>
-        </View>
-      );
+  const runAll = useCallback(async () => {
+    if (running.current) return;
+    running.current = true;
+    for (let i = 0; i < MODULES.length; i++) {
+      setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, status: "running" } : s)));
+      // Ekrana "running" durumunu çizme şansı ver
+      await new Promise((r) => setTimeout(r, 60));
+      try {
+        MODULES[i].load();
+        setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, status: "ok" } : s)));
+      } catch (e) {
+        const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+        setSteps((prev) =>
+          prev.map((s, idx) => (idx === i ? { ...s, status: "fail", detail: msg } : s)),
+        );
+        setDone(true);
+        running.current = false;
+        return;
+      }
     }
-    return this.props.children;
-  }
-}
-
-export default function App() {
-  return (
-    <AppErrorBoundary>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <Root />
-        </AuthProvider>
-      </SafeAreaProvider>
-    </AppErrorBoundary>
-  );
-}
-
-function Root() {
-  const { user, isLoading, isAuthenticated } = useAuth();
-
-  if (isLoading) {
-    return (
-      <View style={[styles.flex, styles.center]}>
-        <Text style={{ fontSize: 26, fontWeight: "800", color: C.primary, marginBottom: 6 }}>Günübirlik</Text>
-        <ActivityIndicator size="large" color={C.primary} />
-        <Text style={{ fontSize: 12, color: C.muted, marginTop: 10 }}>Yükleniyor…</Text>
-      </View>
-    );
-  }
-
-  if (!isAuthenticated || !user) {
-    return (
-      <SafeAreaView style={styles.flex} edges={["top", "bottom"]}>
-        <StatusBar style="dark" />
-        <AuthScreen onDone={() => { /* user state değişince Root yeniden render olur */ }} />
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.flex} edges={["top"]}>
-      <StatusBar style="dark" />
-      <MainTabs />
-    </SafeAreaView>
-  );
-}
-
-function MainTabs() {
-  const { user } = useAuth();
-  const isEmployer = user?.role === "EMPLOYER";
-  const [tab, setTab] = useState<Tab>(isEmployer ? "jobs" : "jobs");
-  const [openJobId, setOpenJobId] = useState<string | null>(null);
-  const [unread, setUnread] = useState(0);
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  // Bildirim sayacı (30 sn'de bir)
-  useEffect(() => {
-    let active = true;
-    const load = () => {
-      fetchNotifications()
-        .then((r) => {
-          if (active) setUnread(r.unreadCount);
-        })
-        .catch(() => {});
-    };
-    load();
-    const t = setInterval(load, 30000);
-    return () => {
-      active = false;
-      clearInterval(t);
-    };
-  }, [refreshKey]);
-
-  const openJob = useCallback((job: ApiJob) => setOpenJobId(job.id), []);
-  const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
-
-  if (openJobId) {
-    return (
-      <View style={styles.flex}>
-        <JobDetailScreen jobId={openJobId} onBack={() => { setOpenJobId(null); bumpRefresh(); }} />
-        <TabBar tab={tab} setTab={setTab} isEmployer={!!isEmployer} unread={unread} />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.flex}>
-      <View style={styles.content}>
-        {tab === "jobs" &&
-          (isEmployer ? (
-            <DashboardScreen onOpenJob={openJob} refreshKey={refreshKey} />
-          ) : (
-            <JobsScreen userCoords={user ? null : null} onOpenJob={openJob} refreshKey={refreshKey} />
-          ))}
-        {tab === "saved" && <SavedScreen onOpenJob={openJob} refreshKey={refreshKey} />}
-        {tab === "applications" && <ApplicationsScreen refreshKey={refreshKey} />}
-        {tab === "messages" && <MessagesScreen refreshKey={refreshKey} />}
-        {tab === "profile" && <ProfileScreen refreshKey={refreshKey} />}
-      </View>
-      <TabBar tab={tab} setTab={setTab} isEmployer={!!isEmployer} unread={unread} onNavigate={bumpRefresh} />
-    </View>
-  );
-}
-
-function SavedScreen({ onOpenJob, refreshKey }: { onOpenJob: (job: ApiJob) => void; refreshKey: number }) {
-  const [jobs, setJobs] = useState<ApiJob[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      setJobs(await fetchSavedJobs());
-    } catch {
-      // sessiz
-    } finally {
-      setLoading(false);
-    }
+    setDone(true);
+    running.current = false;
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load, refreshKey]);
+    const t = setTimeout(runAll, 300);
+    return () => clearTimeout(t);
+  }, [runAll]);
+
+  const allOk = done && steps.every((s) => s.status === "ok");
 
   return (
-    <ScrollView style={styles.flex} contentContainerStyle={styles.savedWrap}>
-      <Text style={styles.h1}>Kaydedilenler</Text>
-      <Text style={styles.sub}>Daha sonra başvurmak için kaydettiğin ilanlar.</Text>
-      {loading ? (
-        <ActivityIndicator style={{ marginTop: 30 }} color={C.primary} />
-      ) : jobs.length === 0 ? (
-        <EmptyState emoji="♡" title="Kayıtlı ilan yok" subtitle="İlan kartlarındaki ♡ ile kaydet." />
-      ) : (
-        jobs.map((job) => (
-          <Card key={job.id}>
-            <JobCardInline job={job} onOpen={() => onOpenJob(job)} onUnsave={load} />
-          </Card>
-        ))
-      )}
-    </ScrollView>
-  );
-}
-
-function JobCardInline({ job, onOpen, onUnsave }: { job: ApiJob; onOpen: () => void; onUnsave: () => void }) {
-  const [busy, setBusy] = useState(false);
-  return (
-    <View style={{ gap: 8 }}>
-      <Pressable onPress={onOpen}>
-        <Text style={styles.savedTitle}>{job.title}</Text>
-        <Text style={styles.savedMeta}>
-          {job.district}, {job.city} · {job.wageAmount.toLocaleString("tr-TR")} ₺{job.wageType === "HOURLY" ? "/saat" : "/gün"}
+    <View style={styles.root}>
+      <Text style={styles.title}>Günübirlik — Teşhis v1.0.3</Text>
+      {!done && <ActivityIndicator color="#4f46e5" style={{ marginTop: 8 }} />}
+      {allOk && (
+        <Text style={styles.allOk}>
+          TÜM MODÜLLER YÜKLENDİ ✓ — Sorun modül yüklemede değil, çalışma zamanında.
         </Text>
-      </Pressable>
-      <PrimaryButton
-        label="Kaydı kaldır"
-        variant="ghost"
-        disabled={busy}
-        onPress={async () => {
-          setBusy(true);
-          try {
-            await toggleSaveJob(job.id);
-            onUnsave();
-          } catch {
-            // sessiz
-          } finally {
-            setBusy(false);
-          }
-        }}
-      />
-    </View>
-  );
-}
-
-function TabBar({
-  tab,
-  setTab,
-  isEmployer,
-  unread,
-  onNavigate,
-}: {
-  tab: Tab;
-  setTab: (t: Tab) => void;
-  isEmployer: boolean;
-  unread: number;
-  onNavigate?: () => void;
-}) {
-  const tabs: { key: Tab; icon: string; label: string }[] = isEmployer
-    ? [
-        { key: "jobs", icon: "💼", label: "Panel" },
-        { key: "applications", icon: "📥", label: "Başvuru" },
-        { key: "messages", icon: "💬", label: "Mesaj" },
-        { key: "profile", icon: "👤", label: "Profil" },
-      ]
-    : [
-        { key: "jobs", icon: "💼", label: "İşler" },
-        { key: "saved", icon: "♡", label: "Kayıtlı" },
-        { key: "applications", icon: "📥", label: "Başvuru" },
-        { key: "messages", icon: "💬", label: "Mesaj" },
-        { key: "profile", icon: "👤", label: "Profil" },
-      ];
-
-  return (
-    <View style={styles.tabBar}>
-      {tabs.map((t) => (
-        <Pressable
-          key={t.key}
-          style={styles.tabItem}
-          onPress={() => {
-            setTab(t.key);
-            onNavigate?.();
-          }}
-        >
-          <Text style={[styles.tabIcon, tab === t.key && styles.tabIconActive]}>{t.icon}</Text>
-          <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>{t.label}</Text>
-          {t.key === "applications" && unread > 0 && (
-            <View style={styles.tabBadge}>
-              <Text style={styles.tabBadgeText}>{unread > 9 ? "9+" : unread}</Text>
+      )}
+      <ScrollView style={styles.list}>
+        {steps.map((s) => (
+          <View key={s.name} style={styles.row}>
+            <Text style={styles.icon}>
+              {s.status === "ok" ? "✓" : s.status === "fail" ? "✗" : s.status === "running" ? "…" : "·"}
+            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.name, s.status === "ok" && styles.ok, s.status === "fail" && styles.fail]}>
+                {s.name}
+              </Text>
+              {!!s.detail && <Text style={styles.detail}>{s.detail}</Text>}
             </View>
-          )}
-        </Pressable>
-      ))}
+          </View>
+        ))}
+        <Text style={styles.hint}>
+          Bu ekranı ekran görüntüsü alıp geliştiriciye gönderin. ✓ işareti görmeyen ilk satır sorunun kaynağıdır.
+        </Text>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  center: { alignItems: "center", justifyContent: "center", backgroundColor: C.bg },
-  content: { flex: 1 },
-  tabBar: {
-    flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    backgroundColor: "#fff",
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 8,
-    gap: 2,
-  },
-  tabIcon: { fontSize: 20, opacity: 0.55 },
-  tabIconActive: { opacity: 1 },
-  tabLabel: { fontSize: 10, fontWeight: "600", color: C.muted },
-  tabLabelActive: { color: C.primary },
-  tabBadge: {
-    position: "absolute",
-    top: 4,
-    right: "28%",
-    backgroundColor: "#e11d48",
-    borderRadius: 999,
-    minWidth: 16,
-    height: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4,
-  },
-  tabBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
-  savedWrap: { padding: 16, paddingBottom: 40, gap: 12 },
-  h1: { fontSize: 22, fontWeight: "800", color: C.text },
-  sub: { fontSize: 13, color: C.muted, marginTop: -6 },
-  savedTitle: { fontSize: 15, fontWeight: "800", color: C.text },
-  savedMeta: { fontSize: 12, color: C.muted, marginTop: 2 },
+  root: { flex: 1, backgroundColor: "#fff", paddingTop: 60, paddingHorizontal: 16 },
+  title: { fontSize: 18, fontWeight: "800", color: "#111827", textAlign: "center" },
+  allOk: { color: "#059669", fontWeight: "700", textAlign: "center", marginTop: 8, fontSize: 13 },
+  list: { marginTop: 16 },
+  row: { flexDirection: "row", gap: 8, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#f3f4f6", alignItems: "flex-start" },
+  icon: { fontSize: 14, width: 16, color: "#6b7280" },
+  name: { fontSize: 13, color: "#374151", fontWeight: "600" },
+  ok: { color: "#059669" },
+  fail: { color: "#dc2626" },
+  detail: { fontSize: 11, color: "#dc2626", marginTop: 2 },
+  hint: { fontSize: 11, color: "#9ca3af", paddingVertical: 16, textAlign: "center" },
 });
+
+registerRootComponent(DiagApp);
