@@ -7,12 +7,13 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 
 > ⚠️ **v1.0.0 APK'sında beyaz ekran sorunu vardı** (SDK 52 yeni mimarisi kaynaklı). v1.0.1'de `newArchEnabled: false` yapıldı + hata görünür hale getirildi.
 
-**TEŞHİS SÜRÜMÜ (v1.0.3, versionCode 4):**
-- Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/cacd7e0a-4825-4ae5-90f0-b65502458467
-- Açılınca modül listesi gösterir; ✗ işaretli satır çökmenin kaynağıdır. Ekran görüntüsünü geliştiriciye gönderin.
-- Gerçek uygulama `RealApp.tsx`'te; teşhis bitince `App.tsx` tekrar ona bağlanacak.
+**ÇÖZÜM SÜRÜMÜ (v1.0.4, versionCode 5):**
+- Kök neden: `"main" has not been registered` — Android release'te root bileşen açıkça kaydedilmeliydi (`registerRootComponent`). Expo Go'da fark edilmiyordu.
+- Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/93dc1498-3b0a-4b41-87f2-fbc1f06668da
+- `App.tsx` artık `registerRootComponent(RealApp)` çağırıyor; crash-reporter da korunuyor.
 
 Önceki sürümler (sorunlu, kurmayın):
+- v1.0.3: teşhis sürümü (modül listesi ekranı)
 - v1.0.2: https://expo.dev/artifacts/eas/e5W2yrPyvpD5kYARij4BmHqjTt_aDXN2L9fWlBXmMNU.apk
 - v1.0.1: https://expo.dev/artifacts/eas/73YnaUAyekAr-cVxyWdRSz5LXLRS8FHMvO58nIpg3B4.apk (açılışta çökme)
 - v1.0.0: https://expo.dev/artifacts/eas/0TbnaZKsUzSVNNTBJ2TcRz96ZJOb4GLkZllKvreGHTo.apk (beyaz ekran)
