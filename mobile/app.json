@@ -2,7 +2,7 @@
   "expo": {
     "name": "Günübirlik",
     "slug": "gunubirlik",
-    "version": "1.1.2",
+    "version": "1.1.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "gunubirlik",
@@ -23,7 +23,7 @@
     },
     "android": {
       "package": "com.gunubirlik.app",
-      "versionCode": 8,
+      "versionCode": 9,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -47,7 +47,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "İşe başlama/bitiş QR kodlarını okutmak için kamera erişimi gerekiyor."
+          "cameraPermission": "İşe başlama/bitiş ve QR ile ödeme kodlarını okutmak için kamera erişimi gerekiyor."
         }
       ]
     ],

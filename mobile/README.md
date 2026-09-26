@@ -25,11 +25,30 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 - 🛠️ **Bakım modu kapısı:** Admin panelden bakıma alınınca (60 sn içinde) uygulamanın TAMAMI — giriş dahil — güzel temalı bakım ekranına döner: API'den başlık/mesaj, geri sayım, iletişim kanalları (WhatsApp/Ara/E-posta/Instagram), "Yeniden dene". Bakım durumu önbellekte tutulur; kapalıyken uygulama anında açılır.
 - 💬 **QR Tara (işçi):** expo-camera ile işveren QR'ını okutur → check-in/check-out backend'e işlenir
 
+**v1.1.3 (versionCode 9) — CÜZDAN & ÖDEME SİSTEMİ + BUGFİXLER (en güncel):**
+> 📥 **APK:** https://expo.dev/artifacts/eas/_uqWTxf29D4YsyJFZaLqBd_9g_pr2AwOPcPMLDTqYhY.apk
+
+- 💳 **Cüzdan ekranı gerçek backend'e bağlandı** (statik özet kaldırıldı): canlı bakiye kartı, bekleyen yatırma/çekme toplamları
+- 💸 **Para Yatır:** `POST /wallet/deposit-request` — tutar + ad soyad + IBAN (TR+26 hane doğrulama, otomatik biçimlendirme) + banka/not; yönetim EFT/havale onayı sonrası bakiyeye işler
+- 🏧 **Para Çek:** `POST /wallet/withdraw-request` — bakiye kontrolü, IBAN doğrulama; tutar emanete alınır, onaydan sonra IBAN'a gönderilir (3-5 iş günü)
+- ↔️ **Para Gönder:** `POST /wallet/transfer` — başka kullanıcıya anında transfer (min 10 ₺)
+- 📲 **QR ile Öde / QR ile Al:** `POST /wallet/qr-pay/generate` + `POST /wallet/qr-pay/scan` — gerçek base64 QR görseli, 5 dakikalık **canlı geri sayım**, tek kullanımlık token; alma ekranında kamera + manuel token doğrulama
+- 🧾 **Hareket listesi:** `GET /wallet/transactions` — tip filtreleri (Tümü/Yatırma/Çekme/İş ödemesi/QR ödeme/Transfer), +/- renkli tutarlar, işlem sonrası bakiye
+- 🗂️ **Talep geçmişi:** yatırma + çekme talepleri tek listede, durum rozeti (Onay bekliyor / Onaylandı / Tamamlandı / Reddedildi) ve ret gerekçesiyle
+- 🐛 **Kaydetme (♡/✓) senkronu düzeltildi:** `fetchSavedJobIds()` `cachedFetch` sarmalayıcısını doğrudan döndürüyordu (`Array.isArray` hep `false` → kayıtlı ID'ler hep boş geliyordu). Artık `src/lib/saved-store.ts` tek kaynak: ana sayfada kaydedilen iş detay kartında da "✓ Kaydedildi" görünüyor (ve tersi). "Kaydedilenler" sekmesi de aynı store'u kullanıyor.
+- 🐛 **Pull-to-refresh göstergesi çakışması giderildi:** native `RefreshControl` spinner'ı ile özel "Güncelleniyor…" şeridi üst üste biniyordu; şerit tüm ekranlardan kaldırıldı.
+- 🐛 **"Puan Ver" butonu kalıcı kalmıyordu:** puan gönderildikten sonra sunucudan bayat liste döndüğü için buton görünmeye devam ediyordu. Artık puan lokalde tutuluyor → buton anında kayboluyor, `⭐ x/5` rozeti gösteriliyor.
+- ✨ **Ayarlar profil kartı modernleşti:** indigo gradient'li kart, yuvarlak avatar halkası + kamera rozeti, cam efektli rol/doğrulama chip'leri, ikonlu bilgi hapları (e-posta/telefon/konum), 2 kolonlu istatistik bloğu (puan + üyelik tarihi)
+- ✨ **Login / Register ekranları modernleşti:** parlak blob'lu marka header'ı, gölgeli logo kutusu + tagline, odak animasyonlu ikonlu input alanları, ikonlu "İşçiyim / İşverenim" rol kartları (ipucu metniyle), hata/başarı banner'ları, "veya" ayırıcı, yuvarlak köşeler ve yumuşak gölgeler
+- ℹ️ Otomatik IBAN ödemesi (payout) yerine backend'in mevcut **elle talep + yönetim onayı** modeli birebir uygulandı; canlı API ile doğrulandı.
+- Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/370b03f8-330d-4a7f-ba81-55d3df23b40d
+- APK: https://expo.dev/artifacts/eas/_uqWTxf29D4YsyJFZaLqBd_9g_pr2AwOPcPMLDTqYhY.apk
+
 **v1.1.2 (versionCode 8) — ÇÖZÜM SÜRÜMÜ (Ayarlar çökmesi düzeltildi):**
 - 🐛 **Ayarlar sekmesi çökmesi düzeltildi:** sekme butonunda aynı `Animated.View` üzerinde hem native (`transform`) hem JS (`backgroundColor`) driver'lı animasyon çalışıyordu → "Attempting to run JS driven animation on animated node that has been moved to native" hatası. Tüm animasyonlar artık tutarlı şekilde JS-driven.
 - Aşağıdaki v1.1.1 değişikliklerinin TAMAMI bu sürümde de mevcut.
 - Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/33eb4483-4c0e-4099-953a-611cf25ff84c
-- APK: (build bitince eklenir)
+- APK: https://expo.dev/artifacts/eas/_3CUDZHSnd8XGh97B2BY8LD-DJkaVxLFWIeFlkh0GB0.apk (bu sürümün arşivi; yerine v1.1.3'ü kur)
 
 ⚠️ **v1.1.1 (versionCode 7) KURMAYIN** — Ayarlar sekmesi bu sürümde çöker (build iptal edilemeyecek kadar hızlı bitmişti, bu yüzden v1.1.2 ile düzeltildi):
 - Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/2ad4b044-f95b-4a23-8662-8d9882c8a611
