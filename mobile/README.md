@@ -25,6 +25,18 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 - 🛠️ **Bakım modu kapısı:** Admin panelden bakıma alınınca (60 sn içinde) uygulamanın TAMAMI — giriş dahil — güzel temalı bakım ekranına döner: API'den başlık/mesaj, geri sayım, iletişim kanalları (WhatsApp/Ara/E-posta/Instagram), "Yeniden dene". Bakım durumu önbellekte tutulur; kapalıyken uygulama anında açılır.
 - 💬 **QR Tara (işçi):** expo-camera ile işveren QR'ını okutur → check-in/check-out backend'e işlenir
 
+**v1.1.1 (versionCode 7) — BUGFİX + HARİTA GÜNCELLEMESİ:**
+- 🐛 **Bildirim ekranı sonsuz yükleme döngüsü düzeltildi** (uygulama kilitleniyor, menülere geçilemiyordu)
+- 🐛 **İş detay kartı açıkken alt menüye basınca** artık detay kapanıyor ve seçilen sekme açılıyor (önce arka planda değişiyor ama kart ekranda kalıyordu)
+- 🐛 **QR Tara butonu** artık sadece İşler/Başvuru sekmelerinde; Mesajlar ekranında yazma alanını kapatmıyor
+- 🐛 **İşi Kaydet (♡) butonu çalışıyor:** gerçek API toggle + optimistik ♡ ⇄ yeşil ✓ dönüşü (listede ve detayda); Kayıtlılar listesinde kalp ✓ görünür
+- ✨ **İş yeri haritası:** Leaflet + OpenStreetMap interaktif harita — kategoriye uygun emoji pin, popup (iş adı + adres), 400 m çevre çemberi (react-native-webview)
+- ✨ **"Başvurun kabul edildi"** çirkin badge yerine şık durum banner'ı: ikon kutusu (🎉/⏳/💔/🏁), bold başlık, açıklama, duruma göre renk
+- ✨ **Manuel token doğrulama:** kamera bozuksa QR tarayıcıda token/QR içeriği yapıştırılıp doğrulanabiliyor
+- ✨ **Ayarlar sekmeleri animasyonlu:** yay (spring) basış efekti, yumuşak renk geçişi, içerik fade+slide geçişi
+- Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/2ad4b044-f95b-4a23-8662-8d9882c8a611
+- APK: (build bitince eklenir)
+
 Önceki sürümler (sorunlu, kurmayın):
 - v1.0.3: teşhis sürümü (modül listesi ekranı)
 - v1.0.2: https://expo.dev/artifacts/eas/e5W2yrPyvpD5kYARij4BmHqjTt_aDXN2L9fWlBXmMNU.apk
