@@ -2,6 +2,7 @@
 // Mobil mirror of src/lib/api.ts.
 
 import axios, { AxiosError } from "axios";
+import * as FileSystem from "expo-file-system";
 import {
   Platform,
 } from "react-native";
@@ -251,15 +252,14 @@ export async function changePassword(currentPassword: string, newPassword: strin
 
 export async function uploadAvatar(file: { uri: string; name: string; type: string }): Promise<{ avatarUrl: string }> {
   try {
-    const form = new FormData();
-    // React Native FormData file shape
-    form.append("avatar", {
-      uri: file.uri,
-      name: file.name,
-      type: file.type,
-    } as unknown as Blob);
-    const res = await api.post("/auth/avatar", form, {
-      headers: { "Content-Type": "multipart/form-data" },
+    // Backend multipart DEĞİL, JSON bekliyor: { base64: "data:image/...;base64,...", mimeType }
+    // (bkz. api-doc POST /auth/avatar). Yerel dosyayı base64'e çevirip gönder.
+    const base64 = await FileSystem.readAsStringAsync(file.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const res = await api.post("/auth/avatar", {
+      base64: `data:${file.type || "image/jpeg"};base64,${base64}`,
+      mimeType: file.type || "image/jpeg",
     });
     return res.data.data as { avatarUrl: string };
   } catch (err) {
@@ -275,9 +275,57 @@ export async function requestPasswordReset(email: string): Promise<void> {
   }
 }
 
-export async function resetPassword(email: string, code: string, newPassword: string): Promise<void> {
+/**
+ * Şifre sıfırlama — backend gövdesi { code, newPassword } bekler (email BEKLEMEZ;
+ * kod EmailOtp/PasswordReset tablolarında e-postaya bağlı aranır — bkz. api-doc).
+ */
+export async function resetPassword(code: string, newPassword: string): Promise<void> {
   try {
-    await api.post("/auth/reset-password", { email, code, newPassword });
+    await api.post("/auth/reset-password", { code, newPassword });
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- E-posta OTP (doğrulama) ----------------
+
+export type OtpType =
+  | "EMAIL_ACTIVATION"
+  | "PASSWORD_RESET"
+  | "EMAIL_CHANGE"
+  | "LOGIN_VERIFY"
+  | "PHONE_VERIFY";
+
+/** 6 haneli tek kullanımlık kod gönderir (10 dk geçerli, max 5 yanlış deneme). */
+export async function sendOtp(
+  email: string,
+  type: OtpType = "EMAIL_ACTIVATION",
+): Promise<{ success?: boolean; message?: string }> {
+  try {
+    const res = await api.post("/auth/send-otp", { email, type });
+    return res.data.data as { success?: boolean; message?: string };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** E-posta aktivasyonu: send-otp EMAIL_ACTIVATION kodunu doğrular, emailVerified=true yapar. */
+export async function verifyEmail(
+  email: string,
+  code: string,
+): Promise<{ verified: boolean; userId?: string }> {
+  try {
+    const res = await api.post("/auth/verify-email", { email, code });
+    return res.data.data as { verified: boolean; userId?: string };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Doğrulanmamış hesaplara aktivasyon kodunu tekrar gönderir (zaten doğrulanmışsa hata döner). */
+export async function resendActivation(email: string): Promise<void> {
+  try {
+    await api.post("/auth/resend-activation", { email });
   } catch (err) {
     throw toApiError(err);
   }

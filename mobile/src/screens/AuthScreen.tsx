@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -14,9 +15,14 @@ import { useAuth, TwoFactorRequiredError } from "@/hooks/use-auth";
 import {
   requestPasswordReset,
   resetPassword,
+  sendOtp,
+  verifyEmail,
+  resendActivation,
 } from "@/lib/api";
 
-type Mode = "login" | "register" | "twofactor" | "forgot" | "reset";
+const LOGO = require("../../../assets/splash-icon.png");
+
+type Mode = "login" | "register" | "twofactor" | "forgot" | "reset" | "verify";
 
 const C = {
   primary: "#4f46e5",
@@ -48,6 +54,10 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
   const [otp, setOtp] = useState("");
   const [resetCode, setResetCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  // E-posta doğrulama: kayıt sonrası aktivasyon kodu ekranı.
+  const [verifyEmailAddr, setVerifyEmailAddr] = useState("");
+  const [verifyCode, setVerifyCode] = useState("");
+  const [resending, setResending] = useState(false);
 
   const submitLogin = async () => {
     setLoading(true);
@@ -93,11 +103,46 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
         district: district.trim(),
         ...(role === "EMPLOYER" && companyName.trim() ? { companyName: companyName.trim() } : {}),
       });
-      onDone();
+      // Kayıt başarılı → hesap doğrulanmadan tam aktif olmaz; aktivasyon kodu ekranına geç.
+      // (Kod kayıt anında backend tarafından e-postaya gönderilir; kullanıcı burada girer.)
+      setVerifyEmailAddr(email.trim());
+      setVerifyCode("");
+      setMode("verify");
+      setError(null);
+      setInfo("Aktivasyon kodu e-postana gönderildi (10 dk geçerli).");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kayıt başarısız");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const submitVerify = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await verifyEmail(verifyEmailAddr, verifyCode);
+      setInfo("E-posta doğrulandı! Hesabın aktif. 🎉");
+      onDone();
+    } catch (err) {
+      // Kod hatalı/süresi geçmiş olabilir — kullanıcı yine de uygulamaya girer,
+      // doğrulamayı sonra Ayarlar > Güvenlik'ten tamamlayabilir.
+      setError(err instanceof Error ? err.message : "Doğrulama başarısız");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitResend = async () => {
+    setResending(true);
+    setError(null);
+    try {
+      await resendActivation(verifyEmailAddr);
+      setInfo("Aktivasyon kodu tekrar gönderildi.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gönderilemedi");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -119,7 +164,7 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      await resetPassword(email.trim(), resetCode, newPassword);
+      await resetPassword(resetCode, newPassword);
       setInfo("Şifren güncellendi. Yeni şifrenle giriş yap.");
       setMode("login");
       setResetCode("");
@@ -140,7 +185,9 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
           ? "Doğrulama kodu"
           : mode === "forgot"
             ? "Şifremi unuttum"
-            : "Yeni şifre belirle";
+            : mode === "verify"
+              ? "E-postanı doğrula"
+              : "Yeni şifre belirle";
 
   return (
     <KeyboardAvoidingView
@@ -157,8 +204,8 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
         <View style={styles.hero}>
           <View style={styles.heroBlob1} pointerEvents="none" />
           <View style={styles.heroBlob2} pointerEvents="none" />
-          <View style={styles.logoBox}>
-            <Text style={styles.logoEmoji}>🔨</Text>
+          <View style={styles.logoBox} pointerEvents="none">
+            <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
           </View>
           <Text style={styles.logoText}>Günübirlik</Text>
           <Text style={styles.tagline}>
@@ -172,6 +219,24 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
 
         <View style={styles.card}>
           <Text style={styles.title}>{title}</Text>
+
+          {mode === "verify" && (
+            <>
+              <Text style={styles.desc}>
+                {verifyEmailAddr} adresine gönderilen 6 haneli aktivasyon kodunu gir.
+              </Text>
+              {info ? <Banner tone="success" text={info} /> : null}
+              <Field icon="🛡️" label="Aktivasyon kodu" value={verifyCode} onChangeText={(v) => setVerifyCode(v.replace(/\D/g, ""))} keyboardType="number-pad" maxLength={6} placeholder="000000" />
+              {error ? <Banner tone="error" text={error} /> : null}
+              <PrimaryButton label="E-postamı doğrula" onPress={submitVerify} loading={loading} disabled={verifyCode.length !== 6} />
+              <Pressable onPress={submitResend} style={styles.linkBtn} disabled={resending}>
+                <Text style={styles.link}>{resending ? "Gönderiliyor…" : "Kodu tekrar gönder"}</Text>
+              </Pressable>
+              <Pressable onPress={onDone} style={styles.linkBtn}>
+                <Text style={styles.link}>Şimdilik atla, sonra doğrula →</Text>
+              </Pressable>
+            </>
+          )}
 
           {mode === "login" && (
             <>
@@ -377,16 +442,17 @@ const styles = StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 20,
-    backgroundColor: C.primary,
+    backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: C.primary,
-    shadowOpacity: 0.4,
+    shadowColor: "#1e50a2",
+    shadowOpacity: 0.25,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 8 },
     elevation: 6,
+    overflow: "hidden",
   },
-  logoEmoji: { fontSize: 30 },
+  logoImage: { width: 62, height: 62, borderRadius: 20 },
   logoText: { fontSize: 26, fontWeight: "900", color: C.text, letterSpacing: -0.5 },
   tagline: { fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 19, maxWidth: 300, paddingHorizontal: 10 },
   card: {

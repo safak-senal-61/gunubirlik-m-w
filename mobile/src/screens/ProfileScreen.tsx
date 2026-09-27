@@ -21,10 +21,12 @@ import {
   requestEmailChange,
   requestPasswordReset,
   resetPassword,
+  sendOtp,
   setup2fa,
   updateMe,
   uploadAvatar,
   verify2fa,
+  verifyEmail,
 } from "@/lib/api";
 import type { ApiApplication, ApiUser } from "@/lib/types";
 import { APPLICATION_STATUS_LABELS, formatWage } from "@/lib/format";
@@ -433,6 +435,7 @@ function SecurityTab({ user }: { user: ApiUser }) {
   const { refreshUser } = useAuth();
   return (
     <>
+      {!user.emailVerified && <EmailVerificationSection email={user.email} onVerified={refreshUser} />}
       <TwoFactorSection enabled={!!user.twoFactorEnabled} onChanged={refreshUser} />
       <PasswordSection />
       <EmailChangeSection currentEmail={user.email} onChanged={refreshUser} />
@@ -637,7 +640,7 @@ function EmailChangeSection({ currentEmail, onChanged }: { currentEmail: string;
         <PrimaryButton label="E-posta değiştir" variant="outline" onPress={() => setOpen(true)} />
       ) : !requested ? (
         <>
-          <Text style={styles.desc}>Doğrulama kodu {currentEmail} adresine gönderilir.</Text>
+          <Text style={styles.desc}>Doğrulama kodu YENİ e-posta adresine gönderilir (10 dk geçerli). Mevcut e-postanın doğrulanmış olması gerekir.</Text>
           <Field label="Yeni e-posta" value={newEmail} onChangeText={setNewEmail} keyboardType="email-address" autoCapitalize="none" />
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <View style={styles.row}>
@@ -733,7 +736,8 @@ function ForgotPasswordInline() {
             onPress={async () => {
               setError(null);
               try {
-                await resetPassword(email.trim(), code, newPass);
+                // Backend gövdesi { code, newPassword } — email beklenmez (bkz. api-doc).
+                await resetPassword(code, newPass);
                 Alert.alert("Tamam", "Şifren güncellendi. Yeni şifrenle giriş yapabilirsin.");
                 setStage("idle"); setCode(""); setNewPass(""); setInfo(null);
               } catch (err) {
@@ -743,6 +747,80 @@ function ForgotPasswordInline() {
           />
         </>
       )}
+    </Card>
+  );
+}
+
+/**
+ * E-posta doğrulanmamış hesaplar için: send-otp (EMAIL_ACTIVATION) + verify-email.
+ * email-change/request backend'de emailVerified=true ister (403) — bu kart o
+ * engeli kaldırır.
+ */
+function EmailVerificationSection({ email, onVerified }: { email: string; onVerified: () => Promise<void> }) {
+  const [code, setCode] = useState("");
+  const [sending, setSending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  return (
+    <Card style={{ gap: 10, borderColor: "#fdba74", borderWidth: 1.5 }}>
+      <SectionTitle>📧 E-postanı doğrula</SectionTitle>
+      <Text style={styles.desc}>
+        {email} adresi henüz doğrulanmadı. E-posta değişikliği ve tam hesap güvenliği için doğrula.
+      </Text>
+      {!sent ? (
+        <PrimaryButton
+          label="Doğrulama kodu gönder"
+          loading={sending}
+          onPress={async () => {
+            setSending(true); setError(null);
+            try {
+              await sendOtp(email, "EMAIL_ACTIVATION");
+              setSent(true);
+              setInfo("Kod e-postana gönderildi (10 dk geçerli).");
+            } catch (err) {
+              setError(err instanceof Error ? err.message : "Gönderilemedi");
+            } finally { setSending(false); }
+          }}
+        />
+      ) : (
+        <>
+          <Text style={styles.desc}>{info}</Text>
+          <Field label="6 haneli kod" value={code} onChangeText={(v) => setCode(v.replace(/\D/g, ""))} keyboardType="number-pad" maxLength={6} />
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          <PrimaryButton
+            label="Doğrula"
+            loading={verifying}
+            disabled={code.length !== 6}
+            onPress={async () => {
+              setVerifying(true); setError(null);
+              try {
+                await verifyEmail(email, code);
+                Alert.alert("Tamam", "E-posta adresin doğrulandı! 🎉");
+                await onVerified();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Doğrulama başarısız");
+              } finally { setVerifying(false); }
+            }}
+          />
+          <PrimaryButton
+            label="Kodu tekrar gönder"
+            variant="ghost"
+            onPress={async () => {
+              setError(null);
+              try {
+                await sendOtp(email, "EMAIL_ACTIVATION");
+                setInfo("Kod tekrar gönderildi.");
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Gönderilemedi");
+              }
+            }}
+          />
+        </>
+      )}
+      {error && !sent ? <Text style={styles.error}>{error}</Text> : null}
     </Card>
   );
 }

@@ -25,13 +25,21 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 - 🛠️ **Bakım modu kapısı:** Admin panelden bakıma alınınca (60 sn içinde) uygulamanın TAMAMI — giriş dahil — güzel temalı bakım ekranına döner: API'den başlık/mesaj, geri sayım, iletişim kanalları (WhatsApp/Ara/E-posta/Instagram), "Yeniden dene". Bakım durumu önbellekte tutulur; kapalıyken uygulama anında açılır.
 - 💬 **QR Tara (işçi):** expo-camera ile işveren QR'ını okutur → check-in/check-out backend'e işlenir
 
-**v1.1.5 (versionCode 11) — PUSH İZİN AKIŞI DÜZELTMELERİ (en güncel):**
+**v1.1.5 (versionCode 11) — PUSH İZİN AKIŞI + API UYUMU + LOGO/SPLASH (en güncel):**
 > 📥 APK linki build tamamlandığında buraya eklenecek.
 - 🐛 **"Push bildirimleri hazır!" dialogu her uygulama açılışında tekrar çıkması düzeltildi:** "soruldu" bayrağı artık AsyncStorage'da kalıcı (`gb_onesignal_asked_v1`); bir kez izin verildikten (veya reddedildik) sonra diyalog bir daha ASLA çıkmaz.
 - ✅ **İzin istemi artık yalnız giriş/kayıt BAŞARISINDA** isteniyor (login / kayıt / Google girişi sonrası abonelik doğrulanınca). Login-kayıt ekranında ve uygulamanın her açılışında çıkmaz.
 - 🔕 **İzin zaten verilmişse diyalog hiç gösterilmez** (izin durumu dialog öncesi tekrar doğrulanır).
 - 🔁 **İzin verilmemişse:** Ayarlar > Bildirim ekranındaki "Bildirimlere izin ver" butonuyla (ve sistem ayarlarıyla) her zaman tekrar izin istenebilir.
 - 📌 **Bildirimler sekmesinde sabit uyarı bandı:** sistem bildirim izni kapalıysa listenin üstünde kaybolmayan turuncu bant: "🔔 Bildirimler kapalı, lütfen açın — Dokun → Bildirim Ayarları". Dokununca Ayarlar > Bildirim sekmesi açılır; izin verilince bant kendiliğinden kaybolur.
+- 🔗 **API dokümanına göre uç nokta uyumu düzeltildi (api-doc kaynaklı):**
+  - `POST /auth/reset-password` gövdesi `{ code, newPassword }` olarak düzeltildi (mobilde yanlışlıkla `email` de gönderiliyordu; dokümanda yok)
+  - `POST /auth/avatar` multipart yerine **JSON `{ base64, mimeType }`** gönderiyor (expo-file-system ile dosya base64'e çevrilir) — profil fotoğrafı yükleme artık backend formatına tam uyumlu
+  - **E-posta doğrulama eklendi:** `POST /auth/send-otp` (EMAIL_ACTIVATION), `POST /auth/verify-email`, `POST /auth/resend-activation`
+  - **Kayıt sonrası aktivasyon ekranı:** hesap açılınca 6 haneli kod ekranı gelir (doğrula / tekrar gönder / sonra doğrula)
+  - **Ayarlar > Güvenlik'e "📧 E-postanı doğrula" kartı:** emailVerified=false olan hesaplara turuncu vurgu kartı (e-posta değişikliği backend'de emailVerified ister)
+  - E-posta değiştirme açıklaması düzeltildi: kod YENİ adrese gider (mevcut olana değil)
+- 🎨 **Yeni logo + splash:** mavi "C" + turuncu konum pini markası `mobile/assets/generate-icons.mjs` betiğiyle SVG'den üretildi (icon 1024, adaptive-icon güvenli bölge paylı, splash-icon 512). **Boş mavi splash ekranı düzeltildi:** eski `splash.image` 2 KB'lık bozuk `icon.png`'yi işaret ediyordu → artık gerçek `splash-icon.png` (beyaz zemin), adaptive icon beyaz zeminli foreground görselle geliyor.
 
 **v1.1.4 (versionCode 10) — ONESIGNAL PUSH + GENİŞ BİLDİRİM AYARLARI:**
 > 📥 **APK:** https://expo.dev/artifacts/eas/bG8dbXfgD7F4KYNYDFDpqknh8mmRYe1j_7mG8rvwEtU.apk
