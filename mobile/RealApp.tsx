@@ -14,7 +14,7 @@ import {
   type MaintenanceStatus,
 } from "@/lib/api";
 import { toggleSaved, useSavedIds } from "@/lib/saved-store";
-import { initOneSignal, onPushArrived, onPushNavigate } from "@/lib/onesignal";
+import { consumeColdStartIntent, initOneSignal, onPushArrived, onPushNavigate } from "@/lib/onesignal";
 import type { ApiApplication, ApiJob } from "@/lib/types";
 import AuthScreen from "@/screens/AuthScreen";
 import MaintenanceScreen from "@/screens/MaintenanceScreen";
@@ -240,6 +240,19 @@ function MainTabs() {
 
   // Uygulama ön plandayken bildirim gelirse okunmamış rozetini tazele.
   useEffect(() => onPushArrived(() => setUnread((u) => u + 1)), []);
+
+  // Soğuk başlatma: uygulama kapalıyken bildirime dokunulduysa doğru ekrana aç.
+  // (JS dinleyicileri geç bağlandığı için hedef initOneSignal içinde saklanır.)
+  const coldIntent = consumeColdStartIntent();
+  useEffect(() => {
+    if (!coldIntent) return;
+    const t = setTimeout(() => {
+      setOpenJobId(coldIntent.jobId ?? null);
+      setTab(coldIntent.tab);
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Alt menüye her basışta açık detay kartı KAPANIR + veriler sessizce tazelenir.
   // (Önceden sadece sekme değişiyor, detay kartı ekranda kalıyordu.)

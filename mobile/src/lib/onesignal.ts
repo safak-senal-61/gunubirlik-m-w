@@ -25,11 +25,13 @@ export type PushNavigateIntent = {
 type NavigateListener = (intent: PushNavigateIntent) => void;
 type ArrivedListener = () => void;
 
-let initialized = false;
 let dialogShown = false;
 let permissionState: boolean | null = null;
 let navigateListeners: NavigateListener[] = [];
 let arrivedListeners: ArrivedListener[] = [];
+
+/** Uygulama kapalıyken bildirime dokunulduysa burada saklanır; JS hazır olunca tüketilir. */
+let pendingColdStartIntent: PushNavigateIntent | null = null;
 
 /** "local-" öneki, sunucu tarafından atanmamış geçici kimliktir; kayıt sayılmaz. */
 function isServerAssignedId(id: string | null | undefined): boolean {
@@ -59,8 +61,18 @@ function safeAsync<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 }
 
 /* ------------------------------------------------------------------ */
-/* Navigasyon olay kuyruğu                                              */
+/* Soğuk başlatma: bildirime dokunularak açılan uygulamayı yönlendir       */
 /* ------------------------------------------------------------------ */
+
+/**
+ * MainTabs monte olduğunda çağırır. Uygulama KAPALIYKEN bildirime dokunulduysa
+ * buradaki bekleyen hedef döndürülür ve temizlenir (bir kez tüketilir).
+ */
+export function consumeColdStartIntent(): PushNavigateIntent | null {
+  const intent = pendingColdStartIntent;
+  pendingColdStartIntent = null;
+  return intent;
+}
 
 export function onPushNavigate(listener: NavigateListener): () => void {
   navigateListeners = [...navigateListeners, listener];
@@ -168,12 +180,20 @@ export function refreshPermission(): Promise<boolean> {
   });
 }
 
-/** Sistem izni diyaloğunu açar. Kullanıcı "Hayır" dediyse ayarlar ekranına yönlendirilir. */
+/**
+ * Push aboneliğini açar/kapatır. Uygulama içi push ana anahtarı
+ * (pushEnabled) bunu kullanır; sistem iznini SORGULAMAZ.
+ */
+export function setPushOptedIn(optIn: boolean): void {
+  if (optIn) safe(() => OneSignal.User.pushSubscription.optIn(), undefined);
+  else safe(() => OneSignal.User.pushSubscription.optOut(), undefined);
+}
+
+/** Sistem izni diyaloğunu açar (izin zaten verilmişse sormaz). */
 export function requestPermission(fallbackToSettings = true): Promise<boolean> {
   return safeAsync(() => OneSignal.Notifications.requestPermission(fallbackToSettings), false).then((granted) => {
     permissionState = granted;
-    if (!granted) safe(() => OneSignal.User.pushSubscription.optOut(), undefined);
-    else safe(() => OneSignal.User.pushSubscription.optIn(), undefined);
+    setPushOptedIn(granted);
     return granted;
   });
 }
@@ -233,7 +253,9 @@ export function initOneSignal(): void {
     emitArrived();
   };
   const onClick = (e: NotificationClickEvent) => {
-    emitNavigate(intentFromPayload((e?.notification as { additionalData?: unknown } | undefined)?.additionalData));
+    const intent = intentFromPayload((e?.notification as { additionalData?: unknown } | undefined)?.additionalData);
+    pendingColdStartIntent = intent; // JS dinleyici henüz yoksa sonradan tüketilir
+    emitNavigate(intent);
   };
   safe(() => OneSignal.Notifications.addEventListener("foregroundWillDisplay", onForeground), undefined);
   safe(() => OneSignal.Notifications.addEventListener("click", onClick), undefined);

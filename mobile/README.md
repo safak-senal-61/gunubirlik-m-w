@@ -25,7 +25,23 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 - 🛠️ **Bakım modu kapısı:** Admin panelden bakıma alınınca (60 sn içinde) uygulamanın TAMAMI — giriş dahil — güzel temalı bakım ekranına döner: API'den başlık/mesaj, geri sayım, iletişim kanalları (WhatsApp/Ara/E-posta/Instagram), "Yeniden dene". Bakım durumu önbellekte tutulur; kapalıyken uygulama anında açılır.
 - 💬 **QR Tara (işçi):** expo-camera ile işveren QR'ını okutur → check-in/check-out backend'e işlenir
 
-**v1.1.3 (versionCode 9) — CÜZDAN & ÖDEME SİSTEMİ + BUGFİXLER (en güncel):**
+**v1.1.4 (versionCode 10) — ONESIGNAL PUSH + GENİŞ BİLDİRİM AYARLARI (build bekliyor):**
+- 🔔 **OneSignal SDK entegre edildi** (react-native-onesignal 5.4.0 Stable + onesignal-expo-plugin 2.4.0, App ID `6bddc78e-…`)
+  - Girişte kullanıcı backend user id ile `OneSignal.login(externalId)` üzerinden eşleşir (+ `gbUserId` alias, e-posta, rol tag'i) → backend bildirimi `include_aliases: external_id` ile bu cihaza gönderebilir
+  - Çıkışta oturum kapanır (`logout`), cihaz anonim abone olur
+  - İlk sunucu kayıtlı abonelik doğrulandığında **bir kez** "Push bildirimleri hazır" dialogu gösterilir; sistem izni bu dialogun "Tamam" butonuna bağlıdır (açılışta otomatik izin istemi yok)
+  - Bildirime dokununca backend `data` alanına göre doğru ekrana yönlendirme: chat bildirimi → Mesajlar, `jobId` → ilan, `applicationId` → Başvurular; uygulama kapalıyken dokunulan bildirim de (soğuk başlatma) doğru ekrana açar
+  - Ön planda gelen bildirimler alt çubuktaki okunmamış rozetini anında günceller
+  - Kullanıcının bildirim tercihleri OneSignal tag'lerine de yazılır (`gb_off_<kategori>`), dashboard'dan hedefleme yapılabilir
+- ⚙️ **Ayarlar > Bildirim tamamen yenilendi ve API'ye bağlandı** (eski statik liste kaldırıldı):
+  - `GET/PUT /notifications/settings` + `POST /notifications/settings/reset` uçları eklendi (canlı API'de doğrulandı)
+  - **Ana anahtar:** Push bildirimleri — kapatınca tüm kategoriler sustar, OneSignal aboneliği `optOut` olur
+  - **17 kategori 5 grupta:** İş ilanları & başvurular (yeni başvuru, kabul, ret, hatırlatma, yakındaki iş), Sohbet (yeni mesaj), Ödeme & cüzdan (5), İş süreci (başlangıç/tamamlanma/itiraz), Sistem (güncelleme/bakım/kampanya)
+  - Optimistic anahtarlar + hata halinde geri alma + "✓ Kaydedildi" göstergesi, "Tümünü aç" / "Varsayılana sıfırla", sistem izni kartı (izin yoksa izin iste / cihaz ayarlarına git), OneSignal abonelik teşhisi, aşağı çekerek yenileme
+  - Kapalı kategori için sunucu bildirimi hiç üretmez (`createNotification()` kontrolü); cihazda sadece gizlenmez
+- ℹ️ Push yalnızca build edilmiş APK'da çalışır (Expo Go desteklemez). Backend'in OneSignal'a `include_aliases: { external_id: [userId] }` ile gönderim yapması ve App Auth anahtarını sunucuda tutması gerekir.
+
+**v1.1.3 (versionCode 9) — CÜZDAN & ÖDEME SİSTEMİ + BUGFİXLER:**
 > 📥 **APK:** https://expo.dev/artifacts/eas/_uqWTxf29D4YsyJFZaLqBd_9g_pr2AwOPcPMLDTqYhY.apk
 
 - 💳 **Cüzdan ekranı gerçek backend'e bağlandı** (statik özet kaldırıldı): canlı bakiye kartı, bekleyen yatırma/çekme toplamları

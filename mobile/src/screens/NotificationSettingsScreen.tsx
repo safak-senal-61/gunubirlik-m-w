@@ -19,6 +19,7 @@ import {
 } from "react-native";
 import { Card, C, PrimaryButton, SectionTitle } from "@/components/ui";
 import {
+  ApiError,
   fetchNotificationSettings,
   resetNotificationSettings,
   updateNotificationSettings,
@@ -29,6 +30,7 @@ import {
   ONESIGNAL_APP_ID,
   refreshPermission,
   requestPermission,
+  setPushOptedIn,
   syncPreferenceTags,
 } from "@/lib/onesignal";
 import {
@@ -99,25 +101,31 @@ export default function NotificationSettingsScreen() {
 
   /** Tek bir alanı backend'e yazar (optimistic UI + hata durumunda geri al). */
   const toggle = useCallback(
-    async (key: NotificationPrefKey, value: boolean) => {
+    async (key: NotificationPrefKey, value: boolean, retryCount = 0) => {
       const prev = settings;
       if (!prev) return;
       setSettings({ ...prev, [key]: value });
       setBusyKey(key);
       setSaveState("saving");
       try {
-        if (key === "pushEnabled") {
-          // Ana anahtar: OneSignal abonelik durumunu da senkronla.
-          if (value) await requestPermission(true);
-          else await requestPermission(false);
-          setPermission(await refreshPermission());
+        if (key === "pushEnabled" && value) {
+          // Ana anahtar AÇILIYOR: önce sistem iznini dene (zaten varsa sormaz),
+          // izin yoksa izin diyaloğunu göster. API çağrısından ÖNCE yapılır.
+          const granted = await requestPermission(true);
+          setPermission(granted);
         }
         const updated = await updateNotificationSettings({ [key]: value } as NotificationSettingsPatch);
         setSettings(updated);
         syncPreferenceTags(updated);
+        if (key === "pushEnabled") setPushOptedIn(value);
         setSaveState("saved");
         flash();
       } catch (err) {
+        // Geçici ağ hatasında 1 kez sessizce tekrar dene.
+        if (retryCount < 1 && !(err instanceof ApiError)) {
+          await new Promise((r) => setTimeout(r, 800));
+          return toggle(key, value, retryCount + 1);
+        }
         setSettings(prev);
         setSaveState("error");
         setError(err instanceof Error ? err.message : "Ayar kaydedilemedi.");
