@@ -25,7 +25,15 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 - 🛠️ **Bakım modu kapısı:** Admin panelden bakıma alınınca (60 sn içinde) uygulamanın TAMAMI — giriş dahil — güzel temalı bakım ekranına döner: API'den başlık/mesaj, geri sayım, iletişim kanalları (WhatsApp/Ara/E-posta/Instagram), "Yeniden dene". Bakım durumu önbellekte tutulur; kapalıyken uygulama anında açılır.
 - 💬 **QR Tara (işçi):** expo-camera ile işveren QR'ını okutur → check-in/check-out backend'e işlenir
 
-**v1.1.4 (versionCode 10) — ONESIGNAL PUSH + GENİŞ BİLDİRİM AYARLARI (en güncel):**
+**v1.1.5 (versionCode 11) — PUSH İZİN AKIŞI DÜZELTMELERİ (en güncel):**
+> 📥 APK linki build tamamlandığında buraya eklenecek.
+- 🐛 **"Push bildirimleri hazır!" dialogu her uygulama açılışında tekrar çıkması düzeltildi:** "soruldu" bayrağı artık AsyncStorage'da kalıcı (`gb_onesignal_asked_v1`); bir kez izin verildikten (veya reddedildik) sonra diyalog bir daha ASLA çıkmaz.
+- ✅ **İzin istemi artık yalnız giriş/kayıt BAŞARISINDA** isteniyor (login / kayıt / Google girişi sonrası abonelik doğrulanınca). Login-kayıt ekranında ve uygulamanın her açılışında çıkmaz.
+- 🔕 **İzin zaten verilmişse diyalog hiç gösterilmez** (izin durumu dialog öncesi tekrar doğrulanır).
+- 🔁 **İzin verilmemişse:** Ayarlar > Bildirim ekranındaki "Bildirimlere izin ver" butonuyla (ve sistem ayarlarıyla) her zaman tekrar izin istenebilir.
+- 📌 **Bildirimler sekmesinde sabit uyarı bandı:** sistem bildirim izni kapalıysa listenin üstünde kaybolmayan turuncu bant: "🔔 Bildirimler kapalı, lütfen açın — Dokun → Bildirim Ayarları". Dokununca Ayarlar > Bildirim sekmesi açılır; izin verilince bant kendiliğinden kaybolur.
+
+**v1.1.4 (versionCode 10) — ONESIGNAL PUSH + GENİŞ BİLDİRİM AYARLARI:**
 > 📥 **APK:** https://expo.dev/artifacts/eas/bG8dbXfgD7F4KYNYDFDpqknh8mmRYe1j_7mG8rvwEtU.apk
 > Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/4795d747-3771-4bb5-bbdf-64a13f40b98d
 - 🔔 **OneSignal SDK entegre edildi** (react-native-onesignal 5.4.0 Stable + onesignal-expo-plugin 2.4.0, App ID `6bddc78e-…`)

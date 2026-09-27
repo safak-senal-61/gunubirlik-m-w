@@ -6,6 +6,7 @@
 // üretilmiş APK/IPA içinde aktiftir.
 
 import { Alert, Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LogLevel, OneSignal } from "react-native-onesignal";
 import type { NotificationClickEvent, NotificationWillDisplayEvent, PushSubscriptionChangedState } from "react-native-onesignal";
 import type { ApiUser, NotificationSettings } from "./types";
@@ -25,8 +26,19 @@ export type PushNavigateIntent = {
 type NavigateListener = (intent: PushNavigateIntent) => void;
 type ArrivedListener = () => void;
 
-let dialogShown = false;
+/**
+ * "İzin istendi" kalıcı bayrağı — AsyncStorage'da tutulur (in-memory DEĞİL).
+ * v1.1.4'teki hata buradan kaynaklanıyordu: in-memory flag her uygulama açılışında
+ * sıfırlanıyor ve "Push bildirimleri hazır!" diyaloğu her cold-start'te tekrar çıkıyordu.
+ */
+const PERMISSION_ASKED_KEY = "gb_onesignal_asked_v1";
+
+/** Aynı oturumda diyaloğun üst üste açılmasını engeller (UI seviyesi koruma). */
+let dialogVisible = false;
+/** Login/register BAŞARISINDA true olur; diyalog yalnız "armed" durumda gösterilir. */
+let armedForPrompt = false;
 let permissionState: boolean | null = null;
+let permissionListeners: ((granted: boolean) => void)[] = [];
 let navigateListeners: NavigateListener[] = [];
 let arrivedListeners: ArrivedListener[] = [];
 
@@ -175,9 +187,53 @@ export function getPermissionCached(): boolean | null {
 
 export function refreshPermission(): Promise<boolean> {
   return safeAsync(() => OneSignal.Notifications.getPermissionAsync(), permissionState ?? false).then((v) => {
-    permissionState = v;
+    emitPermission(v);
     return v;
   });
+}
+
+function emitPermission(granted: boolean): void {
+  permissionState = granted;
+  permissionListeners.forEach((l) => {
+    try {
+      l(granted);
+    } catch (err) {
+      if (__DEV__) console.warn("[OneSignal] permission listener", err);
+    }
+  });
+}
+
+/** Sistem izin durumu değiştiğinde haber verir (ör. Bildirimler ekranındaki sabit uyarı bandı). */
+export function onPermissionChanged(listener: (granted: boolean) => void): () => void {
+  permissionListeners = [...permissionListeners, listener];
+  return () => {
+    permissionListeners = permissionListeners.filter((l) => l !== listener);
+  };
+}
+
+/**
+ * Login/register BAŞARISINDA çağrılır: sonraki abonelik doğrulamasında izin
+ * diyaloğunun gösterilmesine izin verir. Oturum önbellekten geri yüklenirken
+ * ÇAĞRILMAZ — aksi halde uygulama her açılışında diyalog tekrar eder.
+ */
+export function armPermissionPrompt(): void {
+  armedForPrompt = true;
+}
+
+async function isPermissionAsked(): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(PERMISSION_ASKED_KEY)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+async function markPermissionAsked(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(PERMISSION_ASKED_KEY, "1");
+  } catch {
+    // Depoya yazılamazsa en kötü ihtimalle diyalog bir sonraki girişte bir kez daha gösterilir.
+  }
 }
 
 /**
@@ -199,9 +255,11 @@ export function requestPermission(fallbackToSettings = true): Promise<boolean> {
 }
 
 /**
- * Sunucu kayıtlı push aboneliği doğrulandığında (tek seferlik) kullanıcıyı bilgilendirir
- * ve izin istemeyi O DİYALOGUN "Tamam" butonuna bağlar — uygulama açılışında
- * otomatik izin istemi oluşmaz.
+ * Sunucu kayıtlı push aboneliği doğrulandığında kullanıcıyı BİR KEZ bilgilendirir ve
+ * izin istemeyi diyaloğun "Tamam" butonuna bağlar. Diyalog SADECE:
+ *  - login/register hemen ardındanysa ("armed"),
+ *  - daha önce hiç sorulmadıysa (kalıcı AsyncStorage bayrağı),
+ *  - sistem izni hâlâ yoksa gösterilir. İzin verildiyse bir daha ASLA çıkmaz.
  */
 function showIntegrationCompleteDialog(): void {
   Alert.alert(
@@ -212,15 +270,20 @@ function showIntegrationCompleteDialog(): void {
   );
 }
 
-function maybeShowDialog(subscriptionId: string | null | undefined): void {
-  if (dialogShown) return;
+async function maybeShowDialog(subscriptionId: string | null | undefined): Promise<void> {
+  if (dialogVisible) return;
+  if (!armedForPrompt) return; // uygulama her açılışında DEĞİL — yalnız giriş/kayıt sonrası
   if (!isServerAssignedId(subscriptionId)) return;
-  dialogShown = true;
+  if (await refreshPermission()) return; // izin zaten verilmişse asla gösterme
+  if (await isPermissionAsked()) return; // bir kez sorulduysa bir daha ASLA gösterme
+  dialogVisible = true;
+  armedForPrompt = false;
+  void markPermissionAsked();
   showIntegrationCompleteDialog();
 }
 
 function setupPushSubscriptionObserver(): void {
-  const onChange = (s: PushSubscriptionChangedState) => maybeShowDialog(s?.current?.id);
+  const onChange = (s: PushSubscriptionChangedState) => void maybeShowDialog(s?.current?.id);
   safe(() => OneSignal.User.pushSubscription.addEventListener("change", onChange), undefined);
   // ID dinleyici bağlanmadan önce atanmış olabilir → anında da bir kez değerlendir.
   void safeAsync(() => OneSignal.User.pushSubscription.getIdAsync(), null).then((id) => maybeShowDialog(id));
@@ -261,7 +324,7 @@ export function initOneSignal(): void {
   safe(() => OneSignal.Notifications.addEventListener("click", onClick), undefined);
   safe(
     () => OneSignal.Notifications.addEventListener("permissionChange", (granted: boolean) => {
-      permissionState = granted;
+      emitPermission(granted);
     }),
     undefined,
   );

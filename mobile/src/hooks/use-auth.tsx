@@ -9,7 +9,7 @@ import {
 } from "react";
 import * as API from "@/lib/api";
 import { resetSavedIds } from "@/lib/saved-store";
-import { clearUser, identifyUser, syncPreferenceTags } from "@/lib/onesignal";
+import { armPermissionPrompt, clearUser, identifyUser, syncPreferenceTags } from "@/lib/onesignal";
 import type { ApiUser } from "@/lib/types";
 
 export class TwoFactorRequiredError extends Error {
@@ -120,6 +120,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     if (result.token) await API.setToken(result.token);
     const me = result.user ?? (await API.fetchMe());
+    // Push izin diyaloğu yalnız gerçek giriş/kayıt sonrası gösterilir; oturum
+    // önbellekten geri yüklenince gösterilmez (bkz. armPermissionPrompt).
+    armPermissionPrompt();
     setUser(me);
     await API.cacheUserForBootstrap(me);
   }, []);
@@ -128,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await API.register(payload);
     if (result.token) await API.setToken(result.token);
     const me = result.user ?? (await API.fetchMe());
+    armPermissionPrompt();
     setUser(me);
     await API.cacheUserForBootstrap(me);
   }, []);
@@ -136,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const result = await API.googleLogin(idToken);
     if (result.token) await API.setToken(result.token);
     const me = result.user ?? (await API.fetchMe());
+    armPermissionPrompt();
     setUser(me);
     await API.cacheUserForBootstrap(me);
   }, []);

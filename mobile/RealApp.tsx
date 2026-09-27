@@ -205,6 +205,8 @@ function MainTabs() {
   const [chatBusy, setChatBusy] = useState(false);
   const [qrTarget, setQrTarget] = useState<QrTarget | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  // Bildirimler ekranındaki "Bildirimler kapalı" bandına dokununca Ayarlar > Bildirim açılır.
+  const [profileOpenTab, setProfileOpenTab] = useState<"notifications" | null>(null);
 
   // Bildirim sayacı (30 sn'de bir)
   useEffect(() => {
@@ -364,9 +366,15 @@ function MainTabs() {
             refreshKey={refreshKey}
             onChanged={bumpRefresh}
             onOpenJob={(jobId) => setOpenJobId(jobId)}
+            onOpenNotificationSettings={() => {
+              setProfileOpenTab("notifications");
+              setTab("profile");
+            }}
           />
         )}
-        {tab === "profile" && <ProfileScreen refreshKey={refreshKey} />}
+        {tab === "profile" && (
+          <ProfileScreen refreshKey={refreshKey} openTab={profileOpenTab} onOpenTabHandled={() => setProfileOpenTab(null)} />
+        )}
       </View>
       <TabBar tab={tab} onPressTab={handleTabPress} isEmployer={!!isEmployer} unread={unread} />
 

@@ -44,9 +44,27 @@ const TABS: { key: SettingsTab; icon: string; label: string }[] = [
   { key: "about", icon: "ℹ️", label: "Hakkında" },
 ];
 
-export default function ProfileScreen({ refreshKey }: { refreshKey: number }) {
+export default function ProfileScreen({
+  refreshKey,
+  openTab,
+  onOpenTabHandled,
+}: {
+  refreshKey: number;
+  /** Bildirimler ekranındaki "Bildirimler kapalı" bandından gelindiyse "notifications". */
+  openTab?: "notifications" | null;
+  /** openTab uygulandıktan sonra çağrılır (bir dahaki sefere temizler). */
+  onOpenTabHandled?: () => void;
+}) {
   const { user, logout } = useAuth();
   const [tab, setTab] = useState<SettingsTab>("account");
+
+  // Dışarıdan (ör. bildirimler ekranı) istenen sekmeyi uygula.
+  useEffect(() => {
+    if (openTab) {
+      setTab(openTab);
+      onOpenTabHandled?.();
+    }
+  }, [openTab, onOpenTabHandled]);
 
   // Sekme geçişinde yumuşak içerik animasyonu (fade + hafif yukarı kayma)
   const contentAnim = useRef(new Animated.Value(1)).current;
@@ -841,14 +859,14 @@ function AboutTab({ onLogout }: { onLogout: () => void }) {
         <Text style={{ fontSize: 44 }}>💼</Text>
         <Text style={{ fontSize: 20, fontWeight: "800", color: C.text }}>Günübirlik</Text>
         <Text style={styles.desc}>Günlük iş bulma ve işçi bulma platformu</Text>
-        <Badge label="Mobil v1.1.4" color={C.primary} bg={C.primarySoft} />
+        <Badge label="Mobil v1.1.5" color={C.primary} bg={C.primarySoft} />
       </Card>
 
       <Card style={{ gap: 10 }}>
         <SectionTitle>Uygulama</SectionTitle>
         <View style={styles.ruleRow}>
           <Text style={styles.ruleText}>Sürüm</Text>
-          <Text style={styles.ruleValue}>1.1.4 (build 10)</Text>
+          <Text style={styles.ruleValue}>1.1.5 (build 11)</Text>
         </View>
         <View style={styles.ruleRow}>
           <Text style={styles.ruleText}>Sunucu</Text>

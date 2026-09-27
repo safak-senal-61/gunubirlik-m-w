@@ -3,6 +3,11 @@ import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } 
 import { Card, C, EmptyState, Loading, PrimaryButton } from "@/components/ui";
 import { useCachedList } from "@/hooks/use-cached-list";
 import {
+  getPermissionCached,
+  onPermissionChanged,
+  refreshPermission,
+} from "@/lib/onesignal";
+import {
   deleteNotification,
   fetchNotifications,
   markAllNotificationsRead,
@@ -24,13 +29,17 @@ export default function NotificationsScreen({
   refreshKey,
   onChanged,
   onOpenJob,
+  onOpenNotificationSettings,
 }: {
   refreshKey: number;
   onChanged?: () => void;
   onOpenJob?: (jobId: string) => void;
+  onOpenNotificationSettings?: () => void;
 }) {
   const [items, setItems] = useState<ApiNotification[]>([]);
   const [unread, setUnread] = useState(0);
+  // null = henüz bilinmiyor (yanlışlıkla bant göstermemek için izin doğrulanana kadar bekle).
+  const [pushPermission, setPushPermission] = useState<boolean | null>(getPermissionCached());
 
   const notifFetcher = useCallback(() => fetchNotifications(), []);
   const {
@@ -55,6 +64,21 @@ export default function NotificationsScreen({
     if (refreshKey > 0) reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
+
+  // Sistem bildirim iznini doğrula + değişimlerini dinle: izin yoksa sabit uyarı bandı göster.
+  useEffect(() => {
+    let active = true;
+    void refreshPermission().then((granted) => {
+      if (active) setPushPermission(granted);
+    });
+    const unsubscribe = onPermissionChanged((granted) => {
+      if (active) setPushPermission(granted);
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, []);
 
   const remove = (id: string) => {
     Alert.alert("Bildirimi sil", "Bu bildirim silinsin mi?", [
@@ -100,6 +124,23 @@ export default function NotificationsScreen({
           />
         )}
       </View>
+
+      {/* İzin kapalıyken KAYBOLMAYAN sabit uyarı bandı — dokunulduğunda Bildirim Ayarları'na götürür. */}
+      {pushPermission === false && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Bildirimler kapalı — ayarlara git"
+          onPress={onOpenNotificationSettings}
+          style={({ pressed }) => [styles.permBanner, pressed && { opacity: 0.85 }]}
+        >
+          <Text style={styles.permBannerIcon}>🔔</Text>
+          <View style={styles.permBannerTextWrap}>
+            <Text style={styles.permBannerTitle}>Bildirimler kapalı, lütfen açın</Text>
+            <Text style={styles.permBannerSub}>Dokun → Bildirim Ayarları</Text>
+          </View>
+          <Text style={styles.permBannerChevron}>›</Text>
+        </Pressable>
+      )}
 
       <ScrollView
         contentContainerStyle={styles.list}
@@ -163,6 +204,23 @@ const styles = StyleSheet.create({
   h1: { fontSize: 22, fontWeight: "800", color: C.text },
   sub: { fontSize: 13, color: C.muted, marginTop: 2 },
   list: { padding: 16, gap: 8, paddingBottom: 40 },
+  permBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginHorizontal: 16,
+    marginTop: 4,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#fff7ed",
+    borderWidth: 1,
+    borderColor: "#fdba74",
+  },
+  permBannerIcon: { fontSize: 20 },
+  permBannerTextWrap: { flex: 1, gap: 1 },
+  permBannerTitle: { fontSize: 14, fontWeight: "800", color: "#9a3412" },
+  permBannerSub: { fontSize: 12, color: "#c2410c" },
+  permBannerChevron: { fontSize: 20, color: "#f97316", fontWeight: "800" },
   item: { padding: 12 },
   itemUnread: { borderColor: C.primary, backgroundColor: "#f5f6ff" },
   itemBody: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
