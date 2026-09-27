@@ -23,6 +23,7 @@ import {
 } from "@/lib/format";
 import { addressToFormFields, locateAndReverse } from "@/hooks/use-location";
 import { useAuth } from "@/hooks/use-auth";
+import { DatePicker, TimePicker } from "@/components/pickers";
 
 export default function DashboardScreen({
   onOpenJob,
@@ -313,13 +314,14 @@ function CreateJobSheet({
             ))}
           </View>
 
-          <SheetField label="İş günü * (YYYY-MM-DD)" value={workDate} onChangeText={setWorkDate} placeholder="2026-10-01" />
+          <Text style={styles.sheetLabel}>İş günü *</Text>
+          <DatePicker value={workDate} onChange={setWorkDate} />
           <View style={styles.row}>
             <View style={styles.half}>
-              <SheetField label="Başlangıç *" value={startTime} onChangeText={setStartTime} placeholder="08:00" />
+              <TimePicker label="Başlangıç" value={startTime} onChange={setStartTime} />
             </View>
             <View style={styles.half}>
-              <SheetField label="Bitiş *" value={endTime} onChangeText={setEndTime} placeholder="17:00" />
+              <TimePicker label="Bitiş" value={endTime} onChange={setEndTime} />
             </View>
           </View>
           <Text style={styles.duration}>Süre: {durationHours} saat (otomatik)</Text>

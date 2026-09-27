@@ -25,7 +25,23 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 - 🛠️ **Bakım modu kapısı:** Admin panelden bakıma alınınca (60 sn içinde) uygulamanın TAMAMI — giriş dahil — güzel temalı bakım ekranına döner: API'den başlık/mesaj, geri sayım, iletişim kanalları (WhatsApp/Ara/E-posta/Instagram), "Yeniden dene". Bakım durumu önbellekte tutulur; kapalıyken uygulama anında açılır.
 - 💬 **QR Tara (işçi):** expo-camera ile işveren QR'ını okutur → check-in/check-out backend'e işlenir
 
-**v1.1.5 (versionCode 11) — PUSH İZİN AKIŞI + API UYUMU + LOGO/SPLASH (en güncel):**
+**v1.2.0 (versionCode 12) — AKICI UI + YENİ API ENTEGRASYONLARI (en güncel):**
+- 📍 **İşler ana sayfası:** GPS ile konum alınca il · ilçe · mahalle · cadde detayı görünür; iskelet yükleme kartlarıyla akıcı ilk yükleme; kategori butonları şık ikon kartlarına dönüştü; pull-to-refresh + yeni ilan yayınlandığında liste kendini tazeler.
+- 💬 **Başvuru mesajı spam filtresi dostu:** nötr hazır mesaj şablonları + "telefon/e-posta/IBAN paylaşımı otomatik engellenir" bilgi notu ("ilanınız" gibi ifadelerin yanlışlıkla yıldızlanması önlenir).
+- ✏️ **Profil düzenleme modal sheet'e taşındı** — açılışta alanlar güncel verilerle dolar, kaydetme sonrası onay bildirimi çıkar.
+- 📊 **İşçi istatistik kartları yenilendi:** tamamlanan iş / toplam kazanç / başvuru kartları renkli, taşmayan tipografili modern kartlar.
+- ⭐ **Puan özeti + aldığım yorumlar** (Hesap sekmesi): ortalama, yıldız dağılım barları, son 30 gün trendi, son yorumlar (`GET /users/me/rating-summary`, `GET /users/me/reviews/received`).
+- 🛡️ **Doğrulama & rozetler:** kimlik/şirket/vergi belgesi yükleme (galeriden seç → base64), PENDING/onay/ret durum kartları (`POST /users/me/verification-request`, `GET /users/me/verification-status`).
+- 🎧 **Destek talepleri (Hakkında sekmesi):** kategori/öncelik seçimi + talep geçmişi ve admin yanıtları (`GET/POST /support/tickets`).
+- 🗑️ **Hesap silme talebi (Hakkında sekmesi):** sebep/geri bildirim + onay diyaloğu + talep durumu (`GET/POST /auth/delete-account`).
+- 💸 **Cüzdan bakiyesi artık cache'li:** sekmeye her girişte "yükleniyor" yok — son bakiye anında görünür, arka planda tazelenir.
+- ⚡ **Bildirim ayarları cache-first:** sekme açılışında spinner yok, anahtarlar anında gelir.
+- 🛡️ **Güvenlik sekmesi modernized:** koyu temalı güvenlik merkezi başlığı + ikonlu durum satırları.
+- 📞 **Kayıt telefonu:** ülke kodu seçici (TR/US/DE/GB/FR/NL/AZ) + ülkeye göre maskeli giriş + kalan karakter sayacı; numara E.164 olarak gönderilir.
+- 📅 **İş paylaşımı:** şık takvim ile gün + 30 dk aralıklı saat seçici (manuel giriş dahil) (`src/components/pickers.tsx`).
+- 🗺️ **Harita:** tam ekran büyütme + Google Maps yol tarifi butonu.
+
+**v1.1.5 (versionCode 11) — PUSH İZİN AKIŞI + API UYUMU + LOGO/SPLASH:**
 > 📥 **APK:** https://expo.dev/artifacts/eas/rXFenYFWBgoZqbY1454YHTTZtRH6szgifcOmQ9jSXBk.apk
 > Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/c0504f0e-0290-40e6-8fbd-689c23bbdbee
 - 🐛 **"Push bildirimleri hazır!" dialogu her uygulama açılışında tekrar çıkması düzeltildi:** "soruldu" bayrağı artık AsyncStorage'da kalıcı (`gb_onesignal_asked_v1`); bir kez izin verildikten (veya reddedildik) sonra diyalog bir daha ASLA çıkmaz.

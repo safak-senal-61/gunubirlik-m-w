@@ -317,3 +317,99 @@ export interface QrPayScanResult {
     generator: { id: string; fullName: string };
   };
 }
+
+/* ================= Değerlendirme (Reviews) ================= */
+
+export type ReviewType = "WORKER_TO_EMPLOYER" | "EMPLOYER_TO_WORKER";
+
+export interface ApiReviewJob {
+  id: string;
+  title: string;
+  category?: JobCategory | null;
+  city?: string | null;
+  district?: string | null;
+}
+
+export interface ApiReview {
+  id: string;
+  applicationId?: string | null;
+  /** Herkese açık listede yorumu YAPAN kişi. */
+  reviewer?: { id: string; fullName: string; avatarUrl?: string | null; isVerified?: boolean } | null;
+  /** "Verdiğim yorumlar" listesinde yorumu ALAN kişi. */
+  reviewee?: { id: string; fullName: string; avatarUrl?: string | null; isVerified?: boolean } | null;
+  rating: number;
+  comment?: string | null;
+  reviewType?: ReviewType | string | null;
+  job?: ApiReviewJob | null;
+  createdAt: string;
+}
+
+export interface ReviewListResult {
+  items: ApiReview[];
+  pagination: Pagination;
+  distribution?: Record<string, number> | null;
+}
+
+/** GET /users/{id}/rating-summary — alanlar backend sürümüne göre esnek çözümlenir. */
+export interface RatingSummary {
+  average: number;
+  count: number;
+  recentCount30d?: number | null;
+  distribution?: Record<string, number> | null;
+  isVerified?: boolean | null;
+  user?: { id: string; fullName: string; role?: string | null } | null;
+}
+
+/* ================= Doğrulama & Rozetler ================= */
+
+export type VerificationType = "COMPANY" | "IDENTITY" | "TAX";
+export type VerificationRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface VerificationRequest {
+  id: string;
+  userId?: string;
+  type: VerificationType;
+  status: VerificationRequestStatus;
+  documentUrl?: string | null;
+  documentNote?: string | null;
+  reviewNote?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  reviewedAt?: string | null;
+}
+
+export interface VerificationStatus {
+  isVerified: boolean;
+  pendingRequest?: VerificationRequest | null;
+  lastDecision?: VerificationRequest | null;
+}
+
+/* ================= Destek talepleri ================= */
+
+export type SupportCategory = "COMPLAINT" | "SUGGESTION" | "BUG" | "ACCOUNT" | "PAYMENT" | "OTHER";
+export type SupportPriority = "LOW" | "NORMAL" | "HIGH";
+
+export interface SupportTicket {
+  id: string;
+  userId?: string;
+  category: SupportCategory | string;
+  subject: string;
+  message: string;
+  priority?: SupportPriority | string;
+  status?: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | string;
+  reply?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/* ================= Hesap silme ================= */
+
+export interface DeleteAccountStatus {
+  hasRequest?: boolean;
+  id?: string;
+  status?: "PENDING" | "APPROVED" | "REJECTED" | string;
+  reason?: string | null;
+  feedback?: string | null;
+  createdAt?: string | null;
+  reviewedAt?: string | null;
+}

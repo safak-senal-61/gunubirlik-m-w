@@ -308,6 +308,14 @@ function ApplyModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Spam filtresi dostu hazır şablonlar — "ilanınız" gibi ifadeler otomatik
+  // moderatörde yanlış pozitif olabildiğinden nötr kalıplar kullanılır.
+  const QUICK_TEMPLATES = [
+    "Merhaba, bu iş için uygunum, detayları konuşabilir miyiz?",
+    "Merhaba, aynı işte deneyimim var, bugün başlayabilirim.",
+    "Selam, müsaitim ve hemen başlayabilirim. Fiyat hakkında konuşalım.",
+  ];
+
   const submit = async () => {
     setSaving(true);
     setError(null);
@@ -336,11 +344,24 @@ function ApplyModal({
             style={[styles.input, styles.textArea]}
             value={message}
             onChangeText={setMessage}
-            placeholder="Deneyimini ve neden uygun olduğunu kısaca anlat…"
+            placeholder="Merhaba, bu iş için uygunum, detayları konuşabilir miyiz?"
             placeholderTextColor={C.muted}
             multiline
             numberOfLines={4}
           />
+          <View style={styles.quickRow}>
+            {QUICK_TEMPLATES.map((tpl) => (
+              <Pressable key={tpl} style={({ pressed }) => [styles.quickChip, pressed && styles.quickChipPressed]} onPress={() => setMessage(tpl)}>
+                <Text style={styles.quickText}>💬 {tpl}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={styles.spamNote}>
+            <Text style={styles.spamText}>
+              ℹ️ Mesajda telefon, e-posta, adres veya IBAN paylaşımı otomatik engellenir;
+              iletişimi mesajlaşma üzerinden sürdürün.
+            </Text>
+          </View>
           <TextInput
             style={styles.input}
             value={wage}
@@ -412,6 +433,12 @@ const styles = StyleSheet.create({
   notFoundSub: { fontSize: 13, color: C.muted, textAlign: "center", marginTop: 6, marginBottom: 14 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   modalSheet: { backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 12 },
+  quickRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  quickChip: { backgroundColor: C.primarySoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "#e0e7ff" },
+  quickChipPressed: { opacity: 0.8 },
+  quickText: { fontSize: 11, fontWeight: "600", color: C.indigo },
+  spamNote: { backgroundColor: "#fffbeb", borderColor: "#fde68a", borderWidth: 1, borderRadius: 12, padding: 10 },
+  spamText: { fontSize: 11, color: C.amber, lineHeight: 16 },
   modalTitle: { fontSize: 18, fontWeight: "800", color: C.text },
   modalDesc: { fontSize: 13, color: C.muted, lineHeight: 19 },
   input: { borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: C.text },

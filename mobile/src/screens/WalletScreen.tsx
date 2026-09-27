@@ -21,9 +21,11 @@ import {
   createWithdrawRequest,
   fetchDepositRequests,
   fetchWalletBalance,
+  fetchWalletBalanceCached,
   fetchWalletTransactions,
   fetchWithdrawRequests,
   generateQrPay,
+  invalidateWalletBalanceCache,
   isValidTrIban,
   MIN_DEPOSIT,
   MIN_TRANSFER,
@@ -90,16 +92,24 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
   const [scanner, setScanner] = useState(false);
   const [qrPay, setQrPay] = useState<QrPayCode | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
     try {
       const [b, t, d, w] = await Promise.allSettled([
-        fetchWalletBalance(),
+        // Bakiye cache'li: sekmeye her girişte spinner YOK, önce önbellekteki
+        // değer anında yazılır; ağ sonucu gelince sessizce güncellenir.
+        fetchWalletBalanceCached({
+          force,
+          onUpdate: (fresh) => {
+            setBalance(fresh.balance);
+            setError(null);
+          },
+        }),
         fetchWalletTransactions({ type: txFilter, pageSize: 30 }),
         fetchDepositRequests(),
         fetchWithdrawRequests(),
       ]);
       if (b.status === "fulfilled") {
-        setBalance(b.value.balance);
+        setBalance(b.value.balance.balance);
         setError(null);
       } else {
         setError(b.reason instanceof Error ? b.reason.message : "Bakiye alınamadı");
@@ -179,7 +189,6 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
   const onQrPayScanned = useCallback(async () => {
     setScanner(false);
     await refreshBalance();
-    setTxs((prev) => prev);
   }, []);
 
   return (
@@ -192,7 +201,8 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
-              void load();
+              invalidateWalletBalanceCache();
+              void load(true);
             }}
             tintColor={C.primary}
             colors={[C.primary]}
@@ -361,7 +371,8 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
         onClose={() => setSheet(null)}
         onDone={async () => {
           setSheet(null);
-          await load();
+          invalidateWalletBalanceCache();
+          await load(true);
         }}
       />
 
@@ -372,7 +383,8 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
         onClose={() => setSheet(null)}
         onDone={async () => {
           setSheet(null);
-          await load();
+          invalidateWalletBalanceCache();
+          await load(true);
         }}
       />
 
@@ -382,7 +394,8 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
         onClose={() => setSheet(null)}
         onDone={async () => {
           setSheet(null);
-          await load();
+          invalidateWalletBalanceCache();
+          await load(true);
         }}
       />
 

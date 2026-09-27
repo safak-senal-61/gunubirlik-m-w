@@ -13,7 +13,9 @@ import type {
   ApiJob,
   ApiMessage,
   ApiNotification,
+  ApiReview,
   ApiUser,
+  DeleteAccountStatus,
   NotificationSettings,
   NotificationSettingsPatch,
   DepositRequest,
@@ -24,8 +26,15 @@ import type {
   Pagination,
   QrPayCode,
   QrPayScanResult,
+  RatingSummary,
+  ReviewListResult,
+  ReviewType,
+  SupportTicket,
   TwoFactorSetup,
   UserRole,
+  VerificationRequest,
+  VerificationStatus,
+  VerificationType,
   WalletBalance,
   WalletTransaction,
   WalletTxType,
@@ -749,6 +758,21 @@ export async function fetchNotificationSettings(): Promise<NotificationSettings>
   }
 }
 
+/**
+ * Bildirim ayarlarının cache'li okunması: sekmeye her girişte spinner yerine
+ * önce önbellekteki ayarlar gösterilir, arka planda tazelenir.
+ */
+export async function fetchNotificationSettingsCached(opts?: {
+  force?: boolean;
+  onUpdate?: (s: NotificationSettings) => void;
+}): Promise<{ settings: NotificationSettings; fromCache: boolean }> {
+  const { data, fromCache } = await cachedFetch("notifications:settings", fetchNotificationSettings, {
+    force: opts?.force,
+    onUpdate: opts?.onUpdate,
+  });
+  return { settings: data, fromCache };
+}
+
 /** Tek tek veya toplu güncelleme. Sadece boolean alanlar kabul edilir. */
 export async function updateNotificationSettings(
   patch: NotificationSettingsPatch,
@@ -802,6 +826,27 @@ export async function fetchWalletBalance(): Promise<WalletBalance> {
   } catch (err) {
     throw toApiError(err);
   }
+}
+
+/**
+ * Bakiyenin cache'li (stale-while-revalidate) okunması: cüzdana her girişte
+ * spinner görmemek için önce önbellekteki bakiye gösterilir, ağ tazelemesi
+ * bitince güncel değer yazılır. force=true pull-to-refresh içindir.
+ */
+export async function fetchWalletBalanceCached(opts?: {
+  force?: boolean;
+  onUpdate?: (b: WalletBalance) => void;
+}): Promise<{ balance: WalletBalance; fromCache: boolean }> {
+  const { data, fromCache } = await cachedFetch("wallet:balance", fetchWalletBalance, {
+    force: opts?.force,
+    onUpdate: opts?.onUpdate,
+  });
+  return { balance: data, fromCache };
+}
+
+/** Bakiye önbelleğini geçersiz kılar (yatırma/çekme/transfer sonrası çağır). */
+export function invalidateWalletBalanceCache(): void {
+  invalidateCacheKey("wallet:balance");
 }
 
 export async function fetchWalletTransactions(params?: {
@@ -941,6 +986,196 @@ export async function scanQrPay(token: string): Promise<QrPayScanResult> {
   try {
     const res = await api.post("/wallet/qr-pay/scan", { token });
     return res.data.data as QrPayScanResult;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- Değerlendirme (Reviews) ----------------
+// Kaynak: api-doc → "Değerlendirme Sistemi"
+//   GET /users/{id}/reviews            — herkese açık yorum listesi + dağılım
+//   GET /users/{id}/rating-summary     — ortalama, sayı, son 30 gün trendi
+//   GET /users/me/reviews/received     — aldığım yorumlar
+//   GET /users/me/reviews/given        — verdiğim yorumlar
+//   GET /users/me/rating-summary       — kendi özetim
+
+interface ReviewQuery {
+  type?: ReviewType;
+  page?: number;
+  pageSize?: number;
+}
+
+function normalizeReviewList(data: unknown): ReviewListResult {
+  const d = (data ?? {}) as Partial<ReviewListResult> & { items?: unknown; distribution?: unknown };
+  const items = (Array.isArray(data) ? data : d.items ?? []) as ApiReview[];
+  const p = (d.pagination ?? {}) as Partial<Pagination>;
+  return {
+    items,
+    pagination: {
+      page: p.page ?? 1,
+      pageSize: p.pageSize ?? items.length,
+      total: p.total ?? items.length,
+      totalPages: p.totalPages ?? 1,
+      hasNext: p.hasNext ?? false,
+      hasPrev: p.hasPrev ?? false,
+    },
+    distribution: (d.distribution ?? null) as Record<string, number> | null,
+  };
+}
+
+/** Bir kullanıcının aldığı yorumlar (herkese açık). */
+export async function fetchUserReviews(userId: string, query: ReviewQuery = {}): Promise<ReviewListResult> {
+  try {
+    const res = await api.get(`/users/${userId}/reviews`, { params: query });
+    return normalizeReviewList(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Bir kullanıcının puan özeti: ortalama, sayı, son 30 gün trendi (herkese açık). */
+export async function fetchUserRatingSummary(userId: string): Promise<RatingSummary> {
+  try {
+    const res = await api.get(`/users/${userId}/rating-summary`);
+    return res.data.data as RatingSummary;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Aldığım yorumlar. */
+export async function fetchMyReceivedReviews(query: ReviewQuery = {}): Promise<ReviewListResult> {
+  try {
+    const res = await api.get("/users/me/reviews/received", { params: query });
+    return normalizeReviewList(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Verdiğim yorumlar. */
+export async function fetchMyGivenReviews(query: ReviewQuery = {}): Promise<ReviewListResult> {
+  try {
+    const res = await api.get("/users/me/reviews/given", { params: query });
+    return normalizeReviewList(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Kendi puan özetim. */
+export async function fetchMyRatingSummary(): Promise<RatingSummary> {
+  try {
+    const res = await api.get("/users/me/rating-summary");
+    return res.data.data as RatingSummary;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- Doğrulama & Rozetler ----------------
+// Kaynak: api-doc → "Doğrulama & Rozetler"
+//   POST /users/me/verification-request — { type: COMPANY|IDENTITY|TAX, documentUrl: dataURL, documentNote }
+//   GET  /users/me/verification-request — talep geçmişim
+//   GET  /users/me/verification-status  — verified mi + PENDING talep + son karar
+
+/** Doğrulanmış rozet için belge yükle (base64 data URL). Aynı anda 1 PENDING olabilir. */
+export async function createVerificationRequest(payload: {
+  type: VerificationType;
+  documentUrl: string;
+  documentNote?: string;
+}): Promise<VerificationRequest> {
+  try {
+    const res = await api.post("/users/me/verification-request", {
+      type: payload.type,
+      documentUrl: payload.documentUrl,
+      ...(payload.documentNote?.trim() ? { documentNote: payload.documentNote.trim() } : {}),
+    });
+    return res.data.data as VerificationRequest;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Doğrulama talebi geçmişim. */
+export async function fetchVerificationRequests(): Promise<VerificationRequest[]> {
+  try {
+    const res = await api.get("/users/me/verification-request");
+    const d = res.data.data as { items?: VerificationRequest[] } | VerificationRequest[];
+    return Array.isArray(d) ? d : d.items ?? [];
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Aktif doğrulama durumu: verified mi, PENDING talep var mı, son karar. */
+export async function fetchVerificationStatus(): Promise<VerificationStatus> {
+  try {
+    const res = await api.get("/users/me/verification-status");
+    return res.data.data as VerificationStatus;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- Destek talepleri ----------------
+// Kaynak: api-doc → "Yardım & Destek"
+//   GET/POST /support/tickets — { category, subject, message, priority }
+
+export async function fetchSupportTickets(): Promise<SupportTicket[]> {
+  try {
+    const res = await api.get("/support/tickets");
+    return toItems<SupportTicket>(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Yeni destek talebi — adminlere bildirim gider. */
+export async function createSupportTicket(payload: {
+  category: "COMPLAINT" | "SUGGESTION" | "BUG" | "ACCOUNT" | "PAYMENT" | "OTHER";
+  subject: string;
+  message: string;
+  priority?: "LOW" | "NORMAL" | "HIGH";
+}): Promise<SupportTicket> {
+  try {
+    const res = await api.post("/support/tickets", {
+      category: payload.category,
+      subject: payload.subject.trim(),
+      message: payload.message.trim(),
+      ...(payload.priority ? { priority: payload.priority } : { priority: "NORMAL" }),
+    });
+    return res.data.data as SupportTicket;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- Hesap silme ----------------
+// Kaynak: api-doc → delete-account
+//   GET  /auth/delete-account — talep durumu
+//   POST /auth/delete-account — { reason, feedback } (admin onayı sonrası cascade silme)
+
+export async function fetchDeleteAccountStatus(): Promise<DeleteAccountStatus> {
+  try {
+    const res = await api.get("/auth/delete-account");
+    return res.data.data as DeleteAccountStatus;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Hesap silme talebi oluştur — admin onaylayınca hesap ve tüm verileri silinir. */
+export async function requestDeleteAccount(payload: {
+  reason?: string;
+  feedback?: string;
+}): Promise<{ message?: string }> {
+  try {
+    const res = await api.post("/auth/delete-account", {
+      ...(payload.reason?.trim() ? { reason: payload.reason.trim() } : {}),
+      ...(payload.feedback?.trim() ? { feedback: payload.feedback.trim() } : {}),
+    });
+    return res.data as { message?: string };
   } catch (err) {
     throw toApiError(err);
   }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -25,6 +26,49 @@ const LOGO = require("../../assets/splash-icon.png");
 
 type Mode = "login" | "register" | "twofactor" | "forgot" | "reset" | "verify";
 
+// ---------------- Telefon: ülke kodları + maske ----------------
+// Numara backend'e tam E.164 olarak gönderilir: +<dial><digits> (örn. +905321234567)
+type Country = {
+  code: string;
+  name: string;
+  flag: string;
+  dial: string;
+  digits: number;
+  placeholder: string;
+  fmt: (d: string) => string;
+};
+
+const COUNTRIES: Country[] = [
+  {
+    code: "TR", name: "Türkiye", flag: "🇹🇷", dial: "90", digits: 10, placeholder: "5XX XXX XX XX",
+    fmt: (d) => [d.slice(0, 3), d.slice(3, 6), d.slice(6, 8), d.slice(8, 10)].filter(Boolean).join(" "),
+  },
+  {
+    code: "US", name: "ABD", flag: "🇺🇸", dial: "1", digits: 10, placeholder: "XXX XXX XXXX",
+    fmt: (d) => [d.slice(0, 3), d.slice(3, 6), d.slice(6, 10)].filter(Boolean).join(" "),
+  },
+  {
+    code: "DE", name: "Almanya", flag: "🇩🇪", dial: "49", digits: 11, placeholder: "XXX XXXX XXXX",
+    fmt: (d) => [d.slice(0, 3), d.slice(3, 7), d.slice(7, 11)].filter(Boolean).join(" "),
+  },
+  {
+    code: "GB", name: "Birleşik Krallık", flag: "🇬🇧", dial: "44", digits: 10, placeholder: "XXXX XXX XXX",
+    fmt: (d) => [d.slice(0, 4), d.slice(4, 7), d.slice(7, 10)].filter(Boolean).join(" "),
+  },
+  {
+    code: "FR", name: "Fransa", flag: "🇫🇷", dial: "33", digits: 9, placeholder: "X XX XX XX XX",
+    fmt: (d) => [d.slice(0, 1), d.slice(1, 3), d.slice(3, 5), d.slice(5, 7), d.slice(7, 9)].filter(Boolean).join(" "),
+  },
+  {
+    code: "NL", name: "Hollanda", flag: "🇳🇱", dial: "31", digits: 9, placeholder: "XXX XXX XXX",
+    fmt: (d) => [d.slice(0, 3), d.slice(3, 6), d.slice(6, 9)].filter(Boolean).join(" "),
+  },
+  {
+    code: "AZ", name: "Azerbaycan", flag: "🇦🇿", dial: "994", digits: 9, placeholder: "XX XXX XX XX",
+    fmt: (d) => [d.slice(0, 2), d.slice(2, 5), d.slice(5, 7), d.slice(7, 9)].filter(Boolean).join(" "),
+  },
+];
+
 const C = {
   primary: "#4f46e5",
   primarySoft: "#eef2ff",
@@ -47,7 +91,8 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState<Country>(COUNTRIES[0]);
+  const [phoneDigits, setPhoneDigits] = useState("");
   const [role, setRole] = useState<"WORKER" | "EMPLOYER">("WORKER");
   const [city, setCity] = useState("İstanbul");
   const [district, setDistrict] = useState("Kadıköy");
@@ -98,7 +143,7 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
         email: email.trim(),
         password,
         fullName: fullName.trim(),
-        phone: phone.trim(),
+        phone: `+${country.dial}${phoneDigits}`,
         role,
         city: city.trim(),
         district: district.trim(),
@@ -262,7 +307,15 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
               </View>
               <Field icon="👤" label="Ad Soyad" value={fullName} onChangeText={setFullName} placeholder="Adın ve soyadın" />
               <Field icon="✉️" label="E-posta" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="ornek@eposta.com" />
-              <Field icon="📞" label="Telefon" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+90 532 123 45 67" />
+              <PhoneField
+                country={country}
+                digits={phoneDigits}
+                onCountry={(c) => {
+                  setCountry(c);
+                  setPhoneDigits((d) => d.slice(0, c.digits));
+                }}
+                onDigits={setPhoneDigits}
+              />
               <Field icon="🔒" label="Şifre" value={password} onChangeText={setPassword} secureTextEntry placeholder="En az 6 karakter" />
               {role === "EMPLOYER" && (
                 <Field icon="🏢" label="Şirket adı" value={companyName} onChangeText={setCompanyName} placeholder="Örn. Yılmaz İnşaat" />
@@ -359,6 +412,87 @@ function Field(props: {
           maxLength={props.maxLength}
         />
       </View>
+    </View>
+  );
+}
+
+/** Ülke kodu seçici + maskeli telefon girişi (karakter sınırı ülkeye göre). */
+function PhoneField(props: {
+  country: Country;
+  digits: string;
+  onCountry: (c: Country) => void;
+  onDigits: (d: string) => void;
+}) {
+  const [focused, setFocused] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const c = props.country;
+  const masked = c.fmt(props.digits);
+  const complete = props.digits.length >= c.digits;
+  // Maskenin tam dolu halinin uzunluğu = TextInput maxLength
+  const maxLen = c.fmt("9".repeat(c.digits)).length;
+
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>Telefon numarası</Text>
+      <View style={[styles.inputWrap, focused && styles.inputWrapFocused]}>
+        <Pressable style={styles.countryBtn} onPress={() => setPickerOpen(true)} hitSlop={4}>
+          <Text style={styles.countryFlag}>{c.flag}</Text>
+          <Text style={styles.countryDial}>+{c.dial}</Text>
+          <Text style={styles.countryChevron}>▾</Text>
+        </Pressable>
+        <View style={styles.phoneDivider} />
+        <TextInput
+          style={styles.input}
+          value={masked}
+          onChangeText={(raw) => props.onDigits(raw.replace(/\D/g, "").slice(0, c.digits))}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          keyboardType="phone-pad"
+          placeholder={c.placeholder}
+          placeholderTextColor="#a1a1aa"
+          maxLength={maxLen}
+        />
+        {props.digits.length > 0 ? (
+          <Text style={[styles.phoneHint, complete ? styles.phoneHintOk : null]}>
+            {props.digits.length}/{c.digits}
+          </Text>
+        ) : null}
+      </View>
+
+      <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(false)}>
+        <Pressable style={styles.pickerOverlay} onPress={() => setPickerOpen(false)}>
+          <Pressable style={styles.pickerSheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.pickerTitle}>Ülke seç</Text>
+            <ScrollView style={styles.pickerList} keyboardShouldPersistTaps="handled">
+              {COUNTRIES.map((item) => (
+                <Pressable
+                  key={item.code}
+                  style={({ pressed }) => [
+                    styles.pickerRow,
+                    item.code === c.code && styles.pickerRowActive,
+                    pressed && styles.pickerRowPressed,
+                  ]}
+                  onPress={() => {
+                    props.onCountry(item);
+                    setPickerOpen(false);
+                  }}
+                >
+                  <Text style={styles.pickerFlag}>{item.flag}</Text>
+                  <View style={styles.pickerNameBox}>
+                    <Text style={styles.pickerName}>{item.name}</Text>
+                    <Text style={styles.pickerSample}>{item.placeholder}</Text>
+                  </View>
+                  <Text style={styles.pickerDial}>+{item.dial}</Text>
+                  {item.code === c.code ? <Text style={styles.pickerCheck}>✓</Text> : null}
+                </Pressable>
+              ))}
+            </ScrollView>
+            <Pressable style={styles.pickerCancel} onPress={() => setPickerOpen(false)}>
+              <Text style={styles.pickerCancelText}>Vazgeç</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -512,5 +646,27 @@ const styles = StyleSheet.create({
   roleHint: { fontSize: 10, color: C.muted, opacity: 0.8 },
   row: { flexDirection: "row", gap: 10 },
   half: { flex: 1 },
+  countryBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 13 },
+  countryFlag: { fontSize: 17 },
+  countryDial: { fontSize: 14, fontWeight: "800", color: C.text },
+  countryChevron: { fontSize: 10, color: C.muted },
+  phoneDivider: { width: 1, height: 22, backgroundColor: C.border },
+  phoneHint: { fontSize: 10, fontWeight: "700", color: C.muted },
+  phoneHintOk: { color: C.success },
+  pickerOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 24 },
+  pickerSheet: { backgroundColor: "#fff", borderRadius: 20, padding: 16, width: "100%", maxWidth: 360 },
+  pickerTitle: { fontSize: 16, fontWeight: "800", color: C.text, marginBottom: 10, textAlign: "center" },
+  pickerList: { maxHeight: 320 },
+  pickerRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 11, paddingHorizontal: 8, borderRadius: 12 },
+  pickerRowActive: { backgroundColor: C.primarySoft },
+  pickerRowPressed: { backgroundColor: "#f4f4f8" },
+  pickerFlag: { fontSize: 22 },
+  pickerNameBox: { flex: 1 },
+  pickerName: { fontSize: 14, fontWeight: "700", color: C.text },
+  pickerSample: { fontSize: 11, color: C.muted, marginTop: 1 },
+  pickerDial: { fontSize: 13, fontWeight: "800", color: C.muted },
+  pickerCheck: { fontSize: 14, fontWeight: "900", color: C.primary },
+  pickerCancel: { marginTop: 10, paddingVertical: 12, alignItems: "center", borderRadius: 12, backgroundColor: "#f4f4f8" },
+  pickerCancelText: { fontSize: 13, fontWeight: "700", color: C.muted },
   footNote: { fontSize: 11, color: C.muted, textAlign: "center", marginTop: 18, lineHeight: 16 },
 });

@@ -20,6 +20,7 @@ import {
 import { Card, C, PrimaryButton, SectionTitle } from "@/components/ui";
 import {
   ApiError,
+  fetchNotificationSettingsCached,
   fetchNotificationSettings,
   resetNotificationSettings,
   updateNotificationSettings,
@@ -69,24 +70,29 @@ export default function NotificationSettingsScreen() {
     }).start();
   }, [saveFlash]);
 
-  const load = useCallback(
-    async (asRefresh = false) => {
-      if (asRefresh) setRefreshing(true);
-      else setLoading(true);
-      try {
-        const s = await fetchNotificationSettings();
-        setSettings(s);
-        setError(null);
-        syncPreferenceTags(s);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Ayarlar alınamadı.");
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [],
-  );
+  // Cache-first yükleme: sekme her açıldığında spinner YOK — önce önbellekteki
+  // ayarlar anında gösterilir, arka planda tazelenir (onUpdate ile ekran güncellenir).
+  // Pull-to-refresh ise doğrudan ağdan çeker.
+  const load = useCallback(async (asRefresh = false) => {
+    if (asRefresh) setRefreshing(true);
+    try {
+      const { settings: s, fromCache } = await fetchNotificationSettingsCached({
+        force: asRefresh,
+        onUpdate: (fresh) => {
+          setSettings(fresh);
+          syncPreferenceTags(fresh);
+        },
+      });
+      setSettings(s);
+      setError(null);
+      if (!fromCache) syncPreferenceTags(s);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ayarlar alınamadı.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
     void load();

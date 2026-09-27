@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -25,7 +27,7 @@ import {
   haversineKm,
   timeAgo,
 } from "@/lib/format";
-import { getCurrentCoords } from "@/hooks/use-location";
+import { getCurrentCoords, locateAndReverse } from "@/hooks/use-location";
 
 const RADIUS_OPTIONS = [1, 3, 5, 10, 25];
 const PAGE_SIZE = 20;
@@ -54,6 +56,7 @@ export default function JobsScreen({
   const [locQuery, setLocQuery] = useState("");
   const [locCoords, setLocCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locLabel, setLocLabel] = useState<string | null>(null);
+  const [locDetail, setLocDetail] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<GeocodeSuggestion[]>([]);
   const [locating, setLocating] = useState(false);
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -151,9 +154,11 @@ export default function JobsScreen({
   const useMyGps = async () => {
     setLocating(true);
     try {
-      const c = await getCurrentCoords();
-      setLocCoords(c);
+      // GPS + reverse geocode: konumun il/ilçe/mahalle/cadde bilgisi ekranda görünür.
+      const { coords, address } = await locateAndReverse();
+      setLocCoords(coords);
       setLocLabel("Konumum");
+      setLocDetail(formatAddressDetail(address));
       setLocQuery("");
       setPage(1);
     } catch {
@@ -219,6 +224,7 @@ export default function JobsScreen({
                       onPress={() => {
                         setLocCoords({ lat: s.lat, lng: s.lng });
                         setLocLabel(s.displayName.split(",").slice(0, 2).join(",").trim());
+                        setLocDetail(null);
                         setSuggestions([]);
                         setLocQuery("");
                         setPage(1);
@@ -252,6 +258,7 @@ export default function JobsScreen({
                   onPress={() => {
                     setLocCoords(null);
                     setLocLabel(null);
+                    setLocDetail(null);
                     setLocQuery("");
                     setRadiusKm(null);
                     setPage(1);
@@ -260,6 +267,7 @@ export default function JobsScreen({
                   <Text style={styles.clearText}>✕ Temizle</Text>
                 </Pressable>
               </View>
+              {locDetail ? <Text style={styles.locDetail}>🗺️ {locDetail}</Text> : null}
               <View style={styles.filterRow}>
                 <Text style={styles.filterLabel}>Yarıçap:</Text>
                 <Chip active={radiusKm == null} label="Tümü" onPress={() => setRadiusKm(null)} />
@@ -287,22 +295,48 @@ export default function JobsScreen({
             placeholderTextColor={C.muted}
           />
 
-          {/* Kategoriler */}
-          <View style={styles.catRow}>
-            <Chip active={category === "ALL"} label="🌐 Tümü" onPress={() => { setCategory("ALL"); setPage(1); }} />
+          {/* Kategoriler — modern kart görünümü (yatay kaydırmalı, gölgeli ikon kutuları) */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.catRow}
+          >
+            <CategoryTile
+              emoji="🌐"
+              label="Tümü"
+              active={category === "ALL"}
+              onPress={() => { setCategory("ALL"); setPage(1); }}
+            />
             {categories.map((c) => (
-              <Chip
+              <CategoryTile
                 key={c.value}
+                emoji={CATEGORY_ICONS[c.value]}
+                label={c.label.split(" &")[0]}
                 active={category === c.value}
-                label={`${CATEGORY_ICONS[c.value]} ${c.label.split(" &")[0]}`}
                 onPress={() => { setCategory(c.value); setPage(1); }}
               />
             ))}
-          </View>
+          </ScrollView>
 
-          <Text style={styles.count}>
-            {loading ? "Yükleniyor…" : `${visible.length} ilan`}
-          </Text>
+          {loading && visible.length === 0 ? (
+            <View style={styles.skeletonWrap}>
+              {[0, 1, 2].map((i) => (
+                <View key={i} style={styles.skeletonCard}>
+                  <View style={styles.skeletonRow}>
+                    <View style={styles.skeletonIcon} />
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <View style={[styles.skeletonLine, { width: "70%" }]} />
+                      <View style={[styles.skeletonLine, { width: "45%" }]} />
+                    </View>
+                  </View>
+                  <View style={[styles.skeletonLine, { width: "35%", marginTop: 10 }]} />
+                </View>
+              ))}
+              <Text style={styles.skeletonHint}>İlanlar yükleniyor…</Text>
+            </View>
+          ) : (
+            <Text style={styles.count}>{visible.length} ilan</Text>
+          )}
         </View>
       }
       renderItem={({ item }) => (
@@ -316,9 +350,7 @@ export default function JobsScreen({
         />
       )}
       ListEmptyComponent={
-        loading ? (
-          <Loading />
-        ) : (
+        !loading ? (
           <EmptyState
             emoji="💼"
             title="İlan bulunamadı"
@@ -328,7 +360,7 @@ export default function JobsScreen({
                 : "Filtreleri değiştirip tekrar dene."
             }
           />
-        )
+        ) : null
       }
       ListFooterComponent={
         !loading && visible.length > 0 ? (
@@ -352,6 +384,54 @@ export default function JobsScreen({
         ) : null
       }
     />
+  );
+}
+
+/** Reverse geocode sonucunu tek satırlık okunur adrese çevirir: il · ilçe · mahalle · cadde. */
+function formatAddressDetail(address: {
+  displayName?: string;
+  street?: string | null;
+  neighbourhood?: string | null;
+  district?: string | null;
+  city?: string | null;
+}): string {
+  const parts = [
+    address.city ?? "",
+    address.district ?? "",
+    address.neighbourhood ?? "",
+    address.street ?? "",
+  ].map((p) => p?.trim() ?? "").filter(Boolean);
+  if (parts.length === 0) {
+    return (address.displayName ?? "").split(",").slice(0, 4).join(", ").trim();
+  }
+  return parts.join(" · ");
+}
+
+/** Modern kategori kutusu: yumuşak gölgeli ikon kartı + aktifken indigo dolgu. */
+function CategoryTile({
+  emoji,
+  label,
+  active,
+  onPress,
+}: {
+  emoji: string;
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const scale = useRef(new Animated.Value(1)).current;
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => Animated.spring(scale, { toValue: 0.92, speed: 40, useNativeDriver: true }).start()}
+      onPressOut={() => Animated.spring(scale, { toValue: 1, friction: 4, tension: 220, useNativeDriver: true }).start()}
+      style={styles.catTileWrap}
+    >
+      <Animated.View style={[styles.catTile, active && styles.catTileActive, { transform: [{ scale }] }]}>
+        <Text style={styles.catTileEmoji}>{emoji}</Text>
+      </Animated.View>
+      <Text style={[styles.catTileLabel, active && styles.catTileLabelActive]} numberOfLines={1}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -443,7 +523,40 @@ const styles = StyleSheet.create({
   filterLabel: { fontSize: 12, color: C.muted, fontWeight: "600" },
   locLabel: { fontSize: 12, fontWeight: "700", color: C.primary, flex: 1 },
   clearText: { fontSize: 12, color: C.muted },
-  catRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  catRow: { gap: 10, paddingVertical: 4 },
+  catTileWrap: { alignItems: "center", width: 68 },
+  catTile: {
+    width: 54,
+    height: 54,
+    borderRadius: 17,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: C.border,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#1e1b33",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  catTileActive: {
+    backgroundColor: C.primary,
+    borderColor: C.primary,
+    shadowColor: C.primary,
+    shadowOpacity: 0.35,
+    elevation: 5,
+  },
+  catTileEmoji: { fontSize: 22 },
+  catTileLabel: { fontSize: 10, fontWeight: "700", color: C.muted, marginTop: 5, textAlign: "center" },
+  catTileLabelActive: { color: C.primary },
+  locDetail: { fontSize: 12, color: C.muted, lineHeight: 17, marginTop: -2 },
+  skeletonWrap: { gap: 10, marginTop: 2 },
+  skeletonCard: { backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 14 },
+  skeletonRow: { flexDirection: "row", gap: 10, alignItems: "center" },
+  skeletonIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: "#eceef3" },
+  skeletonLine: { height: 11, borderRadius: 6, backgroundColor: "#eceef3" },
+  skeletonHint: { fontSize: 12, color: C.muted, textAlign: "center", marginTop: 2 },
   count: { fontSize: 12, color: C.muted },
   jobCard: { padding: 14 },
   jobTop: { flexDirection: "row", gap: 10, alignItems: "center" },

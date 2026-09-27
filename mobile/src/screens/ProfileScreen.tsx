@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Easing,
   Image,
+  KeyboardAvoidingView,
+  Linking,
+  Modal,
+  Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -16,8 +23,16 @@ import { Badge, Card, C, PrimaryButton, SectionTitle, StatCard } from "@/compone
 import {
   changePassword,
   confirmEmailChange,
+  createSupportTicket,
+  createVerificationRequest,
   disable2fa,
   fetchApplications,
+  fetchDeleteAccountStatus,
+  fetchMyRatingSummary,
+  fetchMyReceivedReviews,
+  fetchSupportTickets,
+  fetchVerificationStatus,
+  requestDeleteAccount,
   requestEmailChange,
   requestPasswordReset,
   resetPassword,
@@ -28,7 +43,18 @@ import {
   verify2fa,
   verifyEmail,
 } from "@/lib/api";
-import type { ApiApplication, ApiUser } from "@/lib/types";
+import type {
+  ApiApplication,
+  ApiReview,
+  ApiUser,
+  DeleteAccountStatus,
+  RatingSummary,
+  SupportCategory,
+  SupportPriority,
+  SupportTicket,
+  VerificationStatus,
+  VerificationType,
+} from "@/lib/types";
 import { APPLICATION_STATUS_LABELS, formatWage } from "@/lib/format";
 import { formatDate } from "@/lib/format";
 import { useAuth } from "@/hooks/use-auth";
@@ -276,6 +302,7 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
       <EditProfileSection user={user} onSaved={refreshUser} />
 
       {!isEmployer && <WorkerStatsSection refreshKey={refreshKey} />}
+      <VerificationSection />
     </>
   );
 }
@@ -307,6 +334,22 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const openSheet = () => {
+    // Açılışta alanları kullanıcının güncel verileriyle doldur.
+    setFullName(user.fullName);
+    setPhone(user.phone ?? "");
+    setCity(user.city ?? "");
+    setDistrict(user.district ?? "");
+    setCompanyName(user.companyName ?? "");
+    setBio(user.bio ?? "");
+    setSkills(user.skills.join(", "));
+    setExp(user.experienceYears != null ? String(user.experienceYears) : "");
+    setWMin(user.hourlyWageMin != null ? String(user.hourlyWageMin) : "");
+    setWMax(user.hourlyWageMax != null ? String(user.hourlyWageMax) : "");
+    setError(null);
+    setOpen(true);
+  };
+
   const submit = async () => {
     setSaving(true);
     setError(null);
@@ -325,6 +368,7 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
       });
       await onSaved();
       setOpen(false);
+      Alert.alert("Tamam", "Profilin güncellendi. ✨");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Profil güncellenemedi");
     } finally {
@@ -332,37 +376,50 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
     }
   };
 
-  if (!open) {
-    return <PrimaryButton label="✏️ Profili düzenle" variant="outline" onPress={() => setOpen(true)} />;
-  }
-
   return (
-    <Card style={{ gap: 10 }}>
-      <SectionTitle>Profili düzenle</SectionTitle>
-      <Field label="Ad Soyad" value={fullName} onChangeText={setFullName} />
-      <Field label="Telefon" value={phone} onChangeText={setPhone} />
-      {isEmployer && <Field label="Şirket adı" value={companyName} onChangeText={setCompanyName} />}
-      <View style={styles.row}>
-        <View style={styles.half}><Field label="İl" value={city} onChangeText={setCity} /></View>
-        <View style={styles.half}><Field label="İlçe" value={district} onChangeText={setDistrict} /></View>
-      </View>
-      {!isEmployer && (
-        <>
-          <Field label="Beceriler (virgülle)" value={skills} onChangeText={setSkills} />
-          <View style={styles.row}>
-            <View style={styles.half}><Field label="Deneyim (yıl)" value={exp} onChangeText={(v) => setExp(v.replace(/\D/g, ""))} keyboardType="number-pad" /></View>
-            <View style={styles.half}><Field label="Saatlik min ₺" value={wMin} onChangeText={(v) => setWMin(v.replace(/\D/g, ""))} keyboardType="number-pad" /></View>
-            <View style={styles.half}><Field label="max ₺" value={wMax} onChangeText={(v) => setWMax(v.replace(/\D/g, ""))} keyboardType="number-pad" /></View>
-          </View>
-        </>
-      )}
-      <Field label="Hakkımda" value={bio} onChangeText={setBio} multiline />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <View style={styles.row}>
-        <View style={styles.half}><PrimaryButton label="Vazgeç" variant="ghost" onPress={() => setOpen(false)} /></View>
-        <View style={styles.half}><PrimaryButton label="Kaydet" loading={saving} onPress={submit} /></View>
-      </View>
-    </Card>
+    <>
+      <PrimaryButton label="✏️ Profili düzenle" variant="outline" onPress={openSheet} />
+
+      <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
+        <View style={styles.sheetOverlay}>
+          <Pressable style={{ flex: 1 }} onPress={() => setOpen(false)} />
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+            <View style={styles.sheet}>
+              <View style={styles.sheetHandle} />
+              <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 520 }}>
+                <Text style={styles.sheetTitle}>Profili düzenle</Text>
+                <Text style={styles.sheetSub}>Bilgilerini güncel tut, işverenler seni daha kolay bulur.</Text>
+                <View style={{ gap: 10, paddingBottom: 8 }}>
+                  <Field label="Ad Soyad" value={fullName} onChangeText={setFullName} />
+                  <Field label="Telefon" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+                  {isEmployer && <Field label="Şirket adı" value={companyName} onChangeText={setCompanyName} />}
+                  <View style={styles.row}>
+                    <View style={styles.half}><Field label="İl" value={city} onChangeText={setCity} /></View>
+                    <View style={styles.half}><Field label="İlçe" value={district} onChangeText={setDistrict} /></View>
+                  </View>
+                  {!isEmployer && (
+                    <>
+                      <Field label="Beceriler (virgülle)" value={skills} onChangeText={setSkills} />
+                      <View style={styles.row}>
+                        <View style={styles.half}><Field label="Deneyim (yıl)" value={exp} onChangeText={(v) => setExp(v.replace(/\D/g, ""))} keyboardType="number-pad" /></View>
+                        <View style={styles.half}><Field label="Saatlik min ₺" value={wMin} onChangeText={(v) => setWMin(v.replace(/\D/g, ""))} keyboardType="number-pad" /></View>
+                        <View style={styles.half}><Field label="max ₺" value={wMax} onChangeText={(v) => setWMax(v.replace(/\D/g, ""))} keyboardType="number-pad" /></View>
+                      </View>
+                    </>
+                  )}
+                  <Field label="Hakkımda" value={bio} onChangeText={setBio} multiline />
+                  {error ? <Text style={styles.error}>{error}</Text> : null}
+                  <View style={styles.row}>
+                    <View style={styles.half}><PrimaryButton label="Vazgeç" variant="ghost" onPress={() => setOpen(false)} /></View>
+                    <View style={styles.half}><PrimaryButton label="Kaydet" loading={saving} onPress={submit} /></View>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -395,10 +452,12 @@ function WorkerStatsSection({ refreshKey }: { refreshKey: number }) {
   return (
     <>
       <View style={styles.statRow}>
-        <StatCard emoji="✅" label="Tamamlanan iş" value={String(completed.length)} />
-        <StatCard emoji="💰" label="Toplam kazanç" value={`${earned.toLocaleString("tr-TR")} ₺`} />
-        <StatCard emoji="📥" label="Başvuru" value={String(apps.length)} />
+        <GradientStat emoji="✅" label="Tamamlanan" value={String(completed.length)} color="#059669" bg={C.emeraldBg} />
+        <GradientStat emoji="💰" label="Toplam kazanç" value={`${earned.toLocaleString("tr-TR")} ₺`} color="#4f46e5" bg={C.primarySoft} />
+        <GradientStat emoji="📥" label="Başvuru" value={String(apps.length)} color="#b45309" bg={C.amberBg} />
       </View>
+
+      <RatingSummarySection /> <MyReviewsSection />
 
       <Card style={{ gap: 10 }}>
         <SectionTitle>İş geçmişim</SectionTitle>
@@ -429,12 +488,376 @@ function WorkerStatsSection({ refreshKey }: { refreshKey: number }) {
   );
 }
 
+/* ================= HESAP: modern istatistik kartı ================= */
+
+function GradientStat({
+  emoji,
+  label,
+  value,
+  color,
+  bg,
+}: {
+  emoji: string;
+  label: string;
+  value: string;
+  color: string;
+  bg: string;
+}) {
+  return (
+    <View style={[styles.gradStat, { backgroundColor: bg, borderColor: `${color}22` }]}>
+      <View style={[styles.gradStatIcon, { backgroundColor: `${color}1A` }]}>
+        <Text style={styles.gradStatEmoji}>{emoji}</Text>
+      </View>
+      <Text style={[styles.gradStatValue, { color }]} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+      <Text style={styles.gradStatLabel} numberOfLines={2}>{label}</Text>
+    </View>
+  );
+}
+
+/* ================= HESAP: puan özeti + yorumlar ================= */
+
+function Stars({ value, size = 12 }: { value: number; size?: number }) {
+  const full = Math.round(value);
+  return (
+    <Text style={{ fontSize: size, color: C.amber, letterSpacing: 1 }}>
+      {"★".repeat(Math.max(0, Math.min(5, full)))}
+      <Text style={{ color: "#d1d5db" }}>{"★".repeat(5 - Math.max(0, Math.min(5, full)))}</Text>
+    </Text>
+  );
+}
+
+function RatingSummarySection() {
+  const [data, setData] = useState<RatingSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetchMyRatingSummary()
+      .then((d) => alive && setData(d))
+      .catch((err) => alive && setError(err instanceof Error ? err.message : null));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (error || !data) return null;
+  const dist = data.distribution ?? {};
+  const total = Object.values(dist).reduce((a, b) => a + (Number(b) || 0), 0) || data.count || 0;
+
+  return (
+    <Card style={{ gap: 12 }}>
+      <View style={styles.ratingHeadRow}>
+        <SectionTitle>Puan Özetim</SectionTitle>
+        {data.recentCount30d ? (
+          <View style={styles.trendChip}>
+            <Text style={styles.trendText}>🔥 Son 30 gün: +{data.recentCount30d}</Text>
+          </View>
+        ) : null}
+      </View>
+      {data.count > 0 ? (
+        <>
+          <View style={styles.ratingHeroRow}>
+            <Text style={styles.ratingHeroAvg}>{data.average.toFixed(1)}</Text>
+            <View style={{ gap: 3 }}>
+              <Stars value={data.average} size={16} />
+              <Text style={styles.ratingHeroCount}>{data.count} değerlendirme</Text>
+            </View>
+          </View>
+          <View style={{ gap: 5 }}>
+            {[5, 4, 3, 2, 1].map((s) => {
+              const n = Number(dist[String(s)] ?? 0);
+              const pct = total > 0 ? Math.round((n / total) * 100) : 0;
+              return (
+                <View key={s} style={styles.distRow}>
+                  <Text style={styles.distStar}>{s}★</Text>
+                  <View style={styles.distTrack}>
+                    <View style={[styles.distFill, { width: `${pct}%` }]} />
+                  </View>
+                  <Text style={styles.distCount}>{n}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </>
+      ) : (
+        <Text style={styles.desc}>Henüz puanın yok. İş tamamlayınca karşı taraf seni puanlar.</Text>
+      )}
+    </Card>
+  );
+}
+
+function MyReviewsSection() {
+  const [items, setItems] = useState<ApiReview[] | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetchMyReceivedReviews({ pageSize: 5 })
+      .then((d) => alive && setItems(d.items))
+      .catch(() => alive && setItems([]));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (items === null) {
+    return (
+      <Card style={{ gap: 8 }}>
+        <SectionTitle>Aldığım Yorumlar</SectionTitle>
+        <ActivityIndicator color={C.primary} style={{ paddingVertical: 8 }} />
+      </Card>
+    );
+  }
+  if (items.length === 0) return null;
+
+  return (
+    <Card style={{ gap: 10 }}>
+      <SectionTitle>Aldığım Yorumlar</SectionTitle>
+      {items.map((r) => (
+        <View key={r.id} style={styles.reviewRow}>
+          <View style={styles.reviewAvatar}>
+            <Text style={styles.reviewAvatarText}>{(r.reviewer?.fullName ?? "?").slice(0, 1).toUpperCase()}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <View style={styles.reviewHeadRow}>
+              <Text style={styles.reviewName} numberOfLines={1}>{r.reviewer?.fullName ?? "Kullanıcı"}</Text>
+              <Stars value={r.rating} />
+            </View>
+            {r.comment ? (
+              <Text style={styles.reviewComment} numberOfLines={3}>“{r.comment}”</Text>
+            ) : null}
+            <Text style={styles.reviewMeta}>
+              {r.job?.title ? `${r.job.title} · ` : ""}
+              {new Date(r.createdAt).toLocaleDateString("tr-TR")}
+            </Text>
+          </View>
+        </View>
+      ))}
+    </Card>
+  );
+}
+
+/* ================= HESAP: doğrulama & rozet ================= */
+
+const VERIF_TYPES: { type: VerificationType; icon: string; label: string; hint: string }[] = [
+  { type: "IDENTITY", icon: "🪪", label: "Kimlik", hint: "TC kimlik / pasaport foto" },
+  { type: "COMPANY", icon: "🏢", label: "Şirket", hint: "Ticari sicil / faaliyet belgesi" },
+  { type: "TAX", icon: "🧾", label: "Vergi", hint: "Vergi levhası" },
+];
+
+function VerificationSection() {
+  const [status, setStatus] = useState<VerificationStatus | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [type, setType] = useState<VerificationType>("IDENTITY");
+  const [docUri, setDocUri] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setStatus(await fetchVerificationStatus());
+    } catch {
+      // sessiz — kart gösterilmez
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (!status) return null;
+
+  const pickDocument = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("İzin gerekli", "Galeri erişimi olmadan belge seçilemez.");
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.7,
+        allowsEditing: true,
+      });
+      if (res.canceled || !res.assets?.[0]) return;
+      setDocUri(res.assets[0].uri ?? null);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Belge seçilemedi");
+    }
+  };
+
+  const submit = async () => {
+    if (!docUri) {
+      setError("Önce belge fotoğrafı seç.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      // Backend base64 data URL bekliyor: data:image/...;base64,...
+      const base64 = await readImageAsBase64DataUrl(docUri);
+      await createVerificationRequest({ type, documentUrl: base64, documentNote: note.trim() || undefined });
+      await load();
+      setSheetOpen(false);
+      setDocUri(null);
+      setNote("");
+      Alert.alert("Talebin alındı", "Belgen admin ekibince incelenecek. Sonuç bildirim olarak gelir.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Talep gönderilemedi");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Doğrulanmış rozet
+  if (status.isVerified && !status.pendingRequest) {
+    return (
+      <View style={styles.verifiedBanner}>
+        <View style={styles.verifiedBadgeIcon}>
+          <Text style={styles.verifiedBadgeCheck}>✓</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.verifiedTitle}>Hesabın doğrulanmış</Text>
+          <Text style={styles.verifiedSub}>Mavi rozet profilinde ve ilanlarında görünüyor.</Text>
+        </View>
+        <Text style={styles.verifiedEmoji}>🛡️</Text>
+      </View>
+    );
+  }
+
+  // Bekleyen talep
+  if (status.pendingRequest) {
+    return (
+      <View style={[styles.verifiedBanner, styles.verifiedBannerPending]}>
+        <Text style={{ fontSize: 24 }}>⏳</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.verifiedTitle, { color: C.amber }]}>Doğrulama talebin beklemede</Text>
+          <Text style={[styles.verifiedSub, { color: C.amber }]}>
+            {VERIF_TYPES.find((t) => t.type === status.pendingRequest?.type)?.label ?? "Belge"} kontrol ediliyor.
+            Sonuç bildirimle gelir.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const rejected = status.lastDecision?.status === "REJECTED";
+
+  return (
+    <>
+      <Card style={{ gap: 10 }}>
+        <View style={styles.ratingHeadRow}>
+          <SectionTitle>Doğrulama & Rozetler</SectionTitle>
+          <Text style={styles.verifiedMiniIcon}>🛡️</Text>
+        </View>
+        {rejected ? (
+          <Text style={styles.rejectNote}>
+            Son talebin reddedildi{status.lastDecision?.reviewNote ? `: ${status.lastDecision.reviewNote}` : ""}. Yeni belgeyle tekrar başvurabilirsin.
+          </Text>
+        ) : (
+          <Text style={styles.desc}>
+            Kimlik, şirket veya vergi belgeni yükle; hesabın mavi ✓ rozet kazanır ve ilanların anında yayımlanır.
+          </Text>
+        )}
+        <PrimaryButton label="🛡️ Doğrulama talebi oluştur" onPress={() => setSheetOpen(true)} />
+      </Card>
+
+      <Modal visible={sheetOpen} transparent animationType="slide" onRequestClose={() => setSheetOpen(false)}>
+        <View style={styles.sheetOverlay}>
+          <Pressable style={{ flex: 1 }} onPress={() => setSheetOpen(false)} />
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+            <View style={styles.sheet}>
+              <View style={styles.sheetHandle} />
+              <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 500 }}>
+                <Text style={styles.sheetTitle}>Doğrulama talebi</Text>
+                <Text style={styles.sheetSub}>Belge tipini seç, fotoğraf yükle ve gönder. Aynı anda tek talep olabilir.</Text>
+                <View style={{ gap: 10, paddingBottom: 8 }}>
+                  {VERIF_TYPES.map((t) => (
+                    <Pressable
+                      key={t.type}
+                      onPress={() => setType(t.type)}
+                      style={({ pressed }) => [
+                        styles.verifTypeRow,
+                        type === t.type && styles.verifTypeRowActive,
+                        pressed && { opacity: 0.85 },
+                      ]}
+                    >
+                      <Text style={{ fontSize: 20 }}>{t.icon}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.verifTypeLabel}>{t.label}</Text>
+                        <Text style={styles.verifTypeHint}>{t.hint}</Text>
+                      </View>
+                      <View style={[styles.verifRadio, type === t.type && styles.verifRadioActive]}>
+                        {type === t.type ? <View style={styles.verifRadioDot} /> : null}
+                      </View>
+                    </Pressable>
+                  ))}
+
+                  <Pressable
+                    onPress={pickDocument}
+                    style={({ pressed }) => [styles.docPickBox, pressed && { opacity: 0.9 }]}
+                  >
+                    {docUri ? (
+                      <Image source={{ uri: docUri }} style={styles.docPreview} resizeMode="cover" />
+                    ) : (
+                      <View style={styles.docPickEmpty}>
+                        <Text style={{ fontSize: 26 }}>📎</Text>
+                        <Text style={styles.docPickText}>Belge fotoğrafı seç</Text>
+                        <Text style={styles.docPickHint}>Galeriden yükle (JPG/PNG)</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                  {docUri ? (
+                    <PrimaryButton label="📷 Belgeyi değiştir" variant="ghost" onPress={pickDocument} />
+                  ) : null}
+
+                  <Field label="Not (opsiyonel)" value={note} onChangeText={setNote} multiline placeholder="Belgeyle ilgili açıklama" />
+                  {error ? <Text style={styles.error}>{error}</Text> : null}
+                  <View style={styles.row}>
+                    <View style={styles.half}><PrimaryButton label="Vazgeç" variant="ghost" onPress={() => setSheetOpen(false)} /></View>
+                    <View style={styles.half}><PrimaryButton label="Gönder" loading={busy} onPress={submit} /></View>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
+/** Yerel dosyayı base64 data URL'e çevirir (verification-request documentUrl formatı). */
+async function readImageAsBase64DataUrl(uri: string): Promise<string> {
+  if (uri.startsWith("data:")) return uri;
+  const FileSystem = require("expo-file-system");
+  const info = await FileSystem.getInfoAsync(uri, { size: true });
+  if (!info.exists) throw new Error("Belge dosyası okunamadı.");
+  const ext = uri.split(".").pop()?.toLowerCase() ?? "jpg";
+  const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+  const b64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  return `data:${mime};base64,${b64}`;
+}
+
 /* ================= GÜVENLİK ================= */
 
 function SecurityTab({ user }: { user: ApiUser }) {
   const { refreshUser } = useAuth();
   return (
     <>
+      <View style={styles.secHero}>
+        <View style={styles.secHeroBlob} pointerEvents="none" />
+        <Text style={styles.secHeroIcon}>🔒</Text>
+        <Text style={styles.secHeroTitle}>Güvenlik merkezi</Text>
+        <Text style={styles.secHeroSub}>
+          {user.twoFactorEnabled && user.emailVerified
+            ? "Hesabın en güçlü korumada. Harika! ✨"
+            : "Hesabını güçlendir: e-postanı doğrula, 2FA'yı aç."}
+        </Text>
+      </View>
       {!user.emailVerified && <EmailVerificationSection email={user.email} onVerified={refreshUser} />}
       <TwoFactorSection enabled={!!user.twoFactorEnabled} onChanged={refreshUser} />
       <PasswordSection />
@@ -458,8 +881,10 @@ function AccountSecuritySection({ user }: { user: ApiUser }) {
     <Card style={{ gap: 8 }}>
       <SectionTitle>Hesap güvenlik durumu</SectionTitle>
       {rows.map((r) => (
-        <View key={r.label} style={styles.secRow}>
-          <Text style={styles.secIcon}>{r.icon}</Text>
+        <View key={r.label} style={[styles.secRow, r.danger && styles.secRowDanger]}>
+          <View style={[styles.secIconBox, r.danger && styles.secIconBoxDanger]}>
+            <Text style={styles.secIcon}>{r.icon}</Text>
+          </View>
           <Text style={styles.secLabel}>{r.label}</Text>
           <Text style={[styles.secValue, r.danger && styles.secValueDanger]}>{r.value}</Text>
         </View>
@@ -937,14 +1362,14 @@ function AboutTab({ onLogout }: { onLogout: () => void }) {
         <Text style={{ fontSize: 44 }}>💼</Text>
         <Text style={{ fontSize: 20, fontWeight: "800", color: C.text }}>Günübirlik</Text>
         <Text style={styles.desc}>Günlük iş bulma ve işçi bulma platformu</Text>
-        <Badge label="Mobil v1.1.5" color={C.primary} bg={C.primarySoft} />
+        <Badge label="Mobil v1.2.0" color={C.primary} bg={C.primarySoft} />
       </Card>
 
       <Card style={{ gap: 10 }}>
         <SectionTitle>Uygulama</SectionTitle>
         <View style={styles.ruleRow}>
           <Text style={styles.ruleText}>Sürüm</Text>
-          <Text style={styles.ruleValue}>1.1.5 (build 11)</Text>
+          <Text style={styles.ruleValue}>1.2.0 (build 12)</Text>
         </View>
         <View style={styles.ruleRow}>
           <Text style={styles.ruleText}>Sunucu</Text>
@@ -956,15 +1381,283 @@ function AboutTab({ onLogout }: { onLogout: () => void }) {
         </View>
       </Card>
 
-      <Card style={{ gap: 10 }}>
-        <SectionTitle>Yardım & Destek</SectionTitle>
-        <Text style={styles.desc}>
-          Sorun yaşarsan web sitesindeki iletişim formunu kullanabilir veya işverenle mesajlaşma sekmesinden
-          yazışabilirsin. Ödeme itirazları yönetim panelinde öncelikle incelenir.
-        </Text>
-      </Card>
+      <SupportTicketSection />
+      <DeleteAccountSection />
 
       <PrimaryButton label="🚪 Çıkış yap" variant="danger" onPress={onLogout} />
+    </>
+  );
+}
+
+/* ================= HAKKINDA: destek talepleri ================= */
+
+const TICKET_CATEGORIES: { value: SupportCategory; icon: string; label: string }[] = [
+  { value: "COMPLAINT", icon: "📣", label: "Şikayet" },
+  { value: "SUGGESTION", icon: "💡", label: "Öneri" },
+  { value: "BUG", icon: "🐞", label: "Hata bildirimi" },
+  { value: "ACCOUNT", icon: "👤", label: "Hesap" },
+  { value: "PAYMENT", icon: "💳", label: "Ödeme" },
+  { value: "OTHER", icon: "💬", label: "Diğer" },
+];
+
+const TICKET_PRIORITIES: { value: SupportPriority; label: string; color: string; bg: string }[] = [
+  { value: "LOW", label: "Düşük", color: C.muted, bg: "#f3f4f6" },
+  { value: "NORMAL", label: "Normal", color: C.primary, bg: C.primarySoft },
+  { value: "HIGH", label: "Yüksek", color: C.rose, bg: C.roseBg },
+];
+
+function SupportTicketSection() {
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [history, setHistory] = useState<SupportTicket[] | null>(null);
+  const [category, setCategory] = useState<SupportCategory>("OTHER");
+  const [priority, setPriority] = useState<SupportPriority>("NORMAL");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      setHistory(await fetchSupportTickets());
+    } catch {
+      setHistory([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
+  const openSheet = () => {
+    setCategory("OTHER");
+    setPriority("NORMAL");
+    setSubject("");
+    setMessage("");
+    setError(null);
+    setSheetOpen(true);
+  };
+
+  const submit = async () => {
+    if (subject.trim().length < 3) {
+      setError("Konu başlığı en az 3 karakter olmalı.");
+      return;
+    }
+    if (message.trim().length < 10) {
+      setError("Mesajın en az 10 karakter olmalı.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await createSupportTicket({ category, subject, message, priority });
+      setSheetOpen(false);
+      await loadHistory();
+      Alert.alert("Talebin alındı", "Ekibimiz en kısa sürede dönüş yapacak. Bildirim de alacaksın.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Talep gönderilemedi");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const statusChip = (s: string) => {
+    const map: Record<string, { label: string; color: string; bg: string }> = {
+      OPEN: { label: "Açık", color: C.primary, bg: C.primarySoft },
+      IN_PROGRESS: { label: "İnceleniyor", color: C.amber, bg: C.amberBg },
+      RESOLVED: { label: "Çözüldü", color: C.emerald, bg: C.emeraldBg },
+      CLOSED: { label: "Kapandı", color: C.muted, bg: "#f3f4f6" },
+    };
+    const it = map[s] ?? map.OPEN;
+    return <Badge label={it.label} color={it.color} bg={it.bg} />;
+  };
+
+  return (
+    <Card style={{ gap: 10 }}>
+      <SectionTitle>🎧 Destek Talebi</SectionTitle>
+      <Text style={styles.desc}>
+        Sorun, öneri veya ödeme itirazlarını yaz; admin ekibine bildirim gider.
+      </Text>
+      <PrimaryButton label="✍️ Yeni talep oluştur" onPress={openSheet} />
+
+      {history === null ? null : history.length === 0 ? null : (
+        <>
+          <View style={styles.divider} />
+          <Text style={styles.historyLabel}>Önceki taleplerin</Text>
+          {history.slice(0, 5).map((t) => (
+            <View key={t.id} style={styles.ticketRow}>
+              <View style={{ flex: 1, gap: 3 }}>
+                <View style={styles.ticketHeadRow}>
+                  <Text style={styles.ticketSubject} numberOfLines={1}>{t.subject}</Text>
+                  {statusChip(String(t.status ?? "OPEN"))}
+                </View>
+                <Text style={styles.ticketMeta}>
+                  {TICKET_CATEGORIES.find((c) => c.value === t.category)?.label ?? t.category} ·{" "}
+                  {new Date(t.createdAt).toLocaleDateString("tr-TR")}
+                </Text>
+                {t.reply ? (
+                  <Text style={styles.ticketReply} numberOfLines={2}>↩️ {t.reply}</Text>
+                ) : null}
+              </View>
+            </View>
+          ))}
+        </>
+      )}
+
+      <Modal visible={sheetOpen} transparent animationType="slide" onRequestClose={() => setSheetOpen(false)}>
+        <View style={styles.sheetOverlay}>
+          <Pressable style={{ flex: 1 }} onPress={() => setSheetOpen(false)} />
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+            <View style={styles.sheet}>
+              <View style={styles.sheetHandle} />
+              <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 520 }}>
+                <Text style={styles.sheetTitle}>Yeni destek talebi</Text>
+                <Text style={styles.sheetSub}>Talebin doğrudan admin ekibine bildirim olarak düşer.</Text>
+                <View style={{ gap: 10, paddingBottom: 8 }}>
+                  <Text style={styles.label}>Kategori</Text>
+                  <View style={styles.chipWrap}>
+                    {TICKET_CATEGORIES.map((c) => (
+                      <Pressable
+                        key={c.value}
+                        onPress={() => setCategory(c.value)}
+                        style={[styles.chip, category === c.value && styles.chipActive]}
+                      >
+                        <Text style={[styles.chipText, category === c.value && styles.chipTextActive]}>
+                          {c.icon} {c.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <Text style={styles.label}>Öncelik</Text>
+                  <View style={styles.chipWrap}>
+                    {TICKET_PRIORITIES.map((p) => (
+                      <Pressable
+                        key={p.value}
+                        onPress={() => setPriority(p.value)}
+                        style={[styles.chip, priority === p.value && { backgroundColor: p.bg, borderColor: p.color }]}
+                      >
+                        <Text style={[styles.chipText, priority === p.value && { color: p.color, fontWeight: "800" }]}>
+                          {p.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <Field label="Konu" value={subject} onChangeText={setSubject} placeholder="Kısaca konu" maxLength={80} />
+                  <Field label="Mesaj" value={message} onChangeText={setMessage} multiline placeholder="Sorununu detaylı anlat…" />
+                  {error ? <Text style={styles.error}>{error}</Text> : null}
+                  <View style={styles.row}>
+                    <View style={styles.half}><PrimaryButton label="Vazgeç" variant="ghost" onPress={() => setSheetOpen(false)} /></View>
+                    <View style={styles.half}><PrimaryButton label="Gönder" loading={busy} onPress={submit} /></View>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+    </Card>
+  );
+}
+
+/* ================= HAKKINDA: hesap silme ================= */
+
+function DeleteAccountSection() {
+  const [status, setStatus] = useState<DeleteAccountStatus | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDeleteAccountStatus()
+      .then(setStatus)
+      .catch(() => setStatus({}));
+  }, []);
+
+  const submit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await requestDeleteAccount({ reason, feedback });
+      setSheetOpen(false);
+      setStatus({ hasRequest: true, status: "PENDING" });
+      Alert.alert(
+        "Talebin alındı",
+        "Hesap silme talebin admin onayına gönderildi. Onaylandığında hesabın ve tüm verilerin kalıcı olarak silinir.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Talep gönderilemedi");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmDelete = () => {
+    Alert.alert(
+      "Hesap silinsin mi?",
+      "Tüm ilanların, başvuruların, mesajların ve cüzdan bakiyen silinir. Bu işlem geri alınamaz.",
+      [
+        { text: "Vazgeç", style: "cancel" },
+        { text: "Talep gönder", style: "destructive", onPress: () => void submit() },
+      ],
+    );
+  };
+
+  if (status?.hasRequest) {
+    const pending = status.status === "PENDING";
+    return (
+      <View style={[styles.verifiedBanner, pending ? styles.verifiedBannerPending : styles.deleteBannerDone]}>
+        <Text style={{ fontSize: 22 }}>{pending ? "⏳" : "🗑️"}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.verifiedTitle, { color: C.amber }]}>
+            {pending ? "Hesap silme talebin beklemede" : `Hesap silme talebi: ${status.status}`}
+          </Text>
+          <Text style={[styles.verifiedSub, { color: C.amber }]}>
+            Admin onayına kadar uygulamayı kullanmaya devam edebilirsin.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <Card style={{ gap: 10, borderColor: "#fecaca" }}>
+        <SectionTitle>🗑️ Hesap Silme</SectionTitle>
+        <Text style={styles.desc}>
+          Hesabını silmek istersen talep oluşturursun; admin onayladığında tüm verilerin
+          kalıcı olarak kaldırılır.
+        </Text>
+        <PrimaryButton label="Hesap silme talebi oluştur" variant="danger" onPress={() => setSheetOpen(true)} />
+      </Card>
+
+      <Modal visible={sheetOpen} transparent animationType="slide" onRequestClose={() => setSheetOpen(false)}>
+        <View style={styles.sheetOverlay}>
+          <Pressable style={{ flex: 1 }} onPress={() => setSheetOpen(false)} />
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+            <View style={styles.sheet}>
+              <View style={styles.sheetHandle} />
+              <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 440 }}>
+                <Text style={styles.sheetTitle}>Hesap silme talebi</Text>
+                <Text style={styles.sheetSub}>
+                  Neden ayrılıyorsun? Geri bildirimin bizi geliştirir. Admin onayından sonra silme kalıcıdır.
+                </Text>
+                <View style={{ gap: 10, paddingBottom: 8 }}>
+                  <Field label="Sebep (opsiyonel)" value={reason} onChangeText={setReason} multiline placeholder="Örn. iş buldum, uygulamayı kullanmıyorum" />
+                  <Field label="Geribildirim (opsiyonel)" value={feedback} onChangeText={setFeedback} multiline placeholder="Neyi daha iyi yapabiliriz?" />
+                  {error ? <Text style={styles.error}>{error}</Text> : null}
+                  <View style={styles.row}>
+                    <View style={styles.half}><PrimaryButton label="Vazgeç" variant="ghost" onPress={() => setSheetOpen(false)} /></View>
+                    <View style={styles.half}><PrimaryButton label="Talep gönder" variant="danger" loading={busy} onPress={confirmDelete} /></View>
+                  </View>
+                </View>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -976,10 +1669,11 @@ function Field(props: {
   value: string;
   onChangeText: (v: string) => void;
   secureTextEntry?: boolean;
-  keyboardType?: "default" | "email-address" | "number-pad";
+  keyboardType?: "default" | "email-address" | "number-pad" | "phone-pad";
   autoCapitalize?: "none" | "sentences";
   multiline?: boolean;
   maxLength?: number;
+  placeholder?: string;
 }) {
   return (
     <View style={{ gap: 5 }}>
@@ -993,6 +1687,7 @@ function Field(props: {
         autoCapitalize={props.autoCapitalize ?? "sentences"}
         multiline={props.multiline}
         maxLength={props.maxLength}
+        placeholder={props.placeholder}
         placeholderTextColor={C.muted}
       />
     </View>
@@ -1116,4 +1811,171 @@ const styles = StyleSheet.create({
   accHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   accChevron: { fontSize: 14, color: C.muted },
   accBody: { fontSize: 13, color: C.text, lineHeight: 20 },
+  // --- Modal sheet (profil düzenle / doğrulama / destek / hesap silme) ---
+  sheetOverlay: { flex: 1, backgroundColor: "rgba(15,23,42,0.45)", justifyContent: "flex-end" },
+  sheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 26,
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: -8 },
+    elevation: 18,
+  },
+  sheetHandle: { alignSelf: "center", width: 44, height: 5, borderRadius: 3, backgroundColor: "#e2e8f0", marginBottom: 12 },
+  sheetTitle: { fontSize: 19, fontWeight: "800", color: C.text },
+  sheetSub: { fontSize: 13, color: C.muted, lineHeight: 19, marginTop: 4, marginBottom: 12 },
+  // --- Modern istatistik kartları ---
+  gradStat: {
+    flex: 1,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 12,
+    gap: 6,
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  gradStatIcon: { width: 32, height: 32, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  gradStatEmoji: { fontSize: 15 },
+  gradStatValue: { fontSize: 19, fontWeight: "900", letterSpacing: -0.4 },
+  gradStatLabel: { fontSize: 10.5, fontWeight: "700", color: C.muted, lineHeight: 13 },
+  // --- Puan özeti ---
+  ratingHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  trendChip: { backgroundColor: C.amberBg, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  trendText: { fontSize: 10.5, fontWeight: "800", color: C.amber },
+  ratingHeroRow: { flexDirection: "row", alignItems: "center", gap: 14 },
+  ratingHeroAvg: { fontSize: 42, fontWeight: "900", color: C.text, letterSpacing: -1.5 },
+  ratingHeroCount: { fontSize: 12, color: C.muted, fontWeight: "600" },
+  distRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  distStar: { fontSize: 11, fontWeight: "700", color: C.amber, width: 26 },
+  distTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: "#f1f5f9", overflow: "hidden" },
+  distFill: { height: "100%", borderRadius: 4, backgroundColor: C.amber },
+  distCount: { fontSize: 11, color: C.muted, width: 26, textAlign: "right", fontWeight: "700" },
+  // --- Yorumlar ---
+  reviewRow: { flexDirection: "row", gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
+  reviewAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },
+  reviewAvatarText: { fontSize: 15, fontWeight: "800", color: C.primary },
+  reviewHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  reviewName: { fontSize: 13, fontWeight: "800", color: C.text, flex: 1 },
+  reviewComment: { fontSize: 12.5, color: C.text, lineHeight: 18 },
+  reviewMeta: { fontSize: 10.5, color: C.muted },
+  // --- Doğrulama ---
+  verifiedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#eff6ff",
+    borderWidth: 1.5,
+    borderColor: "#bfdbfe",
+    borderRadius: 18,
+    padding: 14,
+  },
+  verifiedBannerPending: { backgroundColor: C.amberBg, borderColor: "#fde68a" },
+  deleteBannerDone: { backgroundColor: C.roseBg, borderColor: "#fecaca" },
+  verifiedBadgeIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#2563eb",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  verifiedBadgeCheck: { fontSize: 18, fontWeight: "900", color: "#fff" },
+  verifiedTitle: { fontSize: 14, fontWeight: "800", color: C.text },
+  verifiedSub: { fontSize: 12, color: C.muted, marginTop: 2, lineHeight: 17 },
+  verifiedEmoji: { fontSize: 22 },
+  verifiedMiniIcon: { fontSize: 18 },
+  rejectNote: { fontSize: 13, color: C.rose, lineHeight: 19, backgroundColor: C.roseBg, borderRadius: 10, padding: 10 },
+  verifTypeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 14,
+    padding: 12,
+    backgroundColor: "#fafafa",
+  },
+  verifTypeRowActive: { borderColor: C.primary, backgroundColor: C.primarySoft },
+  verifTypeLabel: { fontSize: 14, fontWeight: "800", color: C.text },
+  verifTypeHint: { fontSize: 11.5, color: C.muted, marginTop: 1 },
+  verifRadio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: "#cbd5e1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  verifRadioActive: { borderColor: C.primary },
+  verifRadioDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: C.primary },
+  docPickBox: {
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: "#c7d2fe",
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: "#fafaff",
+  },
+  docPickEmpty: { alignItems: "center", paddingVertical: 22, gap: 4 },
+  docPickText: { fontSize: 13.5, fontWeight: "800", color: C.primary },
+  docPickHint: { fontSize: 11, color: C.muted },
+  docPreview: { width: "100%", height: 170 },
+  // --- Güvenlik hero ---
+  secHero: {
+    backgroundColor: "#0f172a",
+    borderRadius: 20,
+    padding: 18,
+    overflow: "hidden",
+    gap: 3,
+  },
+  secHeroBlob: {
+    position: "absolute",
+    top: -60,
+    right: -40,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: "rgba(79,70,229,0.35)",
+  },
+  secHeroIcon: { fontSize: 24 },
+  secHeroTitle: { fontSize: 18, fontWeight: "900", color: "#fff" },
+  secHeroSub: { fontSize: 12.5, color: "rgba(255,255,255,0.72)", lineHeight: 18 },
+  secRowDanger: { backgroundColor: C.roseBg, borderRadius: 12, paddingHorizontal: 8, marginHorizontal: -8, paddingVertical: 8 },
+  secIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: "#f1f5f9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secIconBoxDanger: { backgroundColor: C.roseBg },
+  // --- Destek talebi ---
+  chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  chip: {
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: "#fafafa",
+  },
+  chipActive: { backgroundColor: C.primarySoft, borderColor: C.primary },
+  chipText: { fontSize: 12, fontWeight: "700", color: C.muted },
+  chipTextActive: { color: C.primary },
+  historyLabel: { fontSize: 12.5, fontWeight: "800", color: C.muted, textTransform: "uppercase", letterSpacing: 0.4 },
+  ticketRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
+  ticketHeadRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  ticketSubject: { fontSize: 13.5, fontWeight: "800", color: C.text, flex: 1 },
+  ticketMeta: { fontSize: 11, color: C.muted },
+  ticketReply: { fontSize: 12, color: C.emerald, backgroundColor: C.emeraldBg, borderRadius: 8, padding: 7, lineHeight: 17 },
 });
