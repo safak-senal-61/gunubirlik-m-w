@@ -26,7 +26,8 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 - 💬 **QR Tara (işçi):** expo-camera ile işveren QR'ını okutur → check-in/check-out backend'e işlenir
 
 **v1.1.5 (versionCode 11) — PUSH İZİN AKIŞI + API UYUMU + LOGO/SPLASH (en güncel):**
-> 📥 APK linki build tamamlandığında buraya eklenecek.
+> 📥 **APK:** https://expo.dev/artifacts/eas/rXFenYFWBgoZqbY1454YHTTZtRH6szgifcOmQ9jSXBk.apk
+> Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/c0504f0e-0290-40e6-8fbd-689c23bbdbee
 - 🐛 **"Push bildirimleri hazır!" dialogu her uygulama açılışında tekrar çıkması düzeltildi:** "soruldu" bayrağı artık AsyncStorage'da kalıcı (`gb_onesignal_asked_v1`); bir kez izin verildikten (veya reddedildik) sonra diyalog bir daha ASLA çıkmaz.
 - ✅ **İzin istemi artık yalnız giriş/kayıt BAŞARISINDA** isteniyor (login / kayıt / Google girişi sonrası abonelik doğrulanınca). Login-kayıt ekranında ve uygulamanın her açılışında çıkmaz.
 - 🔕 **İzin zaten verilmişse diyalog hiç gösterilmez** (izin durumu dialog öncesi tekrar doğrulanır).

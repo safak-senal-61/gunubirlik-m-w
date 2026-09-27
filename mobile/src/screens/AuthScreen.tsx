@@ -20,7 +20,8 @@ import {
   resendActivation,
 } from "@/lib/api";
 
-const LOGO = require("../../../assets/splash-icon.png");
+// src/screens/ → mobile/assets/ (EAS arşiv kökü repo kökü olduğundan tam iki seviye)
+const LOGO = require("../../assets/splash-icon.png");
 
 type Mode = "login" | "register" | "twofactor" | "forgot" | "reset" | "verify";
 
