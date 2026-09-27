@@ -25,7 +25,9 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 - 🛠️ **Bakım modu kapısı:** Admin panelden bakıma alınınca (60 sn içinde) uygulamanın TAMAMI — giriş dahil — güzel temalı bakım ekranına döner: API'den başlık/mesaj, geri sayım, iletişim kanalları (WhatsApp/Ara/E-posta/Instagram), "Yeniden dene". Bakım durumu önbellekte tutulur; kapalıyken uygulama anında açılır.
 - 💬 **QR Tara (işçi):** expo-camera ile işveren QR'ını okutur → check-in/check-out backend'e işlenir
 
-**v1.1.4 (versionCode 10) — ONESIGNAL PUSH + GENİŞ BİLDİRİM AYARLARI (build bekliyor):**
+**v1.1.4 (versionCode 10) — ONESIGNAL PUSH + GENİŞ BİLDİRİM AYARLARI (en güncel):**
+> 📥 **APK:** https://expo.dev/artifacts/eas/bG8dbXfgD7F4KYNYDFDpqknh8mmRYe1j_7mG8rvwEtU.apk
+> Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/4795d747-3771-4bb5-bbdf-64a13f40b98d
 - 🔔 **OneSignal SDK entegre edildi** (react-native-onesignal 5.4.0 Stable + onesignal-expo-plugin 2.4.0, App ID `6bddc78e-…`)
   - Girişte kullanıcı backend user id ile `OneSignal.login(externalId)` üzerinden eşleşir (+ `gbUserId` alias, e-posta, rol tag'i) → backend bildirimi `include_aliases: external_id` ile bu cihaza gönderebilir
   - Çıkışta oturum kapanır (`logout`), cihaz anonim abone olur
@@ -40,6 +42,7 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
   - Optimistic anahtarlar + hata halinde geri alma + "✓ Kaydedildi" göstergesi, "Tümünü aç" / "Varsayılana sıfırla", sistem izni kartı (izin yoksa izin iste / cihaz ayarlarına git), OneSignal abonelik teşhisi, aşağı çekerek yenileme
   - Kapalı kategori için sunucu bildirimi hiç üretmez (`createNotification()` kontrolü); cihazda sadece gizlenmez
 - ℹ️ Push yalnızca build edilmiş APK'da çalışır (Expo Go desteklemez). Backend'in OneSignal'a `include_aliases: { external_id: [userId] }` ile gönderim yapması ve App Auth anahtarını sunucuda tutması gerekir.
+- 🔧 **Sürüm notu:** `react-native-onesignal@5.4.x` codegen spec'i RN 0.79+ gerektirdiğinden (ilk build `UnsupportedModulePropertyParserError` verdi) ve 5.3.x+ native OneSignal 5.7.x Kotlin 2.2 metadata taşıdığından (ikinci build `Incompatible classes` verdi), **5.2.17**'ye sabitlendi: native OneSignal 5.4.2 (Kotlin 1.9 uyumlu) + codegen yok + yeni JS API (login/logout, pushSubscription, Notifications.addEventListener) birebir aynı.
 
 **v1.1.3 (versionCode 9) — CÜZDAN & ÖDEME SİSTEMİ + BUGFİXLER:**
 > 📥 **APK:** https://expo.dev/artifacts/eas/_uqWTxf29D4YsyJFZaLqBd_9g_pr2AwOPcPMLDTqYhY.apk
