@@ -31,6 +31,7 @@ import { APPLICATION_STATUS_LABELS, formatWage } from "@/lib/format";
 import { formatDate } from "@/lib/format";
 import { useAuth } from "@/hooks/use-auth";
 import WalletScreen from "@/screens/WalletScreen";
+import NotificationSettingsScreen from "@/screens/NotificationSettingsScreen";
 
 type SettingsTab = "account" | "wallet" | "security" | "notifications" | "policies" | "about";
 
@@ -731,51 +732,7 @@ function ForgotPasswordInline() {
 /* ================= BİLDİRİM TERCİHLERİ ================= */
 
 function NotificationsTab() {
-  const rows = [
-    { icon: "📥", label: "Yeni başvuru", desc: "İlanına bir işçi başvurduğunda" },
-    { icon: "✅", label: "Başvuru sonucu", desc: "Kabul veya ret bildirimi" },
-    { icon: "💬", label: "Yeni mesaj", desc: "Sohbetlerde okunmamış mesaj" },
-    { icon: "⭐", label: "Puan & yorum", desc: "Tamamlanan iş sonrası değerlendirme" },
-    { icon: "⏰", label: "İş hatırlatması", desc: "Yaklaşan iş günü öncesi hatırlatma" },
-  ];
-  return (
-    <>
-      <Card style={{ gap: 10 }}>
-        <SectionTitle>Bildirim türleri</SectionTitle>
-        <Text style={styles.desc}>
-          Bu bildirimler platform tarafından otomatik oluşturulur ve Mesajlar sekmesindeki 🔔 Bildirimler
-          bölümünde listelenir. Tab çubuğundaki rozet, okunmamış bildirim sayısını gösterir.
-        </Text>
-        {rows.map((r) => (
-          <View key={r.label} style={styles.secRow}>
-            <Text style={styles.secIcon}>{r.icon}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.secLabel}>{r.label}</Text>
-              <Text style={styles.secDesc}>{r.desc}</Text>
-            </View>
-            <Badge label="Açık" color={C.emerald} bg={C.emeraldBg} />
-          </View>
-        ))}
-      </Card>
-
-      <Card style={{ gap: 8 }}>
-        <SectionTitle>Bildirimleri yönet</SectionTitle>
-        <Text style={styles.desc}>
-          Bildirim listesini açmak için alt çubuktaki 🔔 Bildirimler sekmesine dokun. Tek bildirime dokunmak
-          onu okundu yapar; çöp ikonu siler; “Tümünü okundu işaretle” hepsini temizler.
-        </Text>
-        <View style={styles.divider} />
-        <View style={styles.secRow}>
-          <Text style={styles.secIcon}>🔕</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.secLabel}>İtiraz / şikayet bildirimleri</Text>
-            <Text style={styles.secDesc}>Ödeme itirazı ve moderasyon uyarıları her zaman açık kalır.</Text>
-          </View>
-          <Badge label="Zorunlu" color={C.stone} bg={C.stoneBg} />
-        </View>
-      </Card>
-    </>
-  );
+  return <NotificationSettingsScreen />;
 }
 
 /* ================= POLİTİKALAR ================= */

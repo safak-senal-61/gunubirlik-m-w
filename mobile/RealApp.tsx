@@ -14,6 +14,7 @@ import {
   type MaintenanceStatus,
 } from "@/lib/api";
 import { toggleSaved, useSavedIds } from "@/lib/saved-store";
+import { initOneSignal, onPushArrived, onPushNavigate } from "@/lib/onesignal";
 import type { ApiApplication, ApiJob } from "@/lib/types";
 import AuthScreen from "@/screens/AuthScreen";
 import MaintenanceScreen from "@/screens/MaintenanceScreen";
@@ -62,6 +63,9 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error
 }
 
 export default function App() {
+  // OneSignal SDK'yı içerik render edilmeden ÖNCE başlat (Expo Go'da native modül
+  // yoksa wrapper sessizce atlar, uygulama çökmez).
+  initOneSignal();
   return (
     <AppErrorBoundary>
       <SafeAreaProvider>
@@ -222,6 +226,20 @@ function MainTabs() {
 
   const openJob = useCallback((job: ApiJob) => setOpenJobId(job.id), []);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  // OneSignal push bildirimi tıklandığında ilgili ekrana yönlendir.
+  useEffect(
+    () =>
+      onPushNavigate((intent) => {
+        setOpenJobId(intent.jobId ?? null);
+        setTab(intent.tab);
+        bumpRefresh();
+      }),
+    [bumpRefresh],
+  );
+
+  // Uygulama ön plandayken bildirim gelirse okunmamış rozetini tazele.
+  useEffect(() => onPushArrived(() => setUnread((u) => u + 1)), []);
 
   // Alt menüye her basışta açık detay kartı KAPANIR + veriler sessizce tazelenir.
   // (Önceden sadece sekme değişiyor, detay kartı ekranda kalıyordu.)

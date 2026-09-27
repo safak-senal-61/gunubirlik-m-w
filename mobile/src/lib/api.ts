@@ -13,6 +13,8 @@ import type {
   ApiMessage,
   ApiNotification,
   ApiUser,
+  NotificationSettings,
+  NotificationSettingsPatch,
   DepositRequest,
   GeocodeAddress,
   GeocodeSuggestion,
@@ -681,6 +683,41 @@ export async function markAllNotificationsRead(): Promise<void> {
 export async function deleteNotification(id: string): Promise<void> {
   try {
     await api.delete(`/notifications/${id}`);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/**
+ * Kullanıcının bildirim tercihlerini getirir. Kayıt yoksa backend hepsini açık
+ * (true) olarak otomatik oluşturur.
+ */
+export async function fetchNotificationSettings(): Promise<NotificationSettings> {
+  try {
+    const res = await api.get("/notifications/settings");
+    return res.data.data as NotificationSettings;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Tek tek veya toplu güncelleme. Sadece boolean alanlar kabul edilir. */
+export async function updateNotificationSettings(
+  patch: NotificationSettingsPatch,
+): Promise<NotificationSettings> {
+  try {
+    const res = await api.put("/notifications/settings", patch);
+    return res.data.data as NotificationSettings;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Tüm bildirim ayarlarını varsayılana (hepsi açık) sıfırlar. */
+export async function resetNotificationSettings(): Promise<NotificationSettings> {
+  try {
+    const res = await api.post("/notifications/settings/reset");
+    return res.data.data as NotificationSettings;
   } catch (err) {
     throw toApiError(err);
   }

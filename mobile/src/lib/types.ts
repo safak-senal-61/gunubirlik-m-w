@@ -175,6 +175,35 @@ export interface ApiNotification {
   } | null;
 }
 
+/** GET/PUT /notifications/settings — 18 kategori + genel push anahtarı. */
+export interface NotificationSettings {
+  id?: string;
+  userId?: string;
+  pushEnabled: boolean;
+  jobApplied: boolean;
+  applicationAccepted: boolean;
+  applicationRejected: boolean;
+  jobReminder: boolean;
+  jobNearby: boolean;
+  newMessage: boolean;
+  paymentReceived: boolean;
+  paymentApproved: boolean;
+  paymentRejected: boolean;
+  walletDeposit: boolean;
+  walletWithdraw: boolean;
+  workStarted: boolean;
+  workCompleted: boolean;
+  escrowDisputed: boolean;
+  systemUpdate: boolean;
+  maintenance: boolean;
+  promotional: boolean;
+  updatedAt?: string;
+  createdAt?: string;
+}
+
+/** PUT /notifications/settings gövdesi: yalnızca boolean alanlar, tek tek veya toplu. */
+export type NotificationSettingsPatch = Partial<Omit<NotificationSettings, "id" | "userId" | "updatedAt" | "createdAt">>;
+
 export interface GeocodeAddress {
   displayName: string;
   street: string | null;

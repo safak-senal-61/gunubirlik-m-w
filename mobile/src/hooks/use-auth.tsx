@@ -9,6 +9,7 @@ import {
 } from "react";
 import * as API from "@/lib/api";
 import { resetSavedIds } from "@/lib/saved-store";
+import { clearUser, identifyUser, syncPreferenceTags } from "@/lib/onesignal";
 import type { ApiUser } from "@/lib/types";
 
 export class TwoFactorRequiredError extends Error {
@@ -33,6 +34,22 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<ApiUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // OneSignal kullanıcı kimliği: girişte externalId ile eşleştir (backend bildirim
+  // gönderirken bu cihazı hedefler), çıkışta oturumu kapat. Ayrıca backend'deki
+  // bildirim tercihlerini OneSignal tag'lerine yansıtır.
+  useEffect(() => {
+    if (user) {
+      identifyUser(user);
+      API.fetchNotificationSettings()
+        .then(syncPreferenceTags)
+        .catch(() => {
+          // tercih yoksa sessiz geç
+        });
+    } else {
+      clearUser();
+    }
+  }, [user]);
 
   useEffect(() => {
     let cancelled = false;
