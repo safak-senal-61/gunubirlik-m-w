@@ -26,6 +26,8 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 - 💬 **QR Tara (işçi):** expo-camera ile işveren QR'ını okutur → check-in/check-out backend'e işlenir
 
 **v1.2.0 (versionCode 12) — AKICI UI + YENİ API ENTEGRASYONLARI (en güncel):**
+> 📥 **APK:** https://expo.dev/artifacts/eas/Vc_fzZ6TCbp-iaUIrHuiO9VNv_ZN6rehYgiVKUiQwKg.apk
+> Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/d6a6b903-4b5c-41f6-8a71-ee4e6ca8ee12
 - 📍 **İşler ana sayfası:** GPS ile konum alınca il · ilçe · mahalle · cadde detayı görünür; iskelet yükleme kartlarıyla akıcı ilk yükleme; kategori butonları şık ikon kartlarına dönüştü; pull-to-refresh + yeni ilan yayınlandığında liste kendini tazeler.
 - 💬 **Başvuru mesajı spam filtresi dostu:** nötr hazır mesaj şablonları + "telefon/e-posta/IBAN paylaşımı otomatik engellenir" bilgi notu ("ilanınız" gibi ifadelerin yanlışlıkla yıldızlanması önlenir).
 - ✏️ **Profil düzenleme modal sheet'e taşındı** — açılışta alanlar güncel verilerle dolar, kaydetme sonrası onay bildirimi çıkar.
