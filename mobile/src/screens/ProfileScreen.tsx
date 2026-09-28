@@ -457,7 +457,8 @@ function WorkerStatsSection({ refreshKey }: { refreshKey: number }) {
         <GradientStat emoji="📥" label="Başvuru" value={String(apps.length)} color="#b45309" bg={C.amberBg} />
       </View>
 
-      <RatingSummarySection /> <MyReviewsSection />
+      <RatingSummarySection />
+      <MyReviewsSection />
 
       <Card style={{ gap: 10 }}>
         <SectionTitle>İş geçmişim</SectionTitle>
