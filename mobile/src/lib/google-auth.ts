@@ -12,10 +12,10 @@ import { GoogleSignin, statusCodes, isErrorWithCode } from "@react-native-google
 /**
  * Web istemci kimliği — Google Cloud Console → APIs & Services → Credentials.
  * ANDROID istemci kimliği DEĞİL; ID token'ın aud alanı budur.
- * ⚠️ Gerçek client ID ile değiştirilmeden Google butonu "kurulmadı" uyarısı verir
- * (README'deki kurulum adımlarına bak).
+ * Android client'ı da aynı Google projesinde kayıtlı (package: com.gunubirlik.app
+ * + EAS keystore SHA-1: BB:24:49:1D:C5:2D:08:7F:AD:EF:B8:CB:CD:F5:74:D8:93:E5:D2:87).
  */
-const GOOGLE_WEB_CLIENT_ID = "TODO_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com";
+const GOOGLE_WEB_CLIENT_ID = "411578437442-gs1rck2124rgr516fe9dn9tuu15ge9ig.apps.googleusercontent.com";
 
 /** Client ID gerçek değerle değiştirilmemişse true. */
 export function isGoogleConfigured(): boolean {

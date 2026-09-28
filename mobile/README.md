@@ -8,17 +8,18 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 **v1.3.0 (versionCode 14) — GOOGLE GİRİŞ + SOHBET/PUSH DÜZELTMELERİ (en güncel):**
 - 🐛 **"Sohbete başla" düzeltmesi:** karşılama mesajındaki "İlanınız" kelimesi backend spam filtresine takılıp mesajı engelliyordu → nötr karşılama ("Merhaba! Bu iş hakkında konuşmak istiyorum. 👋") + doc-exact payload (`type: "TEXT"`)
 - 🔐 **Google ile giriş/kayıt:** `@react-native-google-signin/google-signin` → `POST /auth/google { idToken }`; hesabı olana otomatik kayıt, olana giriş
+  - Web client ID: `411578437442-...googleusercontent.com` (`src/lib/google-auth.ts`)
+  - Android OAuth client (aynı Google projesi): package `com.gunubirlik.app` + keystore SHA-1 `BB:24:49:1D:C5:2D:08:7F:AD:EF:B8:CB:CD:F5:74:D8:93:E5:D2:87`
 - 🔔 **Push fallback tag:** backend push gönderirken external_id sonrası `tag: user_id` fallback'i kullanıyor → `identifyUser()` artık `user_id` tag'ini de yazıyor; çıkışta temizleniyor
-- ⚠️ **Google Cloud kurulumu gerekli (aşağıda)** — yapılmadan Google butonu "başlatılamadı" hatası verir
+- ✅ **Google Cloud kurulumu tamamlandı:** Web + Android OAuth client'ları oluşturuldu; Android client'a EAS keystore SHA-1 işlendi
 
-### Google Sign-In kurulumu (bir kerelik)
+### Google Sign-In kurulumu (referans)
 1. [console.cloud.google.com](https://console.cloud.google.com) → proje aç/ seç
 2. **APIs & Services → OAuth consent screen**: External, app adı + destek e-postası
 3. **Credentials → Create Credentials → OAuth client ID**:
-   - **Web application** → Authorized origins/redirects boş kalabilir → **Client ID'yi kopyala**
-   - **Android** → Package name: `com.gunubirlik.app` + SHA-1: `cd $MOBILE_DIR && eas credentials -p android` çıktısındaki keystore SHA-1 (yoksa yeni keystore oluştur)
-4. `mobile/src/lib/google-auth.ts` içindeki `GOOGLE_WEB_CLIENT_ID` değerini Web client ID ile değiştir
-5. Yeni build al (native config değişti)
+   - **Web application** → client ID → `src/lib/google-auth.ts` içindeki `GOOGLE_WEB_CLIENT_ID` değerine yazılır
+   - **Android** → Package name: `com.gunubirlik.app` + SHA-1: EAS keystore parmak izi (yukarıda)
+4. Native config değişirse yeni build al
 
 **v1.2.1 (versionCode 13) — AYARLAR EKRANI ÇÖKME DÜZELTMESİ:**
 > 📥 **APK:** https://expo.dev/artifacts/eas/Fmi8MDRu0ltCr-eU7tgwyhY4jCmBX4pfpadxy_Q6oeo.apk
