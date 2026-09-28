@@ -6,10 +6,14 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 ## Hazır APK (Doğrudan Kurulum)
 
 **v1.3.0 (versionCode 14) — GOOGLE GİRİŞ + SOHBET/PUSH DÜZELTMELERİ (en güncel):**
+> 📥 **APK:** https://expo.dev/artifacts/eas/iQmwRVSvhrjIP6Bh5XYq8UjE4o_osiR6CM-A6FOD0JQ.apk
+> Build: https://expo.dev/accounts/safak61s-team/projects/gunubirlik/builds/93809175-b31d-4592-90b3-74b1a1359c8f
+> ⚠️ **Yeni EAS hesabı** (safak61s-team) + **yeni keystore** — eski v1.2.1 APK üstüne kurulamaz, önce kaldırın.
 - 🐛 **"Sohbete başla" düzeltmesi:** karşılama mesajındaki "İlanınız" kelimesi backend spam filtresine takılıp mesajı engelliyordu → nötr karşılama ("Merhaba! Bu iş hakkında konuşmak istiyorum. 👋") + doc-exact payload (`type: "TEXT"`)
 - 🔐 **Google ile giriş/kayıt:** `@react-native-google-signin/google-signin` → `POST /auth/google { idToken }`; hesabı olana otomatik kayıt, olana giriş
   - Web client ID: `411578437442-...googleusercontent.com` (`src/lib/google-auth.ts`)
-  - Android OAuth client (aynı Google projesi): package `com.gunubirlik.app` + keystore SHA-1 `BB:24:49:1D:C5:2D:08:7F:AD:EF:B8:CB:CD:F5:74:D8:93:E5:D2:87`
+  - Android OAuth client (aynı Google projesi): package `com.gunubirlik.app` + **YENİ keystore SHA-1** (safak61s-team hesabı): `AA:21:35:47:0B:E3:55:85:FF:B7:AB:54:26:B1:A7:AB:63:82:DB:9D`
+  - ⚠️ Eski manahos hesabının SHA-1'i (`BB:24:49:...`) geçersiz — Google Cloud'da Android client'a yukarıdaki yeni SHA-1 girilmeli
 - 🔔 **Push fallback tag:** backend push gönderirken external_id sonrası `tag: user_id` fallback'i kullanıyor → `identifyUser()` artık `user_id` tag'ini de yazıyor; çıkışta temizleniyor
 - ✅ **Google Cloud kurulumu tamamlandı:** Web + Android OAuth client'ları oluşturuldu; Android client'a EAS keystore SHA-1 işlendi
 
