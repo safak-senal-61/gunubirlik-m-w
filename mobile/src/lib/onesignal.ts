@@ -162,19 +162,26 @@ export function syncPreferenceTags(settings: NotificationSettings | null): void 
  * Giriş sonrası OneSignal kullanıcısını backend kullanıcısıyla eşleştirir.
  * externalId = backend user id → backend, bildirim gönderirken
  * include_aliases/external_id üzerinden bu cihazı hedefleyebilir.
+ *
+ * AYRICA `user_id` tag'i eklenir: backend push gönderirken ÖNCE external_id,
+ * sonra fallback olarak `filters: [{ tag: 'user_id', ... }]` yöntemini dener
+ * (api-doc push bölümü). Tag eksikse fallback sessizce boşa düşer ve
+ * "Push alıcı yok" hatası oluşur — bu yüzden her ikisi de set edilir.
  */
 export function identifyUser(user: ApiUser): void {
   if (!user?.id) return;
   safe(() => OneSignal.login(user.id), undefined);
   safe(() => OneSignal.User.addAlias("gbUserId", user.id), undefined);
   if (user.email) safe(() => OneSignal.User.addEmail(user.email), undefined);
+  safe(() => OneSignal.User.addTag("user_id", user.id), undefined);
   safe(() => OneSignal.User.addTag("role", user.role ?? "UNKNOWN"), undefined);
   safe(() => OneSignal.User.addTag("name", (user.fullName ?? "").slice(0, 60)), undefined);
 }
 
-/** Çıkışta OneSignal oturumunu kapatır (cihaz anonim abone olur). */
+/** Çıkışta OneSignal oturumunu kapatır ve kullanıcıya özel tag/alias'ları temizler. */
 export function clearUser(): void {
   safe(() => OneSignal.logout(), undefined);
+  safe(() => OneSignal.User.removeTags(["user_id", "role", "name"]), undefined);
 }
 
 /* ------------------------------------------------------------------ */

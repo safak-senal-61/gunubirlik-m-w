@@ -5,6 +5,25 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 
 ## Hazır APK (Doğrudan Kurulum)
 
+**v1.3.0 (versionCode 14) — GOOGLE GİRİŞ + SOHBET/PUSH DÜZELTMELERİ (en güncel):**
+- 🐛 **"Sohbete başla" düzeltmesi:** karşılama mesajındaki "İlanınız" kelimesi backend spam filtresine takılıp mesajı engelliyordu → nötr karşılama ("Merhaba! Bu iş hakkında konuşmak istiyorum. 👋") + doc-exact payload (`type: "TEXT"`)
+- 🔐 **Google ile giriş/kayıt:** `@react-native-google-signin/google-signin` → `POST /auth/google { idToken }`; hesabı olana otomatik kayıt, olana giriş
+- 🔔 **Push fallback tag:** backend push gönderirken external_id sonrası `tag: user_id` fallback'i kullanıyor → `identifyUser()` artık `user_id` tag'ini de yazıyor; çıkışta temizleniyor
+- ⚠️ **Google Cloud kurulumu gerekli (aşağıda)** — yapılmadan Google butonu "başlatılamadı" hatası verir
+
+### Google Sign-In kurulumu (bir kerelik)
+1. [console.cloud.google.com](https://console.cloud.google.com) → proje aç/ seç
+2. **APIs & Services → OAuth consent screen**: External, app adı + destek e-postası
+3. **Credentials → Create Credentials → OAuth client ID**:
+   - **Web application** → Authorized origins/redirects boş kalabilir → **Client ID'yi kopyala**
+   - **Android** → Package name: `com.gunubirlik.app` + SHA-1: `cd $MOBILE_DIR && eas credentials -p android` çıktısındaki keystore SHA-1 (yoksa yeni keystore oluştur)
+4. `mobile/src/lib/google-auth.ts` içindeki `GOOGLE_WEB_CLIENT_ID` değerini Web client ID ile değiştir
+5. Yeni build al (native config değişti)
+
+**v1.2.1 (versionCode 13) — AYARLAR EKRANI ÇÖKME DÜZELTMESİ:**
+> 📥 **APK:** https://expo.dev/artifacts/eas/Fmi8MDRu0ltCr-eU7tgwyhY4jCmBX4pfpadxy_Q6oeo.apk
+> Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/b5ce4b68-90ec-44b2-a2e3-aa95a28699aa
+
 > ⚠️ **v1.0.0 APK'sında beyaz ekran sorunu vardı** (SDK 52 yeni mimarisi kaynaklı). v1.0.1'de `newArchEnabled: false` yapıldı + hata görünür hale getirildi.
 
 **ÇÖZÜM SÜRÜMÜ (v1.0.4, versionCode 5):**

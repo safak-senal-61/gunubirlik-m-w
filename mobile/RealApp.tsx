@@ -267,7 +267,10 @@ function MainTabs() {
     [bumpRefresh],
   );
 
-  // "Sohbet Et": karşı tarafa nezaket mesajı gönderip konuşmayı açar (POST /conversations).
+  // Sohbete başlama: nötr karşılama mesajı.
+  // "İlanınız" kelimesi backend spam filtresine takıldığı için (v1.2.0'da başvuru
+  // mesajında da aynı sorun yaşandı) karşılama bu kelimeyi İÇERMEZ; ayrıca
+  // doc-exact payload kullanır: { recipientId, content, type: "TEXT" }.
   const startChat = useCallback(
     async (participantId: string, jobId: string | null) => {
       if (!participantId || chatBusy) return;
@@ -276,7 +279,8 @@ function MainTabs() {
         await sendMessage({
           recipientId: participantId,
           ...(jobId ? { jobId } : {}),
-          content: "Merhaba! İlanınız hakkında konuşmak istiyorum. 👋",
+          content: "Merhaba! Bu iş hakkında konuşmak istiyorum. 👋",
+          type: "TEXT",
         });
         setOpenJobId(null);
         setTab("messages");

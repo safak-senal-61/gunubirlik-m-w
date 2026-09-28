@@ -684,6 +684,8 @@ export async function sendMessage(payload: {
   jobId?: string;
   conversationId?: string;
   content: string;
+  /** Backend doc: "TEXT" (aynı zamanda job bağlamını korur). */
+  type?: string;
 }): Promise<ApiMessage> {
   try {
     const res = await api.post("/conversations", payload);

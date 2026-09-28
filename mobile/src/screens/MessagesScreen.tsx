@@ -170,6 +170,7 @@ function ThreadView({
         conversationId: conversation.id,
         ...(conversation.job ? { jobId: conversation.job.id } : {}),
         content: draft.trim(),
+        type: "TEXT",
       });
       setDraft("");
       await load();

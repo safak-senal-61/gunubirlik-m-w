@@ -20,6 +20,7 @@ import {
   verifyEmail,
   resendActivation,
 } from "@/lib/api";
+import { getIdTokenFromGoogle } from "@/lib/google-auth";
 
 // src/screens/ → mobile/assets/ (EAS arşiv kökü repo kökü olduğundan tam iki seviye)
 const LOGO = require("../../assets/splash-icon.png");
@@ -82,8 +83,9 @@ const C = {
 };
 
 export default function AuthScreen({ onDone }: { onDone: () => void }) {
-  const { login, register } = useAuth();
+  const { login, register, loginWithGoogle } = useAuth();
   const [mode, setMode] = useState<Mode>("login");
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -222,6 +224,21 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
     }
   };
 
+  // Google ile giriş/kayıt: ID token'ı backend'e gönderir; hesap yoksa otomatik oluşur.
+  const submitGoogle = async () => {
+    setGoogleLoading(true);
+    setError(null);
+    try {
+      const result = await getIdTokenFromGoogle();
+      if (!result) return; // kullanıcı diyaloğu kapattı
+      await loginWithGoogle(result.idToken);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google ile giriş başarısız");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   const title =
     mode === "login"
       ? "Tekrar hoş geldin"
@@ -294,6 +311,12 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
                 <Text style={styles.link}>Şifremi unuttum</Text>
               </Pressable>
               <Divider text="veya" />
+              <GoogleButton
+                loading={googleLoading}
+                onPress={() => {
+                  void submitGoogle();
+                }}
+              />
               <SwitchMode text="Hesabın yok mu?" action="Ücretsiz kayıt ol" onPress={() => { setMode("register"); setError(null); }} />
             </>
           )}
@@ -328,9 +351,15 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
                   <Field icon="🗺️" label="İlçe" value={district} onChangeText={setDistrict} />
                 </View>
               </View>
-              {error ? <Banner tone="error" text={error} /> : null}
-              <PrimaryButton label="Hesap oluştur" onPress={submitRegister} loading={loading} />
+              {error ? <Banner tone="error" text={error} /> : null}              <PrimaryButton label="Hesap oluştur" onPress={submitRegister} loading={loading} />
+
               <Divider text="veya" />
+              <GoogleButton
+                loading={googleLoading}
+                onPress={() => {
+                  void submitGoogle();
+                }}
+              />
               <SwitchMode text="Zaten hesabın var mı?" action="Giriş yap" onPress={() => { setMode("login"); setError(null); }} />
             </>
           )}
@@ -548,6 +577,29 @@ function SwitchMode(props: { text: string; action: string; onPress: () => void }
   );
 }
 
+function GoogleButton(props: { onPress: () => void; loading?: boolean }) {
+  return (
+    <Pressable
+      onPress={props.onPress}
+      disabled={props.loading}
+      style={({ pressed }) => [
+        styles.googleBtn,
+        pressed && styles.pressed,
+        props.loading && styles.primaryBtnDisabled,
+      ]}
+    >
+      {props.loading ? (
+        <ActivityIndicator color={C.text} />
+      ) : (
+        <>
+          <Text style={styles.googleG}>G</Text>
+          <Text style={styles.googleBtnText}>Google ile devam et</Text>
+        </>
+      )}
+    </Pressable>
+  );
+}
+
 function RoleCard(props: { active: boolean; emoji: string; label: string; hint: string; onPress: () => void }) {
   return (
     <Pressable
@@ -628,6 +680,25 @@ const styles = StyleSheet.create({
   dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
   dividerText: { fontSize: 12, color: C.muted, fontWeight: "600" },
   primaryBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, alignItems: "center", marginTop: 4, shadowColor: C.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+  googleBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  googleBtnText: { fontSize: 15, fontWeight: "600", color: C.text },
+  googleG: { fontSize: 19, fontWeight: "800", color: "#4285F4", lineHeight: 22 },
   primaryBtnDisabled: { opacity: 0.6 },
   primaryBtnText: { color: "#fff", fontWeight: "800", fontSize: 15, letterSpacing: 0.2 },
   pressed: { opacity: 0.9 },
