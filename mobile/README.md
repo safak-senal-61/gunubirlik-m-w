@@ -25,7 +25,12 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 - 🛠️ **Bakım modu kapısı:** Admin panelden bakıma alınınca (60 sn içinde) uygulamanın TAMAMI — giriş dahil — güzel temalı bakım ekranına döner: API'den başlık/mesaj, geri sayım, iletişim kanalları (WhatsApp/Ara/E-posta/Instagram), "Yeniden dene". Bakım durumu önbellekte tutulur; kapalıyken uygulama anında açılır.
 - 💬 **QR Tara (işçi):** expo-camera ile işveren QR'ını okutur → check-in/check-out backend'e işlenir
 
-**v1.2.0 (versionCode 12) — AKICI UI + YENİ API ENTEGRASYONLARI (en güncel):**
+**v1.2.1 (versionCode 13) — AYARLAR EKRANI ÇÖKME DÜZELTMESİ (en güncel):**
+> 📥 **APK:** https://expo.dev/artifacts/eas/Fmi8MDRu0ltCr-eU7tgwyhY4jCmBX4pfpadxy_Q6oeo.apk
+> Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/b5ce4b68-90ec-44b2-a2e3-aa95a28699aa
+- 🐛 **"Metin dizeleri <Text> bileşeni içinde oluşturulmalıdır" hatası düzeltildi:** Hesap (Ayarlar) sekmesinde `RatingSummarySection` ve `MyReviewsSection` JSX'i aynı satırda aralarında boşlukla render ediliyordu; RN bu boşluğu çıplak metin sayıp ekrani çökertiyordu. Bileşenler ayrı satırlara alındı.
+
+**v1.2.0 (versionCode 12) — AKICI UI + YENİ API ENTEGRASYONLARI:**
 > 📥 **APK:** https://expo.dev/artifacts/eas/Vc_fzZ6TCbp-iaUIrHuiO9VNv_ZN6rehYgiVKUiQwKg.apk
 > Build: https://expo.dev/accounts/manahos/projects/gunubirlik/builds/d6a6b903-4b5c-41f6-8a71-ee4e6ca8ee12
 - 📍 **İşler ana sayfası:** GPS ile konum alınca il · ilçe · mahalle · cadde detayı görünür; iskelet yükleme kartlarıyla akıcı ilk yükleme; kategori butonları şık ikon kartlarına dönüştü; pull-to-refresh + yeni ilan yayınlandığında liste kendini tazeler.
