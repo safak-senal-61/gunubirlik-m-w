@@ -351,7 +351,8 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
                   <Field icon="🗺️" label="İlçe" value={district} onChangeText={setDistrict} />
                 </View>
               </View>
-              {error ? <Banner tone="error" text={error} /> : null}              <PrimaryButton label="Hesap oluştur" onPress={submitRegister} loading={loading} />
+              {error ? <Banner tone="error" text={error} /> : null}
+              <PrimaryButton label="Hesap oluştur" onPress={submitRegister} loading={loading} />
 
               <Divider text="veya" />
               <GoogleButton

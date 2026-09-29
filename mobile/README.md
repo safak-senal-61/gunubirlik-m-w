@@ -5,7 +5,11 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 
 ## Hazır APK (Doğrudan Kurulum)
 
-**v1.3.0 (versionCode 14) — GOOGLE GİRİŞ + SOHBET/PUSH DÜZELTMELERİ (en güncel):**
+**v1.3.1 (versionCode 15) — KAYIT EKRANI ÇÖKME DÜZELTMESİ (en güncel):**
+- 🐛 "Metin dizeleri <Text> bileşeni içinde oluşturulmalıdır" hatası: kayıt formunda Banner ile buton aynı JSX satırına alınmıştı (aradaki boşluk RN'de çıplak metin) → ayrı satırlara alındı
+- Google girişi artık ilk açılışta hesap seçme diyaloğunu düzgün gösterir (v1.3.0'daki Google butonu çökmesi de bu sürümde çözülür)
+
+**v1.3.0 (versionCode 14) — GOOGLE GİRİŞ + SOHBET/PUSH DÜZELTMELERİ:**
 > 📥 **APK:** https://expo.dev/artifacts/eas/iQmwRVSvhrjIP6Bh5XYq8UjE4o_osiR6CM-A6FOD0JQ.apk
 > Build: https://expo.dev/accounts/safak61s-team/projects/gunubirlik/builds/93809175-b31d-4592-90b3-74b1a1359c8f
 > ⚠️ **Yeni EAS hesabı** (safak61s-team) + **yeni keystore** — eski v1.2.1 APK üstüne kurulamaz, önce kaldırın.
