@@ -13,7 +13,8 @@ import { GoogleSignin, statusCodes, isErrorWithCode } from "@react-native-google
  * Web istemci kimliği — Google Cloud Console → APIs & Services → Credentials.
  * ANDROID istemci kimliği DEĞİL; ID token'ın aud alanı budur.
  * Android client'ı da aynı Google projesinde kayıtlı (package: com.gunubirlik.app
- * + EAS keystore SHA-1: BB:24:49:1D:C5:2D:08:7F:AD:EF:B8:CB:CD:F5:74:D8:93:E5:D2:87).
+ * + EAS keystore SHA-1 — safak61s-team hesabının YENİ keystore'u:
+ * AA:21:35:47:0B:E3:55:85:FF:B7:AB:54:26:B1:A7:AB:63:82:DB:9D).
  */
 const GOOGLE_WEB_CLIENT_ID = "411578437442-gs1rck2124rgr516fe9dn9tuu15ge9ig.apps.googleusercontent.com";
 

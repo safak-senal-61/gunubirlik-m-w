@@ -5,7 +5,15 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 
 ## Hazır APK (Doğrudan Kurulum)
 
-**v1.3.1 (versionCode 15) — KAYIT EKRANI ÇÖKME DÜZELTMESİ (en güncel):**
+**v1.4.0 (versionCode 16) — UX İYİLEŞTİRMELERİ + UYGULAMA İÇİ ROTA + DEEP LINK (en güncel):**
+- 🔔 **Bildirimler otomatik okundu:** ekran açılır açılmaz tüm bildirimler sessizce okundu işaretlenir — "Tümünü okundu işaretle" butonu KALDIRILDI; rozet anında düşer
+- ⚡ **Bildirim ayarları anında açılır:** sekme geçişinde circular spinner tamamen kaldırıldı (cache-first zaten vardı; bekletme ekranı da kaldırıldı)
+- ✏️ **Profil düzenleme modern sheet:** ikon rozetli başlık + kapat butonu + bölümlere ayrılmış form (Kişisel bilgiler / İşçi profili / Hakkımda)
+- 🔒 **Güvenlik sadeleşti:** yedek "Şifremi unuttum" kartı KALDIRILDI (şifre sıfırlama zaten giriş ekranında); "Şifre değiştir" kartı modern ikonlu tasarıma çevrildi (Google hesabında farklı ipucu)
+- 🧭 **Yol tarifi UYGULAMA İÇİ:** Google Maps artık AÇILMAZ — cihaz konumu alınır, OSRM ile gerçek yol rotası hesaplanır ve haritanın ÜZERİNE çizilir (mesafe + süre bilgisiyle)
+- 🔗 **Push deep link (api-doc uyumlu):** backend `app_url`/launchURL gönderirse (`gunubirlik://messages/{id}`, `jobs/{id}`, `applications`, `wallet`, `verification`, `profile`, `notifications`) bildirime dokunmak DOĞRUDAN ilgili ekrana açar; web sitesine yönlenme yok. `scheme: "gunubirlik"` app.json'a eklendi; `messages/{id}` hedefi konuşmayı doğrudan açar
+
+**v1.3.1 (versionCode 15) — KAYIT EKRANI ÇÖKME DÜZELTMESİ:**
 - 🐛 "Metin dizeleri <Text> bileşeni içinde oluşturulmalıdır" hatası: kayıt formunda Banner ile buton aynı JSX satırına alınmıştı (aradaki boşluk RN'de çıplak metin) → ayrı satırlara alındı
 - Google girişi artık ilk açılışta hesap seçme diyaloğunu düzgün gösterir (v1.3.0'daki Google butonu çökmesi de bu sürümde çözülür)
 

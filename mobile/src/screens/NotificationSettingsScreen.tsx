@@ -5,7 +5,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Easing,
@@ -51,7 +50,6 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 
 export default function NotificationSettingsScreen() {
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [busyKey, setBusyKey] = useState<NotificationPrefKey | null>(null);
@@ -70,9 +68,8 @@ export default function NotificationSettingsScreen() {
     }).start();
   }, [saveFlash]);
 
-  // Cache-first yükleme: sekme her açıldığında spinner YOK — önce önbellekteki
+  // Cache-first yükleme: sekme her açıldığında SPINNER ASLA ÇIKMAZ — önce önbellekteki
   // ayarlar anında gösterilir, arka planda tazelenir (onUpdate ile ekran güncellenir).
-  // Pull-to-refresh ise doğrudan ağdan çeker.
   const load = useCallback(async (asRefresh = false) => {
     if (asRefresh) setRefreshing(true);
     try {
@@ -89,7 +86,6 @@ export default function NotificationSettingsScreen() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ayarlar alınamadı.");
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
   }, []);
@@ -207,15 +203,9 @@ export default function NotificationSettingsScreen() {
     ? ALL_PREF_KEYS.filter((k) => settings[k] === false).length
     : 0;
 
-  if (loading && !settings) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={C.primary} />
-        <Text style={styles.loadingText}>Bildirim ayarları yükleniyor…</Text>
-      </View>
-    );
-  }
-
+  // İlk açılışta bile tam ekran circular spinner GÖSTERME — iskelet kartlar yeterli
+  // (sekme değişiminde "bir şey olmuyor" hissi yaratan tam da buydu). settings henüz
+  // gelmemişse PrefSwitch'ler varsayılan (açık) durumda çizilir, veri gelince güncellenir.
   return (
     <ScrollView
       contentContainerStyle={styles.wrap}
@@ -474,7 +464,6 @@ function PrefSwitch({
 const styles = StyleSheet.create({
   wrap: { padding: 16, paddingBottom: 48, gap: 12 },
   center: { alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 10 },
-  loadingText: { fontSize: 13, color: C.muted },
 
   hero: {
     backgroundColor: C.primary,

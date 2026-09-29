@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Card, C, EmptyState, Loading, PrimaryButton } from "@/components/ui";
+import { Card, C, EmptyState, Loading } from "@/components/ui";
 import { useCachedList } from "@/hooks/use-cached-list";
 import {
   getPermissionCached,
@@ -40,6 +40,9 @@ export default function NotificationsScreen({
   const [unread, setUnread] = useState(0);
   // null = henüz bilinmiyor (yanlışlıkla bant göstermemek için izin doğrulanana kadar bekle).
   const [pushPermission, setPushPermission] = useState<boolean | null>(getPermissionCached());
+  // Ekran AÇILIR AÇILMAZ okundu işaretleme tek seferde tetiklenir (her mount'ta bir kez).
+  // Buton YOK — kullanıcı hiçbir şey yapmadan bildirimler okunmuş olur.
+  const autoReadDone = useRef(false);
 
   const notifFetcher = useCallback(() => fetchNotifications(), []);
   const {
@@ -54,8 +57,16 @@ export default function NotificationsScreen({
     if (notifData) {
       setItems(notifData.items);
       setUnread(notifData.unreadCount);
+      // Cache'den bile gelse: ekrana girildi → hepsini okundu işaretle (sessiz, arka planda).
+      if (!autoReadDone.current && notifData.unreadCount > 0) {
+        autoReadDone.current = true;
+        markAllNotificationsRead()
+          .then(reload)
+          .then(() => onChanged?.())
+          .catch(() => {});
+      }
     }
-  }, [notifData]);
+  }, [notifData, reload, onChanged]);
 
   // Sekme değişiminde sessiz tazele. DİKKAT: onChanged BURADA ÇAĞRILMAZ —
   // onChanged refreshKey'i artırdığı için sonsuz reload döngüsüne giriyordu
@@ -108,21 +119,6 @@ export default function NotificationsScreen({
             {unread > 0 ? `${unread} okunmamış bildirimin var` : "Tüm bildirimler okundu"}
           </Text>
         </View>
-        {unread > 0 && (
-          <PrimaryButton
-            label="Tümünü okundu işaretle"
-            variant="outline"
-            onPress={async () => {
-              try {
-                await markAllNotificationsRead();
-                await reload();
-                onChanged?.();
-              } catch {
-                // sessiz
-              }
-            }}
-          />
-        )}
       </View>
 
       {/* İzin kapalıyken KAYBOLMAYAN sabit uyarı bandı — dokunulduğunda Bildirim Ayarları'na götürür. */}

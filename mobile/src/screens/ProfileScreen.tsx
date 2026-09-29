@@ -34,8 +34,6 @@ import {
   fetchVerificationStatus,
   requestDeleteAccount,
   requestEmailChange,
-  requestPasswordReset,
-  resetPassword,
   sendOtp,
   setup2fa,
   updateMe,
@@ -75,24 +73,30 @@ const TABS: { key: SettingsTab; icon: string; label: string }[] = [
 export default function ProfileScreen({
   refreshKey,
   openTab,
+  openSub,
   onOpenTabHandled,
 }: {
   refreshKey: number;
   /** Bildirimler ekranındaki "Bildirimler kapalı" bandından gelindiyse "notifications". */
   openTab?: "notifications" | null;
-  /** openTab uygulandıktan sonra çağrılır (bir dahaki sefere temizler). */
+  /** Push deep link hedefi: gunubirlik://wallet → "wallet"; verification/profile → hesap sekmesi. */
+  openSub?: "wallet" | "verification" | "profile" | null;
+  /** openTab/openSub uygulandıktan sonra çağrılır (bir dahaki sefere temizler). */
   onOpenTabHandled?: () => void;
 }) {
   const { user, logout } = useAuth();
   const [tab, setTab] = useState<SettingsTab>("account");
 
-  // Dışarıdan (ör. bildirimler ekranı) istenen sekmeyi uygula.
+  // Dışarıdan (ör. bildirimler ekranı / push deep link) istenen sekmeyi uygula.
   useEffect(() => {
-    if (openTab) {
+    if (openSub === "wallet") {
+      setTab("wallet");
+      onOpenTabHandled?.();
+    } else if (openTab) {
       setTab(openTab);
       onOpenTabHandled?.();
     }
-  }, [openTab, onOpenTabHandled]);
+  }, [openTab, openSub, onOpenTabHandled]);
 
   // Sekme geçişinde yumuşak içerik animasyonu (fade + hafif yukarı kayma)
   const contentAnim = useRef(new Animated.Value(1)).current;
@@ -386,10 +390,22 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
           <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
             <View style={styles.sheet}>
               <View style={styles.sheetHandle} />
-              <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 520 }}>
-                <Text style={styles.sheetTitle}>Profili düzenle</Text>
-                <Text style={styles.sheetSub}>Bilgilerini güncel tut, işverenler seni daha kolay bulur.</Text>
-                <View style={{ gap: 10, paddingBottom: 8 }}>
+              {/* Modern başlık: ikon rozeti + başlık + kapat butonu */}
+              <View style={styles.sheetHeader}>
+                <View style={styles.sheetIconBox}>
+                  <Text style={styles.sheetIcon}>✏️</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetTitle}>Profili düzenle</Text>
+                  <Text style={styles.sheetSub}>Bilgilerini güncel tut, işverenler seni daha kolay bulur.</Text>
+                </View>
+                <Pressable onPress={() => setOpen(false)} hitSlop={8} style={styles.sheetClose}>
+                  <Text style={styles.sheetCloseText}>✕</Text>
+                </Pressable>
+              </View>
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <View style={{ gap: 12, paddingBottom: 12 }}>
+                  <Text style={styles.sectionLabel}>Kişisel bilgiler</Text>
                   <Field label="Ad Soyad" value={fullName} onChangeText={setFullName} />
                   <Field label="Telefon" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
                   {isEmployer && <Field label="Şirket adı" value={companyName} onChangeText={setCompanyName} />}
@@ -399,7 +415,8 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
                   </View>
                   {!isEmployer && (
                     <>
-                      <Field label="Beceriler (virgülle)" value={skills} onChangeText={setSkills} />
+                      <Text style={[styles.sectionLabel, { marginTop: 4 }]}>İşçi profili</Text>
+                      <Field label="Beceriler (virgülle ayır)" value={skills} onChangeText={setSkills} />
                       <View style={styles.row}>
                         <View style={styles.half}><Field label="Deneyim (yıl)" value={exp} onChangeText={(v) => setExp(v.replace(/\D/g, ""))} keyboardType="number-pad" /></View>
                         <View style={styles.half}><Field label="Saatlik min ₺" value={wMin} onChangeText={(v) => setWMin(v.replace(/\D/g, ""))} keyboardType="number-pad" /></View>
@@ -407,7 +424,8 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
                       </View>
                     </>
                   )}
-                  <Field label="Hakkımda" value={bio} onChangeText={setBio} multiline />
+                  <Text style={[styles.sectionLabel, { marginTop: 4 }]}>Hakkımda</Text>
+                  <Field label="Kendini kısaca tanıt" value={bio} onChangeText={setBio} multiline />
                   {error ? <Text style={styles.error}>{error}</Text> : null}
                   <View style={styles.row}>
                     <View style={styles.half}><PrimaryButton label="Vazgeç" variant="ghost" onPress={() => setOpen(false)} /></View>
@@ -861,10 +879,9 @@ function SecurityTab({ user }: { user: ApiUser }) {
       </View>
       {!user.emailVerified && <EmailVerificationSection email={user.email} onVerified={refreshUser} />}
       <TwoFactorSection enabled={!!user.twoFactorEnabled} onChanged={refreshUser} />
-      <PasswordSection />
+      <PasswordSection provider={user.provider} />
       <EmailChangeSection currentEmail={user.email} onChanged={refreshUser} />
       <AccountSecuritySection user={user} />
-      <ForgotPasswordInline />
     </>
   );
 }
@@ -1016,15 +1033,28 @@ function TwoFactorSection({ enabled, onChanged }: { enabled: boolean; onChanged:
   );
 }
 
-function PasswordSection() {
+function PasswordSection({ provider }: { provider?: string }) {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isGoogle = provider === "GOOGLE";
 
   return (
-    <Card style={{ gap: 10 }}>
-      <SectionTitle>Şifre değiştir</SectionTitle>
+    <View style={styles.pwCard}>
+      <View style={styles.pwHead}>
+        <View style={[styles.pwIconBox, isGoogle && { backgroundColor: C.amberBg }]}>
+          <Text style={styles.pwIcon}>{isGoogle ? "🔑" : "🛡️"}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.pwTitle}>Şifre değiştir</Text>
+          <Text style={styles.pwSub}>
+            {isGoogle
+              ? "Google ile giriş yapıyorsun; istersen şifre de belirleyebilirsin."
+              : "En az 8 karakter, harf + rakam karışımı önerilir."}
+          </Text>
+        </View>
+      </View>
       <Field label="Mevcut şifre" value={current} onChangeText={setCurrent} secureTextEntry />
       <Field label="Yeni şifre" value={next} onChangeText={setNext} secureTextEntry />
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -1046,7 +1076,7 @@ function PasswordSection() {
           }
         }}
       />
-    </Card>
+    </View>
   );
 }
 
@@ -1115,62 +1145,6 @@ function EmailChangeSection({ currentEmail, onChanged }: { currentEmail: string;
               />
             </View>
           </View>
-        </>
-      )}
-    </Card>
-  );
-}
-
-function ForgotPasswordInline() {
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [newPass, setNewPass] = useState("");
-  const [stage, setStage] = useState<"idle" | "code-sent">("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
-
-  return (
-    <Card style={{ gap: 10 }}>
-      <SectionTitle>Şifremi unuttum</SectionTitle>
-      {stage === "idle" ? (
-        <>
-          <Field label="E-posta" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <PrimaryButton
-            label="Sıfırlama kodu gönder"
-            variant="outline"
-            onPress={async () => {
-              setError(null);
-              try {
-                await requestPasswordReset(email.trim());
-                setStage("code-sent");
-                setInfo("Kod e-postana gönderildi.");
-              } catch (err) {
-                setError(err instanceof Error ? err.message : "İstek başarısız");
-              }
-            }}
-          />
-        </>
-      ) : (
-        <>
-          <Text style={styles.desc}>{info}</Text>
-          <Field label="Kod" value={code} onChangeText={(v) => setCode(v.replace(/\D/g, ""))} keyboardType="number-pad" maxLength={6} />
-          <Field label="Yeni şifre" value={newPass} onChangeText={setNewPass} secureTextEntry />
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <PrimaryButton
-            label="Şifreyi sıfırla"
-            onPress={async () => {
-              setError(null);
-              try {
-                // Backend gövdesi { code, newPassword } — email beklenmez (bkz. api-doc).
-                await resetPassword(code, newPass);
-                Alert.alert("Tamam", "Şifren güncellendi. Yeni şifrenle giriş yapabilirsin.");
-                setStage("idle"); setCode(""); setNewPass(""); setInfo(null);
-              } catch (err) {
-                setError(err instanceof Error ? err.message : "Sıfırlama başarısız");
-              }
-            }}
-          />
         </>
       )}
     </Card>
@@ -1363,14 +1337,14 @@ function AboutTab({ onLogout }: { onLogout: () => void }) {
         <Text style={{ fontSize: 44 }}>💼</Text>
         <Text style={{ fontSize: 20, fontWeight: "800", color: C.text }}>Günübirlik</Text>
         <Text style={styles.desc}>Günlük iş bulma ve işçi bulma platformu</Text>
-        <Badge label="Mobil v1.3.1" color={C.primary} bg={C.primarySoft} />
+        <Badge label="Mobil v1.4.0" color={C.primary} bg={C.primarySoft} />
       </Card>
 
       <Card style={{ gap: 10 }}>
         <SectionTitle>Uygulama</SectionTitle>
         <View style={styles.ruleRow}>
           <Text style={styles.ruleText}>Sürüm</Text>
-          <Text style={styles.ruleValue}>1.3.1 (build 15)</Text>
+          <Text style={styles.ruleValue}>1.4.0 (build 16)</Text>
         </View>
         <View style={styles.ruleRow}>
           <Text style={styles.ruleText}>Sunucu</Text>
@@ -1830,6 +1804,59 @@ const styles = StyleSheet.create({
   sheetHandle: { alignSelf: "center", width: 44, height: 5, borderRadius: 3, backgroundColor: "#e2e8f0", marginBottom: 12 },
   sheetTitle: { fontSize: 19, fontWeight: "800", color: C.text },
   sheetSub: { fontSize: 13, color: C.muted, lineHeight: 19, marginTop: 4, marginBottom: 12 },
+  sheetHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 2, marginBottom: 14 },
+  sheetIconBox: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    backgroundColor: C.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetIcon: { fontSize: 20 },
+  sheetClose: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#f1f5f9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetCloseText: { fontSize: 14, color: C.muted, fontWeight: "800" },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: C.primary,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    marginTop: 2,
+  },
+  // --- Modern şifre kartı ---
+  pwCard: {
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    padding: 16,
+    gap: 10,
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  pwHead: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 2 },
+  pwIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: C.emeraldBg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pwIcon: { fontSize: 18 },
+  pwTitle: { fontSize: 15, fontWeight: "800", color: C.text },
+  pwSub: { fontSize: 11, color: C.muted, lineHeight: 15, marginTop: 2 },
   // --- Modern istatistik kartları ---
   gradStat: {
     flex: 1,

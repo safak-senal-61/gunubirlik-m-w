@@ -18,10 +18,47 @@ export const ONESIGNAL_APP_ID = "6bddc78e-79e7-4701-9e46-6fca772e402a";
 /** Bildirim tıklaması / ön plan bildirimi sonrası uygulamanın yapacağı yönlendirme. */
 export type PushNavigateIntent = {
   /** Hangi alt sekme açılsın. */
-  tab: "notifications" | "messages" | "jobs" | "applications";
+  tab: "notifications" | "messages" | "jobs" | "applications" | "profile";
   /** Varsa doğrudan açılacak ilan. */
   jobId?: string;
+  /** gunubirlik://messages/{id} → doğrudan açılacak konuşma. */
+  conversationId?: string;
+  /** gunubirlik://applications/{id} → doğrudan açılacak başvuru (şimdilik sekme). */
+  applicationId?: string;
+  /** tab=profile iken: wallet → Cüzdan sekmesi, verification/profile → Hesap. */
+  profileSub?: "wallet" | "verification" | "profile";
 };
+
+/**
+ * gunubirlik:// derin bağlantısını uygulama hedefine çevirir.
+ * Backend api-doc push bölümündeki app_url şeması:
+ *   notifications, messages, messages/{id}, applications, applications/{id},
+ *   jobs/{id}, wallet, verification, profile
+ */
+export function parseGunubirlikUrl(url: string): PushNavigateIntent | null {
+  if (!url || !url.startsWith("gunubirlik://")) return null;
+  const path = url.slice("gunubirlik://".length).replace(/\/+$/, "");
+  const [head, id] = path.split("/");
+  switch (head) {
+    case "":
+    case "notifications":
+      return { tab: "notifications" };
+    case "messages":
+      return id ? { tab: "messages", conversationId: id } : { tab: "messages" };
+    case "applications":
+      return id ? { tab: "applications", applicationId: id } : { tab: "applications" };
+    case "jobs":
+      return id ? { tab: "jobs", jobId: id } : { tab: "jobs" };
+    case "wallet":
+      return { tab: "profile", profileSub: "wallet" };
+    case "verification":
+      return { tab: "profile", profileSub: "verification" };
+    case "profile":
+      return { tab: "profile", profileSub: "profile" };
+    default:
+      return { tab: "notifications" };
+  }
+}
 
 type NavigateListener = (intent: PushNavigateIntent) => void;
 type ArrivedListener = () => void;
@@ -323,7 +360,14 @@ export function initOneSignal(): void {
     emitArrived();
   };
   const onClick = (e: NotificationClickEvent) => {
-    const intent = intentFromPayload((e?.notification as { additionalData?: unknown } | undefined)?.additionalData);
+    // 1) Backend app_url (launchURL) gönderdiyse ÖNCE onu dene: gunubirlik://... → uygulama içi hedef.
+    //    (Kullanıcı web sitesine yönlenmez; doğru ekrana açılır.)
+    const launchUrl = (e?.notification as { launchURL?: string } | undefined)?.launchURL;
+    let intent = parseGunubirlikUrl(launchUrl ?? "");
+    // 2) Yoksa additionalData'dan tip bazlı hedef çıkar (fallback).
+    if (!intent) {
+      intent = intentFromPayload((e?.notification as { additionalData?: unknown } | undefined)?.additionalData);
+    }
     pendingColdStartIntent = intent; // JS dinleyici henüz yoksa sonradan tüketilir
     emitNavigate(intent);
   };

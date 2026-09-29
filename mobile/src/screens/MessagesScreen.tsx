@@ -23,7 +23,17 @@ import type { ApiConversation, ApiMessage } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
 import { useAuth } from "@/hooks/use-auth";
 
-export default function MessagesScreen({ refreshKey }: { refreshKey: number }) {
+export default function MessagesScreen({
+  refreshKey,
+  openConversationId,
+  onOpenConversationHandled,
+}: {
+  refreshKey: number;
+  /** Push deep link: gunubirlik://messages/{id} → doğrudan açılacak konuşma. */
+  openConversationId?: string | null;
+  /** openConversationId uygulandıktan sonra çağrılır. */
+  onOpenConversationHandled?: () => void;
+}) {
   const [conversations, setConversations] = useState<ApiConversation[]>([]);
   const [selected, setSelected] = useState<ApiConversation | null>(null);
 
@@ -56,6 +66,18 @@ export default function MessagesScreen({ refreshKey }: { refreshKey: number }) {
       markConversationRead(conv.id).then(reload);
     }
   };
+
+  // Push deep link: konuşma listesi geldiğinde istenen konuşmayı doğrudan aç.
+  useEffect(() => {
+    if (!openConversationId || conversations.length === 0) return;
+    const target = conversations.find((c) => c.id === openConversationId);
+    if (target) {
+      openConv(target);
+    }
+    onOpenConversationHandled?.();
+    // openConv bilinçli olarak bağımlılık dışı (ilk açılışta bir kez çalışsın).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openConversationId, conversations]);
 
   if (selected) {
     return (

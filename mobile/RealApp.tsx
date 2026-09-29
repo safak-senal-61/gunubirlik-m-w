@@ -207,6 +207,10 @@ function MainTabs() {
   const [scannerOpen, setScannerOpen] = useState(false);
   // Bildirimler ekranındaki "Bildirimler kapalı" bandına dokununca Ayarlar > Bildirim açılır.
   const [profileOpenTab, setProfileOpenTab] = useState<"notifications" | null>(null);
+  // Push deep link: gunubirlik://wallet → Cüzdan, verification/profile → Hesap.
+  const [profileSub, setProfileSub] = useState<"wallet" | "verification" | "profile" | null>(null);
+  // Push deep link: gunubirlik://messages/{id} → doğrudan açılacak konuşma.
+  const [openConversationId, setOpenConversationId] = useState<string | null>(null);
 
   // Bildirim sayacı (30 sn'de bir)
   useEffect(() => {
@@ -230,11 +234,22 @@ function MainTabs() {
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   // OneSignal push bildirimi tıklandığında ilgili ekrana yönlendir.
+  // gunubirlik:// launchURL (backend app_url) parse edilmiş halde gelir:
+  // messages/{id} → doğrudan konuşma, wallet/verification/profile → profil,
+  // jobs/{id} → ilan detayı, applications → başvurular.
   useEffect(
     () =>
       onPushNavigate((intent) => {
         setOpenJobId(intent.jobId ?? null);
-        setTab(intent.tab);
+        setOpenConversationId(intent.conversationId ?? null);
+        if (intent.tab === "profile") {
+          // wallet → Cüzdan; verification/profile → Hesap (Bildirim → Ayarlar açar).
+          setProfileSub(intent.profileSub ?? null);
+          setProfileOpenTab(intent.profileSub ? null : "notifications");
+          setTab("profile");
+        } else {
+          setTab(intent.tab);
+        }
         bumpRefresh();
       }),
     [bumpRefresh],
@@ -250,7 +265,14 @@ function MainTabs() {
     if (!coldIntent) return;
     const t = setTimeout(() => {
       setOpenJobId(coldIntent.jobId ?? null);
-      setTab(coldIntent.tab);
+      setOpenConversationId(coldIntent.conversationId ?? null);
+      if (coldIntent.tab === "profile") {
+        setProfileSub(coldIntent.profileSub ?? null);
+        setProfileOpenTab(coldIntent.profileSub ? null : "notifications");
+        setTab("profile");
+      } else {
+        setTab(coldIntent.tab);
+      }
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -364,7 +386,13 @@ function MainTabs() {
         {tab === "applications" && (
           <ApplicationsScreen refreshKey={refreshKey} onStartChat={startChat} onShowQR={showAppQR} />
         )}
-        {tab === "messages" && <MessagesScreen refreshKey={refreshKey} />}
+        {tab === "messages" && (
+          <MessagesScreen
+            refreshKey={refreshKey}
+            openConversationId={openConversationId}
+            onOpenConversationHandled={() => setOpenConversationId(null)}
+          />
+        )}
         {tab === "notifications" && (
           <NotificationsScreen
             refreshKey={refreshKey}
@@ -377,7 +405,15 @@ function MainTabs() {
           />
         )}
         {tab === "profile" && (
-          <ProfileScreen refreshKey={refreshKey} openTab={profileOpenTab} onOpenTabHandled={() => setProfileOpenTab(null)} />
+          <ProfileScreen
+            refreshKey={refreshKey}
+            openTab={profileOpenTab}
+            openSub={profileSub}
+            onOpenTabHandled={() => {
+              setProfileOpenTab(null);
+              setProfileSub(null);
+            }}
+          />
         )}
       </View>
       <TabBar tab={tab} onPressTab={handleTabPress} isEmployer={!!isEmployer} unread={unread} />
