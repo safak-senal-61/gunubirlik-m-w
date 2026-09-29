@@ -6,6 +6,8 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 ## Hazır APK (Doğrudan Kurulum)
 
 **v1.4.0 (versionCode 16) — UX İYİLEŞTİRMELERİ + UYGULAMA İÇİ ROTA + DEEP LINK (en güncel):**
+> 📥 **APK:** https://expo.dev/artifacts/eas/okA5DPxVEUKLvJPJaqzk0OsokrP1H9OhJNAZYAyMxks.apk
+> Build: https://expo.dev/accounts/safak61s-team/projects/gunubirlik/builds/6929280b-74d9-4292-8392-afa7e41c6558
 - 🔔 **Bildirimler otomatik okundu:** ekran açılır açılmaz tüm bildirimler sessizce okundu işaretlenir — "Tümünü okundu işaretle" butonu KALDIRILDI; rozet anında düşer
 - ⚡ **Bildirim ayarları anında açılır:** sekme geçişinde circular spinner tamamen kaldırıldı (cache-first zaten vardı; bekletme ekranı da kaldırıldı)
 - ✏️ **Profil düzenleme modern sheet:** ikon rozetli başlık + kapat butonu + bölümlere ayrılmış form (Kişisel bilgiler / İşçi profili / Hakkımda)
