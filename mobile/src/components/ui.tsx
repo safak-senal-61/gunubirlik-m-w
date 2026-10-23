@@ -140,6 +140,26 @@ export function StatCard({ emoji, label, value }: { emoji: string; label: string
   );
 }
 
+export function Avatar({ name, size = 40 }: { name?: string; size?: number; url?: string | null }) {
+  const initial = (name || "?").charAt(0).toUpperCase();
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: "#EBE9E1",
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "#D2D0C8",
+      }}
+    >
+      <Text style={{ fontSize: size * 0.42, fontWeight: "700", color: "#0C0E0D" }}>{initial}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: C.card,

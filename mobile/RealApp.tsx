@@ -30,6 +30,7 @@ import QrScannerScreen from "@/screens/QrScannerScreen";
 import { Card, C, EmptyState, PrimaryButton } from "@/components/ui";
 import { useCachedList } from "@/hooks/use-cached-list";
 import AnimatedSplashScreen from "@/components/AnimatedSplashScreen";
+import { AnimatedTabBar } from "@/components/AnimatedTabBar";
 
 type Tab = "jobs" | "saved" | "applications" | "messages" | "notifications" | "profile";
 
@@ -226,6 +227,8 @@ function MainTabs() {
   const [profileSub, setProfileSub] = useState<"wallet" | "verification" | "profile" | null>(null);
   // Push deep link: gunubirlik://messages/{id} → doğrudan açılacak konuşma.
   const [openConversationId, setOpenConversationId] = useState<string | null>(null);
+  // Sohbet içindeyken alt navigasyon çubuğu gizlenir (tam ekran odak).
+  const [isInsideChat, setIsInsideChat] = useState(false);
 
   // Bildirim sayacı (30 sn'de bir)
   useEffect(() => {
@@ -298,6 +301,7 @@ function MainTabs() {
   const handleTabPress = useCallback(
     (t: Tab) => {
       setOpenJobId(null);
+      setIsInsideChat(false);
       setTab(t);
       bumpRefresh();
     },
@@ -374,7 +378,12 @@ function MainTabs() {
             setScannerOpen(true);
           }}
         />
-        <TabBar tab={tab} onPressTab={handleTabPress} isEmployer={!!isEmployer} unread={unread} />
+        <AnimatedTabBar
+          currentTab={tab}
+          onPressTab={handleTabPress}
+          isEmployer={!!isEmployer}
+          unreadCount={unread}
+        />
         {qrTarget && (
           <QRScreen
             applicationId={qrTarget.app.id}
@@ -418,6 +427,7 @@ function MainTabs() {
             refreshKey={refreshKey}
             openConversationId={openConversationId}
             onOpenConversationHandled={() => setOpenConversationId(null)}
+            onActiveThreadChange={setIsInsideChat}
           />
         )}
         {tab === "notifications" && (
@@ -443,7 +453,14 @@ function MainTabs() {
           />
         )}
       </View>
-      <TabBar tab={tab} onPressTab={handleTabPress} isEmployer={!!isEmployer} unread={unread} />
+      {!isInsideChat && (
+        <AnimatedTabBar
+          currentTab={tab}
+          onPressTab={handleTabPress}
+          isEmployer={!!isEmployer}
+          unreadCount={unread}
+        />
+      )}
 
       {/* QR tarama FAB'ı sadece İşler ve Başvuru sekmelerinde görünür;
           Mesajlar ekranında mesaj yazma/gönderme alanının üstüne biniyordu. */}

@@ -104,3 +104,61 @@ export function onRealtimeEvent(event: string, callback: (...args: any[]) => voi
     eventListeners.get(event)?.delete(callback);
   };
 }
+
+export interface TypingUser {
+  userId: string;
+  userName?: string;
+  name?: string;
+}
+
+export function subscribeToConversation(
+  conversationId: string,
+  onMessage: (msg: any) => void,
+  onTyping: (typingUsers: TypingUser[]) => void
+) {
+  const activeTyping = new Map<string, { user: TypingUser; timer: any }>();
+
+  joinConversation(conversationId);
+
+  const unsubMsg = onRealtimeEvent("message:new", (payload: any) => {
+    if (payload && (payload.conversationId === conversationId || !payload.conversationId)) {
+      onMessage(payload);
+    }
+  });
+
+  const unsubTypingStart = onRealtimeEvent("typing:start", (payload: any) => {
+    if (payload?.conversationId === conversationId && payload?.userId) {
+      if (activeTyping.has(payload.userId)) {
+        clearTimeout(activeTyping.get(payload.userId)!.timer);
+      }
+      const timer = setTimeout(() => {
+        activeTyping.delete(payload.userId);
+        onTyping(Array.from(activeTyping.values()).map((v) => v.user));
+      }, 3000);
+      activeTyping.set(payload.userId, {
+        user: { userId: payload.userId, userName: payload.userName, name: payload.userName },
+        timer,
+      });
+      onTyping(Array.from(activeTyping.values()).map((v) => v.user));
+    }
+  });
+
+  const unsubTypingStop = onRealtimeEvent("typing:stop", (payload: any) => {
+    if (payload?.conversationId === conversationId && payload?.userId) {
+      if (activeTyping.has(payload.userId)) {
+        clearTimeout(activeTyping.get(payload.userId)!.timer);
+        activeTyping.delete(payload.userId);
+        onTyping(Array.from(activeTyping.values()).map((v) => v.user));
+      }
+    }
+  });
+
+  return () => {
+    unsubMsg();
+    unsubTypingStart();
+    unsubTypingStop();
+    activeTyping.forEach((v) => clearTimeout(v.timer));
+    activeTyping.clear();
+    leaveConversation(conversationId);
+  };
+}
