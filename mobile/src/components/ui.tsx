@@ -104,10 +104,24 @@ export function Chip({
   );
 }
 
-export function EmptyState({ emoji, title, subtitle }: { emoji: string; title: string; subtitle?: string }) {
+export function EmptyState({
+  emoji,
+  icon,
+  title,
+  subtitle,
+}: {
+  emoji?: string;
+  icon?: ReactNode;
+  title: string;
+  subtitle?: string;
+}) {
   return (
     <View style={styles.empty}>
-      <Text style={styles.emptyEmoji}>{emoji}</Text>
+      {icon ? (
+        <View style={styles.emptyIconBox}>{icon}</View>
+      ) : emoji ? (
+        <Text style={styles.emptyEmoji}>{emoji}</Text>
+      ) : null}
       <Text style={styles.emptyTitle}>{title}</Text>
       {subtitle ? <Text style={styles.emptySub}>{subtitle}</Text> : null}
     </View>
@@ -126,13 +140,27 @@ export function SectionTitle({ children }: { children: ReactNode }) {
   return <Text style={styles.sectionTitle}>{children}</Text>;
 }
 
-export function StatCard({ emoji, label, value }: { emoji: string; label: string; value: string }) {
+export function StatCard({
+  emoji,
+  icon,
+  label,
+  value,
+}: {
+  emoji?: string;
+  icon?: ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
     <View style={styles.stat}>
       <View style={styles.statTop}>
-        <View style={styles.statEmojiWrap}>
-          <Text style={styles.statEmoji}>{emoji}</Text>
-        </View>
+        {icon ? (
+          <View style={styles.statIconBox}>{icon}</View>
+        ) : emoji ? (
+          <View style={styles.statEmojiWrap}>
+            <Text style={styles.statEmoji}>{emoji}</Text>
+          </View>
+        ) : null}
         <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
       </View>
       <Text style={styles.statValue}>{value}</Text>
@@ -180,6 +208,15 @@ const styles = StyleSheet.create({
   chipText: { fontSize: 12, fontWeight: "600", color: C.muted },
   chipTextActive: { color: "#fff" },
   empty: { alignItems: "center", paddingVertical: 40, paddingHorizontal: 24 },
+  emptyIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: C.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
   emptyEmoji: { fontSize: 40, marginBottom: 10 },
   emptyTitle: { fontSize: 16, fontWeight: "700", color: C.text },
   emptySub: { fontSize: 13, color: C.muted, marginTop: 6, textAlign: "center", lineHeight: 19 },
@@ -199,6 +236,14 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   statTop: { flexDirection: "row", alignItems: "center", gap: 8 },
+  statIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: C.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   statEmojiWrap: {
     width: 28,
     height: 28,

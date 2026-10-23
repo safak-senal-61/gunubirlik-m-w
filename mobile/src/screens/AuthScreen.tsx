@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -16,19 +16,16 @@ import { useAuth, TwoFactorRequiredError } from "@/hooks/use-auth";
 import {
   requestPasswordReset,
   resetPassword,
-  sendOtp,
   verifyEmail,
   resendActivation,
 } from "@/lib/api";
 import { getIdTokenFromGoogle } from "@/lib/google-auth";
+import { BriefcaseIcon, UsersIcon } from "@/components/icons";
 
-// src/screens/ → mobile/assets/ (EAS arşiv kökü repo kökü olduğundan tam iki seviye)
 const LOGO = require("../../assets/app-icon.png");
 
 type Mode = "login" | "register" | "twofactor" | "forgot" | "reset" | "verify";
 
-// ---------------- Telefon: ülke kodları + maske ----------------
-// Numara backend'e tam E.164 olarak gönderilir: +<dial><digits> (örn. +905321234567)
 type Country = {
   code: string;
   name: string;
@@ -71,15 +68,15 @@ const COUNTRIES: Country[] = [
 ];
 
 const C = {
-  primary: "#4f46e5",
-  primarySoft: "#eef2ff",
-  text: "#1e1b33",
-  muted: "#6b7280",
-  border: "#e5e7eb",
-  bg: "#f4f4f8",
-  card: "#ffffff",
-  danger: "#dc2626",
-  success: "#047857",
+  primary: "#0D6847",
+  primarySoft: "#E8F5EE",
+  text: "#141615",
+  muted: "#5C615E",
+  border: "#E2E0D8",
+  bg: "#F6F5F2",
+  card: "#FFFFFF",
+  danger: "#DC2626",
+  success: "#0D6847",
 };
 
 export default function AuthScreen({ onDone }: { onDone: () => void }) {
@@ -102,7 +99,6 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
   const [otp, setOtp] = useState("");
   const [resetCode, setResetCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  // E-posta doğrulama: kayıt sonrası aktivasyon kodu ekranı.
   const [verifyEmailAddr, setVerifyEmailAddr] = useState("");
   const [verifyCode, setVerifyCode] = useState("");
   const [resending, setResending] = useState(false);
@@ -117,7 +113,7 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
       if (err instanceof TwoFactorRequiredError) {
         setMode("twofactor");
       } else {
-        setError(err instanceof Error ? err.message : "Giriş başarısız");
+        setError(err instanceof Error ? err.message : "Giriş başarısız oldu.");
       }
     } finally {
       setLoading(false);
@@ -131,7 +127,7 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
       await login(email.trim(), password, otp);
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Kod hatalı");
+      setError(err instanceof Error ? err.message : "Doğrulama kodu hatalı.");
     } finally {
       setLoading(false);
     }
@@ -145,19 +141,19 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
       setRegStep(2);
     } else if (regStep === 2) {
       if (!fullName.trim()) {
-        setError("Lütfen adını ve soyadını gir.");
+        setError("Lütfen ad ve soyadınızı giriniz.");
         return;
       }
       if (!email.trim() || !email.includes("@")) {
-        setError("Lütfen geçerli bir e-posta adresi gir.");
+        setError("Lütfen geçerli bir e-posta adresi giriniz.");
         return;
       }
       if (!phoneDigits || phoneDigits.length < 7) {
-        setError("Lütfen geçerli bir telefon numarası gir.");
+        setError("Lütfen geçerli bir telefon numarası giriniz.");
         return;
       }
       if (role === "EMPLOYER" && !companyName.trim()) {
-        setError("Lütfen şirket veya işletme adını gir.");
+        setError("Lütfen şirket veya işletme unvanınızı giriniz.");
         return;
       }
       setRegStep(3);
@@ -172,11 +168,11 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
 
   const submitRegister = async () => {
     if (password.length < 6) {
-      setError("Şifre en az 6 karakter olmalıdır.");
+      setError("Şifreniz en az 6 karakter olmalıdır.");
       return;
     }
     if (!city.trim() || !district.trim()) {
-      setError("Lütfen il ve ilçe bilgilerini gir.");
+      setError("Lütfen il ve ilçe bilgilerini belirtiniz.");
       return;
     }
     setLoading(true);
@@ -192,89 +188,105 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
         district: district.trim(),
         ...(role === "EMPLOYER" && companyName.trim() ? { companyName: companyName.trim() } : {}),
       });
-      // Kayıt başarılı → hesap doğrulanmadan tam aktif olmaz; aktivasyon kodu ekranına geç.
-      // (Kod kayıt anında backend tarafından e-postaya gönderilir; kullanıcı burada girer.)
       setVerifyEmailAddr(email.trim());
       setVerifyCode("");
       setMode("verify");
       setError(null);
-      setInfo("Aktivasyon kodu e-postana gönderildi (10 dk geçerli).");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Kayıt başarısız");
+      setError(err instanceof Error ? err.message : "Kayıt işlemi tamamlanamadı.");
     } finally {
       setLoading(false);
     }
   };
 
   const submitVerify = async () => {
+    if (verifyCode.length !== 6) {
+      setError("6 haneli aktivasyon kodunu eksiksiz giriniz.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       await verifyEmail(verifyEmailAddr, verifyCode);
-      setInfo("E-posta doğrulandı! Hesabın aktif. 🎉");
+      setInfo("E-posta adresiniz doğrulandı. Hesabınız aktif.");
+      await login(verifyEmailAddr, password);
       onDone();
     } catch (err) {
-      // Kod hatalı/süresi geçmiş olabilir — kullanıcı yine de uygulamaya girer,
-      // doğrulamayı sonra Ayarlar > Güvenlik'ten tamamlayabilir.
-      setError(err instanceof Error ? err.message : "Doğrulama başarısız");
+      setError(err instanceof Error ? err.message : "Aktivasyon kodu geçersiz.");
     } finally {
       setLoading(false);
     }
   };
 
   const submitResend = async () => {
+    if (!verifyEmailAddr) return;
     setResending(true);
     setError(null);
     try {
       await resendActivation(verifyEmailAddr);
-      setInfo("Aktivasyon kodu tekrar gönderildi.");
+      setInfo("Yeni aktivasyon kodu e-posta adresinize gönderildi.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gönderilemedi");
+      setError(err instanceof Error ? err.message : "Aktivasyon kodu gönderilemedi.");
     } finally {
       setResending(false);
     }
   };
 
   const submitForgot = async () => {
+    if (!email.trim() || !email.includes("@")) {
+      setError("Lütfen geçerli bir e-posta adresi giriniz.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       await requestPasswordReset(email.trim());
-      setInfo("Sıfırlama kodu e-postana gönderildi.");
+      setInfo("Sıfırlama kodu e-posta adresinize iletildi.");
       setMode("reset");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "İstek başarısız");
+      setError(err instanceof Error ? err.message : "Talep gönderilemedi.");
     } finally {
       setLoading(false);
     }
   };
 
   const submitReset = async () => {
+    if (resetCode.length !== 6) {
+      setError("6 haneli doğrulama kodunu giriniz.");
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError("Yeni şifreniz en az 6 karakter olmalıdır.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
       await resetPassword(resetCode, newPassword);
-      setInfo("Şifren güncellendi. Yeni şifrenle giriş yap.");
+      setInfo("Şifreniz başarıyla güncellendi. Yeni şifrenizle giriş yapabilirsiniz.");
+      setPassword(newPassword);
       setMode("login");
-      setResetCode("");
-      setNewPassword("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sıfırlama başarısız");
+      setError(err instanceof Error ? err.message : "Şifre güncellenemedi.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Google ile giriş/kayıt: ID token'ı backend'e gönderir; hesap yoksa otomatik oluşur.
   const submitGoogle = async () => {
     setGoogleLoading(true);
     setError(null);
     try {
-      const result = await getIdTokenFromGoogle();
-      if (!result) return; // kullanıcı diyaloğu kapattı
-      await loginWithGoogle(result.idToken);
+      const res = await getIdTokenFromGoogle();
+      if (!res?.idToken) return;
+      await loginWithGoogle(res.idToken);
+      onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Google ile giriş başarısız");
+      if (err instanceof Error && err.message.includes("iptal")) {
+        // İptal
+      } else {
+        setError(err instanceof Error ? err.message : "Google ile oturum açılamadı.");
+      }
     } finally {
       setGoogleLoading(false);
     }
@@ -282,42 +294,35 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
 
   const title =
     mode === "login"
-      ? "Tekrar hoş geldin"
+      ? "Giriş Yap"
       : mode === "register"
-        ? "Aramıza katıl"
+        ? "Hesap Oluştur"
         : mode === "twofactor"
-          ? "Doğrulama kodu"
+          ? "İki Adımlı Doğrulama"
           : mode === "forgot"
-            ? "Şifremi unuttum"
+            ? "Şifre Sıfırlama"
             : mode === "verify"
-              ? "E-postanı doğrula"
-              : "Yeni şifre belirle";
+              ? "E-posta Aktivasyonu"
+              : "Yeni Şifre Belirle";
 
   return (
     <KeyboardAvoidingView
-      style={styles.flex}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={styles.flex}
     >
       <ScrollView
-        style={styles.flex}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
       >
-        {/* Marka başlığı */}
         <View style={styles.hero}>
-          <View style={styles.heroBlob1} pointerEvents="none" />
-          <View style={styles.heroBlob2} pointerEvents="none" />
-          <View style={styles.logoBox} pointerEvents="none">
+          <View style={styles.logoBox}>
             <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
           </View>
           <Text style={styles.logoText}>Günübirlik</Text>
           <Text style={styles.tagline}>
-            {mode === "login"
-              ? "Yakınındaki günlük işleri gör, aynı gün işe başla."
-              : mode === "register"
-                ? "Ücretsiz hesap aç, ilanlara saniyeler içinde başvur."
-                : "Günübirlik hesabın"}
+            {mode === "register"
+              ? "Güvenilir günlük iş ve istihdam platformu"
+              : "Hızlı, şeffaf ve güvenli günübirlik çalışma"}
           </Text>
         </View>
 
@@ -327,27 +332,52 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
           {mode === "verify" && (
             <>
               <Text style={styles.desc}>
-                {verifyEmailAddr} adresine gönderilen 6 haneli aktivasyon kodunu gir.
+                {verifyEmailAddr} adresine gönderilen 6 haneli aktivasyon kodunu giriniz.
               </Text>
               {info ? <Banner tone="success" text={info} /> : null}
-              <Field icon="🛡️" label="Aktivasyon kodu" value={verifyCode} onChangeText={(v) => setVerifyCode(v.replace(/\D/g, ""))} keyboardType="number-pad" maxLength={6} placeholder="000000" />
+              <Field
+                label="Aktivasyon Kodu"
+                value={verifyCode}
+                onChangeText={(v) => setVerifyCode(v.replace(/\D/g, ""))}
+                keyboardType="number-pad"
+                maxLength={6}
+                placeholder="000000"
+              />
               {error ? <Banner tone="error" text={error} /> : null}
-              <PrimaryButton label="E-postamı doğrula" onPress={submitVerify} loading={loading} disabled={verifyCode.length !== 6} />
+              <PrimaryButton
+                label="E-postamı Doğrula"
+                onPress={submitVerify}
+                loading={loading}
+                disabled={verifyCode.length !== 6}
+              />
               <Pressable onPress={submitResend} style={styles.linkBtn} disabled={resending}>
-                <Text style={styles.link}>{resending ? "Gönderiliyor…" : "Kodu tekrar gönder"}</Text>
+                <Text style={styles.link}>{resending ? "Gönderiliyor…" : "Kodu Tekrar Gönder"}</Text>
               </Pressable>
               <Pressable onPress={onDone} style={styles.linkBtn}>
-                <Text style={styles.link}>Şimdilik atla, sonra doğrula →</Text>
+                <Text style={styles.link}>Daha sonra doğrula →</Text>
               </Pressable>
             </>
           )}
 
           {mode === "login" && (
             <>
-              <Field icon="✉️" label="E-posta" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="ornek@eposta.com" />
-              <Field icon="🔒" label="Şifre" value={password} onChangeText={setPassword} secureTextEntry placeholder="••••••••" />
+              <Field
+                label="E-posta Adresi"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="ornek@eposta.com"
+              />
+              <Field
+                label="Şifre"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                placeholder="••••••••"
+              />
               {error ? <Banner tone="error" text={error} /> : null}
-              <PrimaryButton label="Giriş yap" onPress={submitLogin} loading={loading} />
+              <PrimaryButton label="Giriş Yap" onPress={submitLogin} loading={loading} />
               <Pressable onPress={() => { setMode("forgot"); setError(null); }} style={styles.linkBtn}>
                 <Text style={styles.link}>Şifremi unuttum</Text>
               </Pressable>
@@ -364,7 +394,7 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
 
               <View style={styles.switchModeContainer}>
                 <SwitchMode
-                  text="Hesabın yok mu?"
+                  text="Hesabınız yok mu?"
                   action="Hesap Oluştur"
                   onPress={() => {
                     setMode("register");
@@ -378,7 +408,7 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
 
           {mode === "register" && (
             <>
-              {/* Gamified Level Progress Bar */}
+              {/* Modern Step Wizard Header */}
               <View style={styles.wizardCard}>
                 <View style={styles.wizardTopRow}>
                   <View style={styles.wizardBadgeRow}>
@@ -386,17 +416,13 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
                       <Text style={styles.wizardStepBadgeText}>{regStep}</Text>
                     </View>
                     <Text style={styles.wizardTitleText}>
-                      {regStep === 1 && "Level 1: Rolünü Seç 🎯"}
-                      {regStep === 2 && "Level 2: Kimlik & İletişim 👤"}
-                      {regStep === 3 && "Level 3: Güvenlik & Konum 🔐"}
+                      {regStep === 1 && "1. Adım: Hesap Türü"}
+                      {regStep === 2 && "2. Adım: Kimlik & İletişim"}
+                      {regStep === 3 && "3. Adım: Konum & Güvenlik"}
                     </Text>
                   </View>
                   <View style={styles.xpPill}>
-                    <Text style={styles.xpPillText}>
-                      {regStep === 1 && "⚡ 33% XP"}
-                      {regStep === 2 && "🔥 66% XP"}
-                      {regStep === 3 && "🏆 Son Seviye"}
-                    </Text>
+                    <Text style={styles.xpPillText}>Adım {regStep} / 3</Text>
                   </View>
                 </View>
 
@@ -458,46 +484,33 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
                 </View>
               </View>
 
-              {/* LEVEL 1: ROL SEÇİMİ */}
+              {/* 1. ADIM: ROL SEÇİMİ */}
               {regStep === 1 && (
                 <View style={styles.stepContent}>
-                  <Text style={styles.sectionLabel}>Nasıl katılmak istiyorsun?</Text>
+                  <Text style={styles.sectionLabel}>Hesap Türünüzü Seçiniz</Text>
                   <View style={styles.roleRow}>
                     <RoleCard
                       active={role === "WORKER"}
-                      emoji="🔨"
-                      label="İşçiyim"
-                      hint="İş bul, hemen kazan"
+                      iconNode={<BriefcaseIcon size={22} color={role === "WORKER" ? "#0D6847" : "#5C615E"} />}
+                      label="İş Arayan / İşçi"
+                      hint="Günübirlik iş ilanlarına anında başvurun"
                       onPress={() => setRole("WORKER")}
                     />
                     <RoleCard
                       active={role === "EMPLOYER"}
-                      emoji="🏢"
-                      label="İşverenim"
-                      hint="İlan ver, eleman bul"
+                      iconNode={<UsersIcon size={22} color={role === "EMPLOYER" ? "#0D6847" : "#5C615E"} />}
+                      label="İşveren / İşletme"
+                      hint="İlan yayınlayın, hızlıca aday bulun"
                       onPress={() => setRole("EMPLOYER")}
                     />
                   </View>
 
-                  <PrimaryButton
-                    label="Devam Et → (Level 2)"
-                    onPress={handleNextStep}
-                  />
-
-                  <View style={styles.googleContainer}>
-                    <Divider text="veya hızlı başla" />
-                    <GoogleButton
-                      loading={googleLoading}
-                      onPress={() => {
-                        void submitGoogle();
-                      }}
-                    />
-                  </View>
+                  <PrimaryButton label="İleri →" onPress={handleNextStep} />
 
                   <View style={styles.switchModeContainer}>
                     <SwitchMode
-                      text="Zaten hesabın var mı?"
-                      action="Giriş yap"
+                      text="Zaten bir hesabınız var mı?"
+                      action="Giriş Yap"
                       onPress={() => {
                         setMode("login");
                         setError(null);
@@ -507,19 +520,17 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
                 </View>
               )}
 
-              {/* LEVEL 2: KİMLİK & BİLGİLER */}
+              {/* 2. ADIM: KİMLİK & BİLGİLER */}
               {regStep === 2 && (
                 <View style={styles.stepContent}>
                   <Field
-                    icon="👤"
                     label="Ad Soyad *"
                     value={fullName}
                     onChangeText={setFullName}
-                    placeholder="Adın ve soyadın"
+                    placeholder="Adınız ve soyadınız"
                   />
                   <Field
-                    icon="✉️"
-                    label="E-posta *"
+                    label="E-posta Adresi *"
                     value={email}
                     onChangeText={setEmail}
                     keyboardType="email-address"
@@ -537,11 +548,10 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
                   />
                   {role === "EMPLOYER" && (
                     <Field
-                      icon="🏢"
-                      label="Şirket / İşletme Adı *"
+                      label="Şirket / İşletme Unvanı *"
                       value={companyName}
                       onChangeText={setCompanyName}
-                      placeholder="Örn. Yılmaz İnşaat Ltd."
+                      placeholder="Örn. Yılmaz İnşaat Ltd. Şti."
                     />
                   )}
 
@@ -553,7 +563,7 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
                     </Pressable>
                     <View style={{ flex: 1 }}>
                       <PrimaryButton
-                        label="Devam Et → (Level 3)"
+                        label="Devam Et"
                         onPress={handleNextStep}
                       />
                     </View>
@@ -561,11 +571,10 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
                 </View>
               )}
 
-              {/* LEVEL 3: GÜVENLİK & KONUM */}
+              {/* 3. ADIM: GÜVENLİK & KONUM */}
               {regStep === 3 && (
                 <View style={styles.stepContent}>
                   <Field
-                    icon="🔒"
                     label="Şifre * (En az 6 karakter)"
                     value={password}
                     onChangeText={setPassword}
@@ -574,15 +583,15 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
                   />
                   <View style={styles.row}>
                     <View style={styles.half}>
-                      <Field icon="📍" label="İl *" value={city} onChangeText={setCity} />
+                      <Field label="Şehir *" value={city} onChangeText={setCity} placeholder="İstanbul" />
                     </View>
                     <View style={styles.half}>
-                      <Field icon="🗺️" label="İlçe *" value={district} onChangeText={setDistrict} />
+                      <Field label="İlçe *" value={district} onChangeText={setDistrict} placeholder="Kadıköy" />
                     </View>
                   </View>
 
                   <Text style={styles.level3Hint}>
-                    ✨ Son adım! Bilgilerin kaydedilecek ve hesabın oluşturulacak.
+                    Tüm bilgilerinizi kontrol ediniz. Hesabınız oluşturulduktan sonra hemen iş ilanlarını incelemeye başlayabilirsiniz.
                   </Text>
 
                   {error ? <Banner tone="error" text={error} /> : null}
@@ -593,7 +602,7 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
                     </Pressable>
                     <View style={{ flex: 1 }}>
                       <PrimaryButton
-                        label="🎉 Hesap Oluştur"
+                        label="Hesap Oluştur"
                         onPress={submitRegister}
                         loading={loading}
                       />
@@ -606,37 +615,64 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
 
           {mode === "twofactor" && (
             <>
-              <Text style={styles.desc}>Authenticator uygulamandaki 6 haneli kodu gir.</Text>
-              <Field icon="🛡️" label="Kod" value={otp} onChangeText={(v) => setOtp(v.replace(/\D/g, ""))} keyboardType="number-pad" maxLength={6} placeholder="000000" />
+              <Text style={styles.desc}>Authenticator uygulamanızdaki 6 haneli doğrulama kodunu giriniz.</Text>
+              <Field
+                label="Doğrulama Kodu"
+                value={otp}
+                onChangeText={(v) => setOtp(v.replace(/\D/g, ""))}
+                keyboardType="number-pad"
+                maxLength={6}
+                placeholder="000000"
+              />
               {error ? <Banner tone="error" text={error} /> : null}
               <PrimaryButton label="Doğrula" onPress={submitTwoFactor} loading={loading} disabled={otp.length !== 6} />
               <Pressable onPress={() => { setMode("login"); setError(null); }} style={styles.linkBtn}>
-                <Text style={styles.link}>← Geri dön</Text>
+                <Text style={styles.link}>← Girişe Dön</Text>
               </Pressable>
             </>
           )}
 
           {mode === "forgot" && (
             <>
-              <Text style={styles.desc}>E-postana sıfırlama kodu göndereceğiz.</Text>
-              <Field icon="✉️" label="E-posta" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="ornek@eposta.com" />
+              <Text style={styles.desc}>E-posta adresinize şifre sıfırlama kodu iletilecektir.</Text>
+              <Field
+                label="E-posta Adresi"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="ornek@eposta.com"
+              />
               {error ? <Banner tone="error" text={error} /> : null}
-              <PrimaryButton label="Kod gönder" onPress={submitForgot} loading={loading} />
+              <PrimaryButton label="Sıfırlama Kodu Gönder" onPress={submitForgot} loading={loading} />
               <Pressable onPress={() => { setMode("login"); setError(null); setInfo(null); }} style={styles.linkBtn}>
-                <Text style={styles.link}>← Girişe dön</Text>
+                <Text style={styles.link}>← Girişe Dön</Text>
               </Pressable>
             </>
           )}
 
           {mode === "reset" && (
             <>
-              <Text style={styles.desc}>{info ?? "E-postana gelen kodu ve yeni şifreni gir."}</Text>
-              <Field icon="🛡️" label="Doğrulama kodu" value={resetCode} onChangeText={(v) => setResetCode(v.replace(/\D/g, ""))} keyboardType="number-pad" maxLength={6} placeholder="000000" />
-              <Field icon="🔒" label="Yeni şifre" value={newPassword} onChangeText={setNewPassword} secureTextEntry placeholder="En az 6 karakter" />
+              <Text style={styles.desc}>{info ?? "E-postanıza gelen kodu ve yeni şifrenizi giriniz."}</Text>
+              <Field
+                label="Doğrulama Kodu"
+                value={resetCode}
+                onChangeText={(v) => setResetCode(v.replace(/\D/g, ""))}
+                keyboardType="number-pad"
+                maxLength={6}
+                placeholder="000000"
+              />
+              <Field
+                label="Yeni Şifre"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+                placeholder="En az 6 karakter"
+              />
               {error ? <Banner tone="error" text={error} /> : null}
-              <PrimaryButton label="Şifreyi sıfırla" onPress={submitReset} loading={loading} disabled={resetCode.length !== 6} />
+              <PrimaryButton label="Şifreyi Güncelle" onPress={submitReset} loading={loading} disabled={resetCode.length !== 6} />
               <Pressable onPress={() => { setMode("forgot"); setError(null); setInfo(null); }} style={styles.linkBtn}>
-                <Text style={styles.link}>← Kodu tekrar gönder</Text>
+                <Text style={styles.link}>← Yeni Kod İste</Text>
               </Pressable>
             </>
           )}
@@ -644,7 +680,7 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
           {info && mode !== "reset" ? <Banner tone="success" text={info} /> : null}
         </View>
 
-        <Text style={styles.footNote}>Devam ederek kullanım koşullarını kabul etmiş olursun.</Text>
+        <Text style={styles.footNote}>Devam ederek platform kullanım koşullarını kabul etmiş olursunuz.</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -654,7 +690,6 @@ function Field(props: {
   label: string;
   value: string;
   onChangeText: (v: string) => void;
-  icon?: string;
   secureTextEntry?: boolean;
   keyboardType?: "default" | "email-address" | "numeric" | "phone-pad" | "number-pad";
   autoCapitalize?: "none" | "sentences" | "words";
@@ -666,7 +701,6 @@ function Field(props: {
     <View style={styles.field}>
       <Text style={styles.label}>{props.label}</Text>
       <View style={[styles.inputWrap, focused && styles.inputWrapFocused]}>
-        {props.icon ? <Text style={styles.inputIcon}>{props.icon}</Text> : null}
         <TextInput
           style={styles.input}
           value={props.value}
@@ -685,7 +719,6 @@ function Field(props: {
   );
 }
 
-/** Ülke kodu seçici + maskeli telefon girişi (karakter sınırı ülkeye göre). */
 function PhoneField(props: {
   country: Country;
   digits: string;
@@ -697,12 +730,11 @@ function PhoneField(props: {
   const c = props.country;
   const masked = c.fmt(props.digits);
   const complete = props.digits.length >= c.digits;
-  // Maskenin tam dolu halinin uzunluğu = TextInput maxLength
   const maxLen = c.fmt("9".repeat(c.digits)).length;
 
   return (
     <View style={styles.field}>
-      <Text style={styles.label}>Telefon numarası</Text>
+      <Text style={styles.label}>Telefon Numarası</Text>
       <View style={[styles.inputWrap, focused && styles.inputWrapFocused]}>
         <Pressable style={styles.countryBtn} onPress={() => setPickerOpen(true)} hitSlop={4}>
           <Text style={styles.countryFlag}>{c.flag}</Text>
@@ -731,7 +763,7 @@ function PhoneField(props: {
       <Modal visible={pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(false)}>
         <Pressable style={styles.pickerOverlay} onPress={() => setPickerOpen(false)}>
           <Pressable style={styles.pickerSheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.pickerTitle}>Ülke seç</Text>
+            <Text style={styles.pickerTitle}>Ülke Seçimi</Text>
             <ScrollView style={styles.pickerList} keyboardShouldPersistTaps="handled">
               {COUNTRIES.map((item) => (
                 <Pressable
@@ -770,7 +802,7 @@ function Banner({ tone, text }: { tone: "error" | "success"; text: string }) {
   return (
     <View style={[styles.banner, tone === "error" ? styles.bannerError : styles.bannerSuccess]}>
       <Text style={[styles.bannerText, tone === "error" ? styles.bannerTextError : styles.bannerTextSuccess]}>
-        {tone === "error" ? "⚠️" : "✅"} {text}
+        {text}
       </Text>
     </View>
   );
@@ -840,7 +872,7 @@ function GoogleButton(props: { onPress: () => void; loading?: boolean }) {
   );
 }
 
-function RoleCard(props: { active: boolean; emoji: string; label: string; hint: string; onPress: () => void }) {
+function RoleCard(props: { active: boolean; iconNode: React.ReactNode; label: string; hint: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={props.onPress}
@@ -851,7 +883,7 @@ function RoleCard(props: { active: boolean; emoji: string; label: string; hint: 
       ]}
     >
       <View style={[styles.roleIconBox, props.active && styles.roleIconBoxActive]}>
-        <Text style={styles.roleEmoji}>{props.emoji}</Text>
+        {props.iconNode}
       </View>
       <Text style={[styles.roleLabel, props.active && styles.roleLabelActive]}>{props.label}</Text>
       <Text style={styles.roleHint}>{props.hint}</Text>
@@ -863,79 +895,78 @@ const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: C.bg },
   scroll: { flexGrow: 1, padding: 20, paddingTop: 28, paddingBottom: 40, backgroundColor: C.bg },
   hero: { alignItems: "center", marginBottom: 22, gap: 6 },
-  heroBlob1: { position: "absolute", top: -40, left: -30, width: 150, height: 150, borderRadius: 75, backgroundColor: "rgba(79,70,229,0.10)" },
-  heroBlob2: { position: "absolute", top: 20, right: -40, width: 120, height: 120, borderRadius: 60, backgroundColor: "rgba(79,70,229,0.07)" },
   logoBox: {
-    width: 68,
-    height: 68,
-    borderRadius: 20,
-    backgroundColor: "#000833",
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: C.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#00e5ff",
-    shadowOpacity: 0.3,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
     overflow: "hidden",
   },
-  logoImage: { width: 68, height: 68, borderRadius: 20 },
+  logoImage: { width: 64, height: 64, borderRadius: 16 },
   logoText: { fontSize: 26, fontWeight: "900", color: C.text, letterSpacing: -0.5 },
   tagline: { fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 19, maxWidth: 300, paddingHorizontal: 10 },
   card: {
     backgroundColor: C.card,
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 22,
-    shadowColor: "#312e81",
-    shadowOpacity: 0.1,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 6,
+    borderWidth: 1,
+    borderColor: "#E2E0D8",
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
-  title: { fontSize: 21, fontWeight: "800", color: C.text, marginBottom: 16, textAlign: "center" },
-  sectionLabel: { fontSize: 12, fontWeight: "700", color: C.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 },
-  desc: { fontSize: 13, color: C.muted, marginBottom: 14, textAlign: "center", lineHeight: 19 },
+  title: { fontSize: 20, fontWeight: "800", color: C.text, marginBottom: 14, letterSpacing: -0.3 },
+  desc: { fontSize: 13, color: C.muted, marginBottom: 14, lineHeight: 19 },
+  sectionLabel: { fontSize: 13, fontWeight: "700", color: C.text, marginBottom: 10 },
   field: { marginBottom: 12 },
   label: { fontSize: 12, fontWeight: "700", color: C.text, marginBottom: 6 },
   inputWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: C.border,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    backgroundColor: "#fafafa",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    backgroundColor: "#FAFAFA",
   },
-  inputWrapFocused: { borderColor: C.primary, backgroundColor: "#fff" },
-  inputIcon: { fontSize: 14 },
-  input: { flex: 1, paddingVertical: 13, fontSize: 15, color: C.text, backgroundColor: "transparent" },
+  inputWrapFocused: { borderColor: C.primary, backgroundColor: "#FFFFFF" },
+  input: { flex: 1, paddingVertical: 12, fontSize: 14, color: C.text, backgroundColor: "transparent" },
   banner: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12, borderWidth: 1 },
-  bannerError: { backgroundColor: "#fef2f2", borderColor: "#fecaca" },
-  bannerSuccess: { backgroundColor: "#ecfdf5", borderColor: "#a7f3d0" },
+  bannerError: { backgroundColor: "#FEF2F2", borderColor: "#FECACA" },
+  bannerSuccess: { backgroundColor: "#E8F5EE", borderColor: "#A7F3D0" },
   bannerText: { fontSize: 13, fontWeight: "600", lineHeight: 18 },
   bannerTextError: { color: C.danger },
   bannerTextSuccess: { color: C.success },
   dividerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 14 },
   dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
   dividerText: { fontSize: 12, color: C.muted, fontWeight: "600" },
-  primaryBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, alignItems: "center", marginTop: 4, shadowColor: C.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+  primaryBtn: {
+    backgroundColor: C.primary,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 4,
+    shadowColor: C.primary,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
   googleBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: "#fff",
-    borderWidth: 1.5,
-    borderColor: "#e2e8f0",
-    borderRadius: 14,
-    paddingVertical: 14,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 12,
+    paddingVertical: 13,
     marginTop: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
   },
   googleContainer: {
     marginTop: 10,
@@ -945,12 +976,11 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 4,
   },
-  // Level Up Wizard Styles
   wizardCard: {
-    backgroundColor: "#f0fdf4",
+    backgroundColor: "#F6F5F2",
     borderWidth: 1,
-    borderColor: "#bbf7d0",
-    borderRadius: 16,
+    borderColor: "#E2E0D8",
+    borderRadius: 14,
     padding: 12,
     marginBottom: 14,
   },
@@ -970,25 +1000,25 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: "#059669",
+    backgroundColor: C.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   wizardStepBadgeText: {
     fontSize: 11,
     fontWeight: "900",
-    color: "#ffffff",
+    color: "#FFFFFF",
   },
   wizardTitleText: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#065f46",
+    color: C.primary,
     flex: 1,
   },
   xpPill: {
-    backgroundColor: "#ffffff",
+    backgroundColor: C.primarySoft,
     borderWidth: 1,
-    borderColor: "#86efac",
+    borderColor: "rgba(13,104,71,0.2)",
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -996,18 +1026,18 @@ const styles = StyleSheet.create({
   xpPillText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "#047857",
+    color: C.primary,
   },
   progressBarTrack: {
-    height: 6,
-    backgroundColor: "#dcfce7",
+    height: 5,
+    backgroundColor: "#E2E0D8",
     borderRadius: 999,
     overflow: "hidden",
     marginVertical: 4,
   },
   progressBarFill: {
     height: "100%",
-    backgroundColor: "#10b981",
+    backgroundColor: C.primary,
     borderRadius: 999,
   },
   stepChipsRow: {
@@ -1026,41 +1056,41 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#E2E0D8",
     alignItems: "center",
     justifyContent: "center",
   },
   stepDotActive: {
-    backgroundColor: "#059669",
+    backgroundColor: C.primary,
   },
   stepDotText: {
     fontSize: 9,
     fontWeight: "800",
-    color: "#64748b",
+    color: "#64748B",
   },
   stepDotTextActive: {
-    color: "#ffffff",
+    color: "#FFFFFF",
   },
   stepLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#64748b",
+    color: C.muted,
   },
   stepLabelActive: {
-    color: "#065f46",
+    color: C.primary,
     fontWeight: "800",
   },
   stepConnector: {
     flex: 1,
     height: 1.5,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#E2E0D8",
     marginHorizontal: 8,
   },
   stepConnectorActive: {
-    backgroundColor: "#34d399",
+    backgroundColor: C.primary,
   },
   stepContent: {
-    gap: 2,
+    gap: 4,
   },
   stepNavRow: {
     flexDirection: "row",
@@ -1069,54 +1099,53 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   backBtn: {
-    paddingVertical: 14,
+    paddingVertical: 13,
     paddingHorizontal: 16,
-    borderRadius: 14,
-    backgroundColor: "#f1f5f9",
+    borderRadius: 12,
+    backgroundColor: "#F6F5F2",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#E2E0D8",
   },
   backBtnText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#475569",
+    color: C.muted,
   },
   level3Hint: {
     fontSize: 12,
-    color: "#059669",
-    backgroundColor: "#ecfdf5",
+    color: C.primary,
+    backgroundColor: C.primarySoft,
     padding: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#a7f3d0",
+    borderColor: "rgba(13,104,71,0.2)",
     marginBottom: 10,
     lineHeight: 17,
   },
-  googleBtnText: { fontSize: 15, fontWeight: "600", color: C.text },
-  googleG: { fontSize: 19, fontWeight: "800", color: "#4285F4", lineHeight: 22 },
+  googleBtnText: { fontSize: 14, fontWeight: "600", color: C.text },
+  googleG: { fontSize: 18, fontWeight: "800", color: "#4285F4", lineHeight: 22 },
   primaryBtnDisabled: { opacity: 0.6 },
-  primaryBtnText: { color: "#fff", fontWeight: "800", fontSize: 15, letterSpacing: 0.2 },
+  primaryBtnText: { color: "#fff", fontWeight: "800", fontSize: 14, letterSpacing: 0.2 },
   pressed: { opacity: 0.9 },
   linkBtn: { paddingVertical: 10, alignItems: "center" },
   link: { color: C.primary, fontSize: 13, fontWeight: "700", textAlign: "center" },
   linkBold: { color: C.primary, fontWeight: "800" },
   switchText: { textAlign: "center", color: C.muted, fontSize: 13 },
   roleRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
-  roleCard: { flex: 1, borderWidth: 1.5, borderColor: C.border, borderRadius: 18, paddingVertical: 14, alignItems: "center", gap: 3, backgroundColor: "#fafafa" },
+  roleCard: { flex: 1, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 8, alignItems: "center", gap: 3, backgroundColor: "#FFFFFF" },
   roleCardActive: { borderColor: C.primary, backgroundColor: C.primarySoft },
-  roleIconBox: { width: 40, height: 40, borderRadius: 14, backgroundColor: "#f1f5f9", alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  roleIconBoxActive: { backgroundColor: "#fff" },
-  roleEmoji: { fontSize: 20 },
-  roleLabel: { fontSize: 13, fontWeight: "700", color: C.muted },
+  roleIconBox: { width: 42, height: 42, borderRadius: 12, backgroundColor: "#F6F5F2", alignItems: "center", justifyContent: "center", marginBottom: 6 },
+  roleIconBoxActive: { backgroundColor: "#FFFFFF" },
+  roleLabel: { fontSize: 13, fontWeight: "700", color: C.text, textAlign: "center" },
   roleLabelActive: { color: C.primary },
-  roleHint: { fontSize: 10, color: C.muted, opacity: 0.8 },
+  roleHint: { fontSize: 10, color: C.muted, textAlign: "center", marginTop: 2 },
   row: { flexDirection: "row", gap: 10 },
   half: { flex: 1 },
-  countryBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 13 },
-  countryFlag: { fontSize: 17 },
-  countryDial: { fontSize: 14, fontWeight: "800", color: C.text },
+  countryBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 12 },
+  countryFlag: { fontSize: 16 },
+  countryDial: { fontSize: 14, fontWeight: "700", color: C.text },
   countryChevron: { fontSize: 10, color: C.muted },
-  phoneDivider: { width: 1, height: 22, backgroundColor: C.border },
+  phoneDivider: { width: 1, height: 20, backgroundColor: C.border, marginHorizontal: 8 },
   phoneHint: { fontSize: 10, fontWeight: "700", color: C.muted },
   phoneHintOk: { color: C.success },
   pickerOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 24 },

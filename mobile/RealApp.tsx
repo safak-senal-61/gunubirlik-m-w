@@ -28,6 +28,7 @@ import ProfileScreen from "@/screens/ProfileScreen";
 import QRScreen from "@/screens/QRScreen";
 import QrScannerScreen from "@/screens/QrScannerScreen";
 import { Card, C, EmptyState, PrimaryButton } from "@/components/ui";
+import { BookmarkIcon, QrScanIcon } from "@/components/icons";
 import { useCachedList } from "@/hooks/use-cached-list";
 import AnimatedSplashScreen from "@/components/AnimatedSplashScreen";
 import { AnimatedTabBar } from "@/components/AnimatedTabBar";
@@ -466,7 +467,8 @@ function MainTabs() {
           Mesajlar ekranında mesaj yazma/gönderme alanının üstüne biniyordu. */}
       {!isEmployer && (tab === "jobs" || tab === "applications") && (
         <Pressable style={styles.scanFab} onPress={() => setScannerOpen(true)}>
-          <Text style={styles.scanFabText}>📷 QR Tara</Text>
+          <QrScanIcon size={18} color="#FFFFFF" />
+          <Text style={styles.scanFabText}>QR Tara</Text>
         </Pressable>
       )}
       {scannerOpen && (
@@ -534,7 +536,11 @@ function SavedScreen({ onOpenJob, refreshKey }: { onOpenJob: (job: ApiJob) => vo
         {loading ? (
           <ActivityIndicator style={{ marginTop: 30 }} color={C.primary} />
         ) : jobs.length === 0 ? (
-          <EmptyState emoji="✓" title="Kayıtlı ilan yok" subtitle="İlan kartlarındaki ♡ simgesine dokunarak ilan kaydet." />
+          <EmptyState
+            icon={<BookmarkIcon size={24} color={C.muted} />}
+            title="Kayıtlı İlan Yok"
+            subtitle="İlan kartlarındaki kaydet butonuna dokunarak ilanları buraya ekleyebilirsiniz."
+          />
         ) : (
           jobs.map((job) => (
             <JobCardInline key={job.id} job={job} onOpen={() => onOpenJob(job)} onUnsave={reload} />
@@ -548,7 +554,6 @@ function SavedScreen({ onOpenJob, refreshKey }: { onOpenJob: (job: ApiJob) => vo
 function JobCardInline({ job, onOpen, onUnsave }: { job: ApiJob; onOpen: () => void; onUnsave: () => void }) {
   const [busy, setBusy] = useState(false);
   const savedIds = useSavedIds();
-  // Kayıtlı ilan kartı: ♡ yerine yeşil ✓ (kalp tike döner). Kaydı kaldırınca listeden düşer.
   return (
     <JobCard
       job={job}
@@ -570,89 +575,11 @@ function JobCardInline({ job, onOpen, onUnsave }: { job: ApiJob; onOpen: () => v
   );
 }
 
-function TabBar({
-  tab,
-  onPressTab,
-  isEmployer,
-  unread,
-}: {
-  tab: Tab;
-  onPressTab: (t: Tab) => void;
-  isEmployer: boolean;
-  unread: number;
-}) {
-  const tabs: { key: Tab; icon: string; label: string }[] = isEmployer
-    ? [
-        { key: "jobs", icon: "💼", label: "Panel" },
-        { key: "applications", icon: "📥", label: "Başvuru" },
-        { key: "messages", icon: "💬", label: "Mesaj" },
-        { key: "notifications", icon: "🔔", label: "Bildirim" },
-        { key: "profile", icon: "⚙️", label: "Ayarlar" },
-      ]
-    : [
-        { key: "jobs", icon: "💼", label: "İşler" },
-        { key: "saved", icon: "♡", label: "Kayıtlı" },
-        { key: "applications", icon: "📥", label: "Başvuru" },
-        { key: "messages", icon: "💬", label: "Mesaj" },
-        { key: "notifications", icon: "🔔", label: "Bildirim" },
-        { key: "profile", icon: "⚙️", label: "Ayarlar" },
-      ];
-
-  return (
-    <View style={styles.tabBar}>
-      {tabs.map((t) => (
-        <Pressable
-          key={t.key}
-          style={styles.tabItem}
-          onPress={() => onPressTab(t.key)}
-        >
-          <Text style={[styles.tabIcon, tab === t.key && styles.tabIconActive]}>{t.icon}</Text>
-          <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>{t.label}</Text>
-          {t.key === "notifications" && unread > 0 && (
-            <View style={styles.tabBadge}>
-              <Text style={styles.tabBadgeText}>{unread > 9 ? "9+" : unread}</Text>
-            </View>
-          )}
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: C.bg },
   center: { alignItems: "center", justifyContent: "center", backgroundColor: C.bg },
   content: { flex: 1, backgroundColor: C.bg },
   savedScreenContainer: { flex: 1, backgroundColor: C.bg },
-  tabBar: {
-    flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    backgroundColor: "#ffffff",
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 8,
-    gap: 2,
-  },
-  tabIcon: { fontSize: 20, opacity: 0.55 },
-  tabIconActive: { opacity: 1 },
-  tabLabel: { fontSize: 10, fontWeight: "600", color: C.muted },
-  tabLabelActive: { color: C.primary },
-  tabBadge: {
-    position: "absolute",
-    top: 4,
-    right: "28%",
-    backgroundColor: "#e11d48",
-    borderRadius: 999,
-    minWidth: 16,
-    height: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4,
-  },
-  tabBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
   chatTargetCard: { position: "absolute", left: 16, right: 16, bottom: 80, padding: 14, gap: 10 },
   scanFab: {
     position: "absolute",
@@ -662,8 +589,11 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     shadowColor: "#000",
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,

@@ -4,3 +4,4 @@ dist/
 web-build/
 *.log
 expo-env.d.ts
+.agents/

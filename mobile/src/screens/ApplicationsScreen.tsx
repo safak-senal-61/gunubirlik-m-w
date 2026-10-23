@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Badge, Card, C, Chip, EmptyState, Loading, PrimaryButton, SectionTitle } from "@/components/ui";
 import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
 import { useCachedList } from "@/hooks/use-cached-list";
-import { fetchApplications, fetchApplicationsByEmployer, rateApplication, updateApplicationStatus, withdrawApplication } from "@/lib/api";
+import { fetchApplications, fetchApplicationsByEmployer, rateApplication, updateApplicationStatus } from "@/lib/api";
 import { markApplicationRated, useRatedMap } from "@/lib/rated-store";
 import type { ApiApplication, ApplicationStatus } from "@/lib/types";
 import {
@@ -13,6 +13,13 @@ import {
   timeAgo,
 } from "@/lib/format";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  ApplicationsIcon,
+  CalendarIcon,
+  MessageIcon,
+  QrScanIcon,
+  StarIcon,
+} from "@/components/icons";
 
 type Filter = "ALL" | "PENDING" | "ACCEPTED" | "REJECTED" | "COMPLETED";
 
@@ -48,7 +55,6 @@ export default function ApplicationsScreen({
     if (appsData) setApps(appsData);
   }, [appsData]);
 
-  // Sekme değişiminde sessiz tazele (spinner yok).
   useEffect(() => {
     if (refreshKey > 0) reload();
   }, [refreshKey, reload]);
@@ -69,11 +75,11 @@ export default function ApplicationsScreen({
       refreshing={refreshing}
       onRefresh={refreshApps}
     >
-      <Text style={styles.h1}>{isEmployer ? "Gelen başvurular" : "Başvurularım"}</Text>
+      <Text style={styles.h1}>{isEmployer ? "Gelen Başvurular" : "Başvurularım"}</Text>
       <Text style={styles.sub}>
         {isEmployer
-          ? "İlanlarına yapılan başvuruları değerlendir, kabul et veya reddet. ↓ Aşağı çekerek yenile."
-          : "Gönderdiğin başvuruların durumunu buradan takip et. ↓ Aşağı çekerek yenile."}
+          ? "İlanlarınıza yapılan başvuruları inceleyin, onaylayın veya yanıtlayın."
+          : "Gönderdiğiniz başvuruların durumunu buradan güncel olarak takip edebilirsiniz."}
       </Text>
 
       <View style={styles.chipRow}>
@@ -90,7 +96,11 @@ export default function ApplicationsScreen({
       {loading ? (
         <Loading />
       ) : filtered.length === 0 ? (
-        <EmptyState emoji="📥" title="Bu filtrede başvuru yok" />
+        <EmptyState
+          icon={<ApplicationsIcon size={28} color={C.muted} />}
+          title="Başvuru bulunmuyor"
+          subtitle="Bu filtreye uygun herhangi bir başvuru kaydı bulunamadı."
+        />
       ) : (
         filtered.map((app) => (
           <ApplicationCard
@@ -152,12 +162,17 @@ function ApplicationCard({
       <View style={styles.topRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.jobTitle} numberOfLines={1}>{jobTitle}</Text>
-          <Text style={styles.other}>
-            {other}
-            {app.worker?.ratingAvg ? ` · ${app.worker.ratingAvg.toFixed(1)}★` : ""}
-            {isEmployer && app.worker?.phone ? ` · ${app.worker.phone}` : ""}
-            {!isEmployer && app.job ? ` · ${app.job.district}, ${app.job.city}` : ""}
-          </Text>
+          <View style={styles.otherRow}>
+            <Text style={styles.other}>{other}</Text>
+            {app.worker?.ratingAvg ? (
+              <View style={styles.ratingBadge}>
+                <StarIcon size={12} color="#D97706" />
+                <Text style={styles.ratingText}>{app.worker.ratingAvg.toFixed(1)}</Text>
+              </View>
+            ) : null}
+            {isEmployer && app.worker?.phone ? <Text style={styles.otherMeta}>· {app.worker.phone}</Text> : null}
+            {!isEmployer && app.job ? <Text style={styles.otherMeta}>· {app.job.district}, {app.job.city}</Text> : null}
+          </View>
         </View>
         <Badge
           label={APPLICATION_STATUS_LABELS[app.status]}
@@ -172,20 +187,23 @@ function ApplicationCard({
       </View>
 
       {app.job?.workDate && (
-        <Text style={styles.meta}>
-          📅 {new Date(app.job.workDate).toLocaleDateString("tr-TR")} · {app.job.startTime?.slice(0, 5)}–{app.job.endTime?.slice(0, 5)}
-          {!isEmployer && app.job ? ` · ${formatWage(app.job.wageAmount, app.job.wageType)}` : ""}
-        </Text>
+        <View style={styles.metaRow}>
+          <CalendarIcon size={13} color={C.primary} />
+          <Text style={styles.meta}>
+            {new Date(app.job.workDate).toLocaleDateString("tr-TR")} · {app.job.startTime?.slice(0, 5)}–{app.job.endTime?.slice(0, 5)}
+            {!isEmployer && app.job ? ` · ${formatWage(app.job.wageAmount, app.job.wageType)}` : ""}
+          </Text>
+        </View>
       )}
       {app.message ? <Text style={styles.quote}>“{app.message}”</Text> : null}
-      {app.proposedWage ? <Text style={styles.proposal}>Teklif: {app.proposedWage.toLocaleString("tr-TR")} ₺</Text> : null}
-      {app.employerNote ? <Text style={styles.note}>İşveren notu: {app.employerNote}</Text> : null}
+      {app.proposedWage ? <Text style={styles.proposal}>Teklif Edilen Ücret: {app.proposedWage.toLocaleString("tr-TR")} ₺</Text> : null}
+      {app.employerNote ? <Text style={styles.note}>İşveren Notu: {app.employerNote}</Text> : null}
       <Text style={styles.time}>{timeAgo(app.createdAt)}</Text>
 
       {app.status === "ACCEPTED" && onStartChat && app.job && (
         <View style={styles.chatRow}>
           <PrimaryButton
-            label="💬 Sohbet Et"
+            label="Sohbet Başlat"
             variant="outline"
             onPress={() => {
               const job = app.job;
@@ -197,7 +215,7 @@ function ApplicationCard({
           {isEmployer ? (
             onShowQR && (
               <PrimaryButton
-                label="📱 QR Göster"
+                label="QR Göster"
                 variant="outline"
                 onPress={() => onShowQR(app)}
               />
@@ -205,7 +223,7 @@ function ApplicationCard({
           ) : (
             (onScanQR || onShowQR) && (
               <PrimaryButton
-                label="📷 QR Tara"
+                label="QR Tara"
                 variant="outline"
                 onPress={() => (onScanQR ? onScanQR() : onShowQR?.(app))}
               />
@@ -218,17 +236,17 @@ function ApplicationCard({
         <View style={styles.actions}>
           {app.status === "PENDING" && (
             <>
-              <PrimaryButton label="Kabul et" disabled={busy} onPress={() => act("ACCEPTED")} />
+              <PrimaryButton label="Başvuruyu Onayla" disabled={busy} onPress={() => act("ACCEPTED")} />
               <PrimaryButton label="Reddet" variant="outline" disabled={busy} onPress={() => act("REJECTED")} />
             </>
           )}
           {app.status === "ACCEPTED" && (
-            <PrimaryButton label="Tamamlandı" disabled={busy} onPress={() => act("COMPLETED")} />
+            <PrimaryButton label="İşi Tamamlandı Olarak İşaretle" disabled={busy} onPress={() => act("COMPLETED")} />
           )}
           {app.status === "COMPLETED" && !isRated && (
-            <PrimaryButton label="⭐ Puan ver" variant="outline" onPress={() => setRatingOpen(true)} />
+            <PrimaryButton label="Puan Ver" variant="outline" onPress={() => setRatingOpen(true)} />
           )}
-          {isRated ? <Badge label={`⭐ ${rating ?? 5}/5`} color={C.amber} bg={C.amberBg} /> : null}
+          {isRated ? <Badge label={`Puan: ${rating ?? 5}/5`} color={C.amber} bg={C.amberBg} /> : null}
         </View>
       ) : (
         <View style={styles.actions}>
@@ -241,9 +259,9 @@ function ApplicationCard({
             />
           )}
           {app.status === "COMPLETED" && !isRated && (
-            <PrimaryButton label="⭐ İşvereni puanla" variant="outline" onPress={() => setRatingOpen(true)} />
+            <PrimaryButton label="İşvereni Değerlendir" variant="outline" onPress={() => setRatingOpen(true)} />
           )}
-          {isRated ? <Badge label={`⭐ ${rating ?? 5}/5`} color={C.amber} bg={C.amberBg} /> : null}
+          {isRated ? <Badge label={`Puan: ${rating ?? 5}/5`} color={C.amber} bg={C.amberBg} /> : null}
         </View>
       )}
 
@@ -288,12 +306,12 @@ function RatingModal({
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <SectionTitle>Değerlendir</SectionTitle>
-          <Text style={styles.modalDesc}>Tamamlanan iş için 1–5 yıldız ve yorum bırak.</Text>
+          <SectionTitle>İşi Değerlendir</SectionTitle>
+          <Text style={styles.modalDesc}>Tamamlanan iş süreci için 1–5 arası puanlama yapın ve deneyiminizi paylaşın.</Text>
           <View style={styles.stars}>
             {[1, 2, 3, 4, 5].map((n) => (
-              <Pressable key={n} onPress={() => setRating(n)} hitSlop={6}>
-                <Text style={[styles.star, n <= rating && styles.starActive]}>★</Text>
+              <Pressable key={n} onPress={() => setRating(n)} hitSlop={6} style={styles.starBtn}>
+                <StarIcon size={30} color={n <= rating ? "#D97706" : "#D1D5DB"} />
               </Pressable>
             ))}
           </View>
@@ -301,14 +319,14 @@ function RatingModal({
             style={[styles.input, styles.textArea]}
             value={comment}
             onChangeText={setComment}
-            placeholder="Yorumun (opsiyonel)…"
+            placeholder="Görüş ve değerlendirmeleriniz (isteğe bağlı)…"
             placeholderTextColor={C.muted}
             multiline
           />
           <View style={styles.modalActions}>
             <PrimaryButton label="Vazgeç" variant="ghost" onPress={onClose} />
             <PrimaryButton
-              label="Gönder"
+              label="Kaydet"
               loading={busy}
               onPress={async () => {
                 setBusy(true);
@@ -331,20 +349,24 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   topRow: { flexDirection: "row", gap: 8, alignItems: "flex-start", justifyContent: "space-between" },
   jobTitle: { fontSize: 15, fontWeight: "800", color: C.text },
-  other: { fontSize: 12, color: C.muted, marginTop: 3 },
-  meta: { fontSize: 12, color: C.muted, marginTop: 8 },
-  quote: { fontSize: 13, color: C.text, backgroundColor: "#f5f5f7", borderRadius: 10, padding: 10, marginTop: 8, lineHeight: 19 },
+  otherRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" },
+  other: { fontSize: 12, color: C.muted, fontWeight: "600" },
+  ratingBadge: { flexDirection: "row", alignItems: "center", gap: 3 },
+  ratingText: { fontSize: 11, fontWeight: "700", color: "#D97706" },
+  otherMeta: { fontSize: 12, color: C.muted },
+  metaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
+  meta: { fontSize: 12, color: C.muted },
+  quote: { fontSize: 13, color: C.text, backgroundColor: "#F6F5F2", borderRadius: 10, padding: 10, marginTop: 8, lineHeight: 19, borderWidth: 1, borderColor: "#E8E6DF" },
   proposal: { fontSize: 12, fontWeight: "700", color: C.primary, marginTop: 6 },
   note: { fontSize: 12, color: C.muted, marginTop: 6 },
   time: { fontSize: 11, color: C.muted, marginTop: 6 },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12, borderTopWidth: 1, borderTopColor: "#f3f4f6", paddingTop: 12, alignItems: "center" },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12, borderTopWidth: 1, borderTopColor: "#E8E6DF", paddingTop: 12, alignItems: "center" },
   chatRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 24 },
   modalCard: { backgroundColor: "#fff", borderRadius: 20, padding: 20, width: "100%", gap: 10 },
   modalDesc: { fontSize: 13, color: C.muted },
-  stars: { flexDirection: "row", justifyContent: "center", gap: 8, paddingVertical: 8 },
-  star: { fontSize: 34, color: "#d1d5db" },
-  starActive: { color: "#f59e0b" },
+  stars: { flexDirection: "row", justifyContent: "center", gap: 8, paddingVertical: 10 },
+  starBtn: { padding: 4 },
   input: { borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: C.text },
   textArea: { minHeight: 70, textAlignVertical: "top" },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },

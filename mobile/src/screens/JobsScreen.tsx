@@ -19,7 +19,6 @@ import { fetchCategories, fetchJobs, suggestAddress } from "@/lib/api";
 import { toggleSaved, useSavedIds } from "@/lib/saved-store";
 import type { ApiCategory, ApiJob, GeocodeSuggestion, JobCategory } from "@/lib/types";
 import {
-  CATEGORY_ICONS,
   CATEGORY_LABELS,
   URGENCY_COLORS,
   URGENCY_LABELS,
@@ -29,6 +28,20 @@ import {
   timeAgo,
 } from "@/lib/format";
 import { getCurrentCoords, locateAndReverse } from "@/hooks/use-location";
+import {
+  getCategoryIconComponent,
+  BookmarkIcon,
+  BookmarkFilledIcon,
+  VerifiedCheckIcon,
+  MapPinIcon,
+  CalendarIcon,
+  ClockIcon,
+  UsersIcon,
+  StarIcon,
+  SearchIcon,
+  ChevronRightIcon,
+  BriefcaseIcon,
+} from "@/components/icons";
 
 const RADIUS_OPTIONS = [1, 3, 5, 10, 25];
 const PAGE_SIZE = 20;
@@ -296,7 +309,7 @@ export default function JobsScreen({
             contentContainerStyle={styles.catRow}
           >
             <CategoryTile
-              emoji="🌐"
+              icon={<BriefcaseIcon size={20} color={category === "ALL" ? "#FFFFFF" : C.primary} />}
               label="Tümü"
               active={category === "ALL"}
               onPress={() => { setCategory("ALL"); setPage(1); }}
@@ -304,7 +317,7 @@ export default function JobsScreen({
             {categories.map((c) => (
               <CategoryTile
                 key={c.value}
-                emoji={CATEGORY_ICONS[c.value]}
+                icon={getCategoryIconComponent(c.value, 20, category === c.value ? "#FFFFFF" : C.primary)}
                 label={c.label.split(" &")[0]}
                 active={category === c.value}
                 onPress={() => { setCategory(c.value); setPage(1); }}
@@ -401,14 +414,14 @@ function formatAddressDetail(address: {
   return parts.join(" · ");
 }
 
-/** Modern kategori kutusu: yumuşak gölgeli ikon kartı + aktifken indigo dolgu. */
+/** Modern kategori kutusu: kurumsal SVG vektör ikonu + akıcı yaylanma mikro animasyonu. */
 function CategoryTile({
-  emoji,
+  icon,
   label,
   active,
   onPress,
 }: {
-  emoji: string;
+  icon: React.ReactNode;
   label: string;
   active: boolean;
   onPress: () => void;
@@ -417,12 +430,12 @@ function CategoryTile({
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={() => Animated.spring(scale, { toValue: 0.92, speed: 40, useNativeDriver: true }).start()}
+      onPressIn={() => Animated.spring(scale, { toValue: 0.92, speed: 45, useNativeDriver: true }).start()}
       onPressOut={() => Animated.spring(scale, { toValue: 1, friction: 4, tension: 220, useNativeDriver: true }).start()}
       style={styles.catTileWrap}
     >
       <Animated.View style={[styles.catTile, active && styles.catTileActive, { transform: [{ scale }] }]}>
-        <Text style={styles.catTileEmoji}>{emoji}</Text>
+        {icon}
       </Animated.View>
       <Text style={[styles.catTileLabel, active && styles.catTileLabelActive]} numberOfLines={1}>{label}</Text>
     </Pressable>
@@ -450,27 +463,40 @@ export function JobCard({
       <Pressable onPress={onPress}>
         <View style={styles.jobTop}>
           <View style={styles.jobIconBox}>
-            <Text style={styles.jobIcon}>{CATEGORY_ICONS[job.category] ?? "💼"}</Text>
+            {getCategoryIconComponent(job.category, 22, C.primary)}
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.jobTitle} numberOfLines={1}>{job.title}</Text>
-            <Text style={styles.jobEmployer} numberOfLines={1}>
-              {job.employer.companyName ?? job.employer.fullName}
-              {job.employer.isVerified ? " ✓" : ""}
-            </Text>
+            <View style={styles.employerRow}>
+              <Text style={styles.jobEmployer} numberOfLines={1}>
+                {job.employer.companyName ?? job.employer.fullName}
+              </Text>
+              {job.employer.isVerified ? (
+                <VerifiedCheckIcon size={13} color={C.primary} />
+              ) : null}
+            </View>
           </View>
           {onSave && (
-            <Pressable onPress={onSave} disabled={saving} hitSlop={8} style={styles.saveHit}>
-              <Text style={[styles.saveBtn, isSaved && styles.saveBtnSaved]}>
-                {saving ? "…" : isSaved ? "✓" : "♡"}
-              </Text>
+            <Pressable onPress={onSave} disabled={saving} hitSlop={10} style={styles.saveHit}>
+              {isSaved ? (
+                <BookmarkFilledIcon size={22} color={C.primary} />
+              ) : (
+                <BookmarkIcon size={22} color="#8C928E" />
+              )}
             </Pressable>
           )}
         </View>
 
         <View style={styles.badgeRow}>
-          <Badge label={`${job.district}, ${job.city}`} color={C.primary} bg={C.primarySoft} />
-          {dist ? <Badge label={dist} color={C.primary} bg={C.indigoBg} /> : null}
+          <View style={styles.locationBadge}>
+            <MapPinIcon size={12} color={C.primary} />
+            <Text style={styles.locationBadgeText}>{job.district}, {job.city}</Text>
+          </View>
+          {dist ? (
+            <View style={styles.distBadge}>
+              <Text style={styles.distBadgeText}>{dist}</Text>
+            </View>
+          ) : null}
           {job.urgency !== "LOW" && (
             <Badge
               label={URGENCY_LABELS[job.urgency]}
@@ -480,20 +506,42 @@ export function JobCard({
           )}
         </View>
 
-        <Text style={styles.jobMeta}>
-          📅 {new Date(job.workDate).toLocaleDateString("tr-TR")} · {job.startTime.slice(0, 5)}–{job.endTime.slice(0, 5)}
-          {job.openingsTotal > 1 ? ` · 👥 ${job.openingsFilled}/${job.openingsTotal}` : ""}
-        </Text>
-
-        <View style={styles.jobFooter}>
-          <Text style={styles.wage}>{formatWage(job.wageAmount, job.wageType)}</Text>
-          <Text style={styles.detailLink}>Detay →</Text>
+        <View style={styles.metaRow}>
+          <View style={styles.metaItem}>
+            <CalendarIcon size={13} color="#656D67" />
+            <Text style={styles.metaText}>{new Date(job.workDate).toLocaleDateString("tr-TR")}</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <ClockIcon size={13} color="#656D67" />
+            <Text style={styles.metaText}>{job.startTime.slice(0, 5)}–{job.endTime.slice(0, 5)}</Text>
+          </View>
+          {job.openingsTotal > 1 ? (
+            <View style={styles.metaItem}>
+              <UsersIcon size={13} color="#656D67" />
+              <Text style={styles.metaText}>{job.openingsFilled}/{job.openingsTotal}</Text>
+            </View>
+          ) : null}
         </View>
 
-        {job.employer.ratingAvg > 0 && (
-          <Text style={styles.rating}>
-            ⭐ {job.employer.ratingAvg.toFixed(1)} ({job.employer.ratingCount}) · {timeAgo(job.createdAt)}
-          </Text>
+        <View style={styles.jobFooter}>
+          <View style={styles.wageBox}>
+            <Text style={styles.wage}>{formatWage(job.wageAmount, job.wageType)}</Text>
+          </View>
+          <View style={styles.detailButton}>
+            <Text style={styles.detailLink}>İncele</Text>
+            <ChevronRightIcon size={14} color={C.primary} />
+          </View>
+        </View>
+
+        {job.employer.ratingAvg > 0 ? (
+          <View style={styles.ratingRow}>
+            <StarIcon size={13} color="#D97706" />
+            <Text style={styles.rating}>
+              {job.employer.ratingAvg.toFixed(1)} ({job.employer.ratingCount}) · {timeAgo(job.createdAt)}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.timeAgoSingle}>{timeAgo(job.createdAt)}</Text>
         )}
       </Pressable>
     </Card>
@@ -552,21 +600,32 @@ const styles = StyleSheet.create({
   skeletonLine: { height: 11, borderRadius: 6, backgroundColor: "#eceef3" },
   skeletonHint: { fontSize: 12, color: C.muted, textAlign: "center", marginTop: 2 },
   count: { fontSize: 12, color: C.muted },
-  jobCard: { padding: 14 },
-  jobTop: { flexDirection: "row", gap: 10, alignItems: "center" },
-  jobIconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },
+  jobCard: { padding: 16, borderRadius: 16, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E0D8" },
+  jobTop: { flexDirection: "row", gap: 12, alignItems: "center" },
+  jobIconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: "#EAF3EE", alignItems: "center", justifyContent: "center" },
   jobIcon: { fontSize: 18 },
-  jobTitle: { fontSize: 15, fontWeight: "800", color: C.text },
-  jobEmployer: { fontSize: 12, color: C.muted, marginTop: 2 },
-  saveHit: { minWidth: 36, alignItems: "center", justifyContent: "center" },
+  jobTitle: { fontSize: 16, fontWeight: "800", color: "#0C0E0D", letterSpacing: -0.3 },
+  employerRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  jobEmployer: { fontSize: 12, fontWeight: "600", color: "#656D67" },
+  saveHit: { minWidth: 36, height: 36, alignItems: "center", justifyContent: "center" },
   saveBtn: { fontSize: 22, color: C.muted, paddingHorizontal: 4 },
   saveBtnSaved: { color: C.success, fontWeight: "800", fontSize: 20 },
-  badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
-  jobMeta: { fontSize: 12, color: C.muted, marginTop: 8 },
-  jobFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10, borderTopWidth: 1, borderTopColor: "#f3f4f6", paddingTop: 10 },
-  wage: { fontSize: 14, fontWeight: "800", color: C.primary },
-  detailLink: { fontSize: 12, fontWeight: "700", color: C.primary },
-  rating: { fontSize: 11, color: C.muted, marginTop: 6 },
+  badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 12 },
+  locationBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#EAF3EE", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  locationBadgeText: { fontSize: 11, fontWeight: "700", color: "#0D6847" },
+  distBadge: { backgroundColor: "#F0EFEA", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  distBadgeText: { fontSize: 11, fontWeight: "600", color: "#656D67" },
+  metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#ECEAE4" },
+  metaItem: { flexDirection: "row", alignItems: "center", gap: 4 },
+  metaText: { fontSize: 12, fontWeight: "500", color: "#656D67" },
+  jobFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#ECEAE4" },
+  wageBox: { backgroundColor: "#EAF3EE", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  wage: { fontSize: 14, fontWeight: "800", color: "#0D6847" },
+  detailButton: { flexDirection: "row", alignItems: "center", gap: 2 },
+  detailLink: { fontSize: 12, fontWeight: "700", color: "#0D6847" },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8 },
+  rating: { fontSize: 11, fontWeight: "600", color: "#656D67" },
+  timeAgoSingle: { fontSize: 11, color: "#8C928E", marginTop: 6 },
   pager: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 8 },
   pageText: { fontSize: 13, color: C.muted },
 });

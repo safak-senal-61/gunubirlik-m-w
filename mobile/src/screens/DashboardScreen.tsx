@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   Alert,
   Modal,
@@ -9,14 +9,12 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Badge, Card, C, EmptyState, Loading, PrimaryButton, SectionTitle, StatCard } from "@/components/ui";
+import { Badge, Card, C, EmptyState, Loading, PrimaryButton } from "@/components/ui";
 import { useCachedList } from "@/hooks/use-cached-list";
 import { createJob, deleteJob, fetchCategories, fetchJobs } from "@/lib/api";
-import type { ApiCategory, ApiJob, JobCategory, JobStatus } from "@/lib/types";
+import type { ApiCategory, ApiJob, JobCategory } from "@/lib/types";
 import {
-  CATEGORY_ICONS,
   JOB_STATUS_LABELS,
-  URGENCY_LABELS,
   formatWage,
   timeAgo,
 } from "@/lib/format";
@@ -24,6 +22,15 @@ import { addressToFormFields, locateAndReverse } from "@/hooks/use-location";
 import { useAuth } from "@/hooks/use-auth";
 import { DatePicker, TimePicker } from "@/components/pickers";
 import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
+import {
+  ApplicationsIcon,
+  BriefcaseIcon,
+  CalendarIcon,
+  MapPinIcon,
+  SearchIcon,
+  WalletIcon,
+  getCategoryIconComponent,
+} from "@/components/icons";
 
 export default function DashboardScreen({
   onOpenJob,
@@ -39,7 +46,6 @@ export default function DashboardScreen({
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  // Tüm açık iş ilanları (Piyasa)
   const allJobsFetcher = useCallback(
     () => fetchJobs({ status: "OPEN", limit: 50 }),
     [],
@@ -52,7 +58,6 @@ export default function DashboardScreen({
     reload: reloadAll,
   } = useCachedList("jobs:dashboard:all", allJobsFetcher, []);
 
-  // Benim yayınladığım ilanlar
   const myJobsFetcher = useCallback(
     () => fetchJobs({ mine: true, employerId: user?.id, limit: 50 }),
     [user?.id],
@@ -104,11 +109,10 @@ export default function DashboardScreen({
       refreshing={isRefreshing}
       onRefresh={handleRefresh}
     >
-      {/* Üst Karşılama ve İşveren Rozeti */}
       <View style={styles.headerBox}>
         <View style={styles.headerTop}>
           <View style={styles.employerBadge}>
-            <Text style={styles.employerBadgeText}>🏢 İŞVEREN PANELİ</Text>
+            <Text style={styles.employerBadgeText}>İŞVEREN PANELİ</Text>
           </View>
           <View style={styles.quickStatPill}>
             <View style={styles.livePulseDot} />
@@ -116,36 +120,35 @@ export default function DashboardScreen({
           </View>
         </View>
         <Text style={styles.h1}>
-          Merhaba{user?.companyName ? `, ${user.companyName}` : user?.fullName ? `, ${user.fullName}` : ""} 👋
+          Hoş Geldiniz{user?.companyName ? `, ${user.companyName}` : user?.fullName ? `, ${user.fullName}` : ""}
         </Text>
         <Text style={styles.sub}>
-          Piyasadaki işleri incele, ilanlarını ve başvuruları kolayca yönet.
+          Piyasadaki işleri inceleyin, ilanlarınızı ve başvuruları kolayca yönetin.
         </Text>
       </View>
 
-      {/* İstatistik & Hızlı Filtre Kartları (Tam Kare / 1:1) */}
       <View style={styles.statRow}>
         <EmployerMetricCard
-          icon="🌐"
-          label="Piyasa Açık"
+          iconNode={<BriefcaseIcon size={16} color="#0D6847" />}
+          label="Açık Piyasa"
           value={totalOpenMarket}
           badgeText="Canlı"
-          theme="indigo"
+          theme="emerald"
           active={viewMode === "ALL"}
           onPress={() => setViewMode("ALL")}
         />
         <EmployerMetricCard
-          icon="💼"
+          iconNode={<BriefcaseIcon size={16} color="#059669" />}
           label="İlanlarım"
           value={myJobs.length}
           badgeText="Yayında"
-          theme="emerald"
+          theme="mint"
           active={viewMode === "MINE"}
           onPress={() => setViewMode("MINE")}
         />
         <EmployerMetricCard
-          icon="📥"
-          label="Gelen Başvuru"
+          iconNode={<ApplicationsIcon size={16} color="#D97706" />}
+          label="Başvurular"
           value={totalMyApps}
           badgeText={totalMyApps > 0 ? "Yeni" : undefined}
           theme="amber"
@@ -159,7 +162,6 @@ export default function DashboardScreen({
         />
       </View>
 
-      {/* Yeni İlan Ver Butonu - Düzgün, Dikdörtgen ve Şık */}
       <Pressable
         style={({ pressed }) => [
           styles.createJobBtn,
@@ -171,14 +173,13 @@ export default function DashboardScreen({
         <Text style={styles.createJobBtnText}>Yeni İlan Yayınla</Text>
       </Pressable>
 
-      {/* Segment switcher: Tüm İlanlar vs Benim İlanlarım */}
       <View style={styles.segmentContainer}>
         <Pressable
           style={[styles.segmentBtn, viewMode === "ALL" && styles.segmentBtnActive]}
           onPress={() => setViewMode("ALL")}
         >
           <Text style={[styles.segmentText, viewMode === "ALL" && styles.segmentTextActive]}>
-            🌐 Piyasa İlanları ({allJobs.length})
+            Piyasa İlanları ({allJobs.length})
           </Text>
         </Pressable>
         <Pressable
@@ -186,12 +187,11 @@ export default function DashboardScreen({
           onPress={() => setViewMode("MINE")}
         >
           <Text style={[styles.segmentText, viewMode === "MINE" && styles.segmentTextActive]}>
-            💼 İlanlarım ({myJobs.length})
+            İlanlarım ({myJobs.length})
           </Text>
         </Pressable>
       </View>
 
-      {/* Hızlı Arama */}
       <TextInput
         style={styles.searchInput}
         value={search}
@@ -204,12 +204,12 @@ export default function DashboardScreen({
         <Loading />
       ) : filteredJobs.length === 0 ? (
         <EmptyState
-          emoji={viewMode === "ALL" ? "🔍" : "💼"}
-          title={viewMode === "ALL" ? "İlan bulunamadı" : "Henüz ilanın yok"}
+          icon={viewMode === "ALL" ? <SearchIcon size={24} color={C.muted} /> : <BriefcaseIcon size={24} color={C.muted} />}
+          title={viewMode === "ALL" ? "İlan bulunamadı" : "Henüz yayında ilanınız yok"}
           subtitle={
             viewMode === "ALL"
-              ? "Arama kriterlerine uygun ilan bulunamadı."
-              : "İlk günübirlik iş ilanını yayınla; işçiler aynı gün başvursun."
+              ? "Arama kriterlerine uygun herhangi bir ilan bulunamadı."
+              : "Yeni bir günübirlik ilan yayınlayarak uygun iş arayanlara anında ulaşabilirsiniz."
           }
         />
       ) : (
@@ -241,37 +241,37 @@ export default function DashboardScreen({
 }
 
 const METRIC_THEMES = {
-  indigo: {
-    accent: "#4f46e5",
-    iconBg: "#eef2ff",
-    iconBorder: "#e0e7ff",
-    activeBorder: "#6366f1",
-    activeBg: "#f8faff",
-    badgeBg: "#e0e7ff",
-    badgeText: "#4338ca",
-  },
   emerald: {
+    accent: "#0D6847",
+    iconBg: "#E8F5EE",
+    iconBorder: "rgba(13,104,71,0.15)",
+    activeBorder: "#0D6847",
+    activeBg: "#E8F5EE",
+    badgeBg: "rgba(13,104,71,0.12)",
+    badgeText: "#0D6847",
+  },
+  mint: {
     accent: "#059669",
-    iconBg: "#ecfdf5",
-    iconBorder: "#d1fae5",
-    activeBorder: "#10b981",
-    activeBg: "#f0fdf4",
-    badgeBg: "#d1fae5",
+    iconBg: "#ECFDF5",
+    iconBorder: "#D1FAE5",
+    activeBorder: "#059669",
+    activeBg: "#F0FDF4",
+    badgeBg: "#D1FAE5",
     badgeText: "#047857",
   },
   amber: {
-    accent: "#d97706",
-    iconBg: "#fffbeb",
-    iconBorder: "#fef3c7",
-    activeBorder: "#f59e0b",
-    activeBg: "#fffdf5",
-    badgeBg: "#fef3c7",
-    badgeText: "#b45309",
+    accent: "#D97706",
+    iconBg: "#FFFBEB",
+    iconBorder: "#FEF3C7",
+    activeBorder: "#F59E0B",
+    activeBg: "#FFFDF5",
+    badgeBg: "#FEF3C7",
+    badgeText: "#B45309",
   },
 };
 
 function EmployerMetricCard({
-  icon,
+  iconNode,
   label,
   value,
   badgeText,
@@ -279,11 +279,11 @@ function EmployerMetricCard({
   active,
   onPress,
 }: {
-  icon: string;
+  iconNode: ReactNode;
   label: string;
   value: number;
   badgeText?: string;
-  theme: "indigo" | "emerald" | "amber";
+  theme: "emerald" | "mint" | "amber";
   active?: boolean;
   onPress?: () => void;
 }) {
@@ -296,33 +296,24 @@ function EmployerMetricCard({
         active && {
           borderColor: t.activeBorder,
           backgroundColor: t.activeBg,
-          shadowColor: t.accent,
-          shadowOpacity: 0.15,
-          shadowRadius: 8,
-          elevation: 3,
         },
         pressed && styles.metricCardPressed,
       ]}
     >
       <View style={styles.metricTopRow}>
         <View style={[styles.metricIconWrap, { backgroundColor: t.iconBg, borderColor: t.iconBorder }]}>
-          <Text style={styles.metricIconText}>{icon}</Text>
+          {iconNode}
         </View>
-        {badgeText ? (
+        {badgeText && (
           <View style={[styles.metricPill, { backgroundColor: t.badgeBg }]}>
-            {theme === "indigo" ? <View style={styles.liveDot} /> : null}
+            <View style={[styles.liveDot, { backgroundColor: t.accent }]} />
             <Text style={[styles.metricPillText, { color: t.badgeText }]}>{badgeText}</Text>
           </View>
-        ) : null}
+        )}
       </View>
-
       <View style={styles.metricBottomGroup}>
-        <Text style={[styles.metricValue, active && { color: t.accent }]}>
-          {value.toLocaleString("tr-TR")}
-        </Text>
-        <Text style={styles.metricLabel} numberOfLines={1}>
-          {label}
-        </Text>
+        <Text style={styles.metricValue}>{value}</Text>
+        <Text style={styles.metricLabel}>{label}</Text>
       </View>
     </Pressable>
   );
@@ -340,10 +331,10 @@ function EmployerJobCard({
   onPress: () => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const isOwner = Boolean(currentUserId && job.employerId === currentUserId);
+  const isOwner = job.employerId === currentUserId;
 
   const remove = () => {
-    Alert.alert("İlanı sil", "Bu ilan kalıcı olarak silinsin mi?", [
+    Alert.alert("İlanı Sil", "Bu ilan kalıcı olarak silinsin mi?", [
       { text: "Vazgeç", style: "cancel" },
       {
         text: "Sil",
@@ -368,13 +359,16 @@ function EmployerJobCard({
       <Pressable onPress={onPress}>
         <View style={styles.topRow}>
           <View style={styles.catIconWrap}>
-            <Text style={styles.catIcon}>{CATEGORY_ICONS[job.category]}</Text>
+            {getCategoryIconComponent(job.category, 20, C.primary)}
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.title} numberOfLines={1}>{job.title}</Text>
-            <Text style={styles.meta}>
-              📅 {new Date(job.workDate).toLocaleDateString("tr-TR")} · {job.startTime.slice(0, 5)}–{job.endTime.slice(0, 5)} · {job.district}
-            </Text>
+            <View style={styles.cardMetaRow}>
+              <CalendarIcon size={12} color={C.primary} />
+              <Text style={styles.meta}>
+                {new Date(job.workDate).toLocaleDateString("tr-TR")} · {job.startTime.slice(0, 5)}–{job.endTime.slice(0, 5)} · {job.district}
+              </Text>
+            </View>
           </View>
           <Badge
             label={JOB_STATUS_LABELS[job.status]}
@@ -393,7 +387,7 @@ function EmployerJobCard({
       </Pressable>
       {isOwner && (
         <View style={styles.actions}>
-          <PrimaryButton label="🗑️ İlanı Sil" variant="ghost" disabled={busy} onPress={remove} />
+          <PrimaryButton label="İlanı Sil" variant="ghost" disabled={busy} onPress={remove} />
         </View>
       )}
     </Card>
@@ -449,51 +443,40 @@ function CreateJobSheet({
   const grabLocation = async () => {
     setLocating(true);
     try {
-      const { coords, address: addr } = await locateAndReverse();
-      const fields = addressToFormFields(addr);
-      if (fields.city) setCity(fields.city);
-      if (fields.district) setDistrict(fields.district);
-      if (fields.addressText) setAddress(fields.addressText);
-      setLatLng(coords);
+      const res = await locateAndReverse();
+      setLatLng({ lat: res.coords.lat, lng: res.coords.lng });
+      if (res.address) {
+        const parsed = addressToFormFields(res.address);
+        if (parsed.city) setCity(parsed.city);
+        if (parsed.district) setDistrict(parsed.district);
+        if (parsed.addressText) setAddress(parsed.addressText);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Konum alınamadı");
+      Alert.alert("Konum Alınamadı", err instanceof Error ? err.message : "Tekrar deneyin.");
     } finally {
       setLocating(false);
     }
   };
 
-  const durationHours = (() => {
-    const [sh, sm] = startTime.split(":").map(Number);
-    const [eh, em] = endTime.split(":").map(Number);
-    let diff = eh * 60 + em - (sh * 60 + sm);
-    if (diff <= 0) diff += 24 * 60;
-    return Math.round((diff / 60) * 10) / 10;
-  })();
-
   const handleNextStep = () => {
     setError(null);
     if (jobStep === 1) {
       if (!title.trim()) {
-        setError("Lütfen iş başlığını girin.");
-        return;
-      }
-      if (!category) {
-        setError("Lütfen bir kategori seçin.");
+        setError("Lütfen ilan başlığını yazınız.");
         return;
       }
       if (description.trim().length < 20) {
-        setError(`Açıklama en az 20 karakter olmalıdır (Şu an: ${description.trim().length})`);
+        setError("Açıklama en az 20 karakter olmalıdır.");
         return;
       }
       setJobStep(2);
     } else if (jobStep === 2) {
       if (!workDate) {
-        setError("Lütfen çalışma gününü seçin.");
+        setError("Lütfen çalışma gününü seçiniz.");
         return;
       }
-      const w = Number(wage);
-      if (!w || w <= 0) {
-        setError("Lütfen geçerli bir ücret tutarı girin.");
+      if (!wage || Number(wage) <= 0) {
+        setError("Lütfen geçerli bir ücret tutarı giriniz.");
         return;
       }
       setJobStep(3);
@@ -508,12 +491,7 @@ function CreateJobSheet({
 
   const submit = async () => {
     if (!city.trim() || !district.trim()) {
-      setError("Lütfen il ve ilçe bilgilerini doldurun.");
-      return;
-    }
-    const w = Number(wage);
-    if (!title.trim() || !description.trim() || !workDate || !w) {
-      setError("Lütfen zorunlu alanları doldurun.");
+      setError("Lütfen il ve ilçe bilgilerini doldurunuz.");
       return;
     }
     setSaving(true);
@@ -526,41 +504,44 @@ function CreateJobSheet({
         workDate,
         startTime,
         endTime,
-        durationHours,
-        wageAmount: w,
+        durationHours: Math.max(1, durationHours),
+        wageAmount: Number(wage),
         wageType,
         city: city.trim(),
         district: district.trim(),
-        ...(address.trim() ? { address: address.trim() } : {}),
-        ...(latLng ? { latitude: latLng.lat, longitude: latLng.lng } : {}),
-        openingsTotal: Number(openings) || 1,
+        address: address.trim() || undefined,
+        openingsTotal: Math.max(1, Number(openings) || 1),
         urgency,
-        ...(skills.trim()
-          ? { requiredSkills: skills.split(",").map((s) => s.trim()).filter(Boolean) }
-          : {}),
+        requiredSkills: skills.trim() ? skills.split(",").map((s) => s.trim()) : undefined,
+        latitude: latLng?.lat,
+        longitude: latLng?.lng,
       });
-      setTitle(""); setDescription(""); setWorkDate(""); setWage(""); setSkills(""); setLatLng(null);
-      setJobStep(1);
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "İlan oluşturulamadı");
+      setError(err instanceof Error ? err.message : "İlan oluşturulamadı.");
     } finally {
       setSaving(false);
     }
   };
 
+  const durationHours = (() => {
+    const [sh, sm] = startTime.split(":").map(Number);
+    const [eh, em] = endTime.split(":").map(Number);
+    const diff = (eh * 60 + em - (sh * 60 + sm)) / 60;
+    return diff > 0 ? diff : 0;
+  })();
+
   return (
-    <Modal visible={open} animationType="slide" onRequestClose={onClose}>
+    <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={styles.sheetPage}>
         <View style={styles.sheetHeader}>
-          <Text style={styles.sheetTitle}>Yeni İlan Yayınla</Text>
+          <Text style={styles.sheetTitle}>Yeni Günübirlik İlan</Text>
           <Pressable onPress={onClose} hitSlop={8}>
             <Text style={styles.sheetClose}>✕</Text>
           </Pressable>
         </View>
 
         <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
-          {/* Level Up Wizard Header */}
           <View style={styles.sheetWizardCard}>
             <View style={styles.sheetWizardTopRow}>
               <View style={styles.sheetWizardBadgeRow}>
@@ -568,21 +549,16 @@ function CreateJobSheet({
                   <Text style={styles.sheetWizardStepBadgeText}>{jobStep}</Text>
                 </View>
                 <Text style={styles.sheetWizardTitleText}>
-                  {jobStep === 1 && "Level 1: Temel Bilgiler & Kategori 📝"}
-                  {jobStep === 2 && "Level 2: Çalışma & Ücret 💰"}
-                  {jobStep === 3 && "Level 3: Konum & Onay 🚀"}
+                  {jobStep === 1 && "1. Adım: Başlık ve Kategori"}
+                  {jobStep === 2 && "2. Adım: Çalışma Saatleri & Ücret"}
+                  {jobStep === 3 && "3. Adım: Konum & Kontenjan"}
                 </Text>
               </View>
               <View style={styles.sheetXpPill}>
-                <Text style={styles.sheetXpPillText}>
-                  {jobStep === 1 && "⚡ 33% XP"}
-                  {jobStep === 2 && "🔥 66% XP"}
-                  {jobStep === 3 && "🏆 Son Seviye"}
-                </Text>
+                <Text style={styles.sheetXpPillText}>Adım {jobStep} / 3</Text>
               </View>
             </View>
 
-            {/* Progress track */}
             <View style={styles.sheetProgressBarTrack}>
               <View
                 style={[
@@ -594,7 +570,6 @@ function CreateJobSheet({
               />
             </View>
 
-            {/* Step navigation chips */}
             <View style={styles.sheetStepChipsRow}>
               <Pressable onPress={() => setJobStep(1)} style={styles.sheetStepChipItem}>
                 <View style={[styles.sheetStepDot, jobStep >= 1 && styles.sheetStepDotActive]}>
@@ -615,7 +590,7 @@ function CreateJobSheet({
                 style={styles.sheetStepChipItem}
               >
                 <View style={[styles.sheetStepDot, jobStep >= 2 && styles.sheetStepDotActive]}>
-                  <Text style={[styles.sheetStepDotText, jobStep >= 2 && styles.sheetStepDotActive]}>
+                  <Text style={[styles.sheetStepDotText, jobStep >= 2 && styles.sheetStepDotTextActive]}>
                     {jobStep > 2 ? "✓" : "2"}
                   </Text>
                 </View>
@@ -631,51 +606,56 @@ function CreateJobSheet({
                 style={styles.sheetStepChipItem}
               >
                 <View style={[styles.sheetStepDot, jobStep >= 3 && styles.sheetStepDotActive]}>
-                  <Text style={[styles.sheetStepDotText, jobStep >= 3 && styles.sheetStepDotActive]}>
+                  <Text style={[styles.sheetStepDotText, jobStep >= 3 && styles.sheetStepDotTextActive]}>
                     3
                   </Text>
                 </View>
-                <Text style={[styles.sheetStepLabel, jobStep >= 3 && styles.sheetStepLabelActive]}>Konum</Text>
+                <Text style={[styles.sheetStepLabel, jobStep >= 3 && styles.sheetStepLabelActive]}>Detay</Text>
               </Pressable>
             </View>
           </View>
 
-          {/* STEP 1: TEMEL BİLGİLER & KATEGORİ */}
+          {/* STEP 1: BAŞLIK, KATEGORİ & AÇIKLAMA */}
           {jobStep === 1 && (
             <View style={styles.sheetStepContent}>
               <SheetField
-                label="İş başlığı *"
+                label="İlan Başlığı *"
                 value={title}
                 onChangeText={setTitle}
-                placeholder="Örn. İnşaat İşçisi / Garson Aranıyor"
+                placeholder="Örn. İnşaat Destek Elemanı / Garson"
               />
 
               <Text style={styles.sheetLabel}>Kategori *</Text>
               <View style={styles.catGrid}>
-                {categories.map((c) => (
-                  <Pressable
-                    key={c.value}
-                    onPress={() => setCategory(c.value)}
-                    style={[styles.catItem, category === c.value && styles.catItemActive]}
-                  >
-                    <Text style={styles.catEmoji}>{CATEGORY_ICONS[c.value]}</Text>
-                    <Text style={[styles.catLabel, category === c.value && styles.catLabelActive]} numberOfLines={1}>
-                      {c.label.split(" &")[0]}
-                    </Text>
-                  </Pressable>
-                ))}
+                {categories.map((c) => {
+                  const isActive = category === c.value;
+                  return (
+                    <Pressable
+                      key={c.value}
+                      onPress={() => setCategory(c.value)}
+                      style={[styles.catItem, isActive && styles.catItemActive]}
+                    >
+                      <View style={styles.catIconSmall}>
+                        {getCategoryIconComponent(c.value, 18, isActive ? "#0D6847" : "#5C615E")}
+                      </View>
+                      <Text style={[styles.catLabel, isActive && styles.catLabelActive]} numberOfLines={1}>
+                        {c.label.split(" &")[0]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
 
               <SheetField
-                label="Açıklama * (min 20 karakter)"
+                label="İş Açıklaması * (En az 20 karakter)"
                 value={description}
                 onChangeText={setDescription}
                 multiline
-                placeholder="Yapılacak işleri, beklenen deneyimi ve çalışma koşullarını detaylandırın…"
+                placeholder="Yapılacak işleri, aranan deneyimi ve çalışma ortamını belirtiniz…"
               />
 
               <SheetField
-                label="Aranan beceriler (virgülle ayır, opsiyonel)"
+                label="Aranan Beceriler (virgülle ayırın, opsiyonel)"
                 value={skills}
                 onChangeText={setSkills}
                 placeholder="Örn. Boya, Sıva, Kalıp ustası"
@@ -684,7 +664,7 @@ function CreateJobSheet({
               {error ? <Text style={styles.error}>{error}</Text> : null}
 
               <PrimaryButton
-                label="Devam Et → (Level 2)"
+                label="Devam Et →"
                 onPress={handleNextStep}
               />
             </View>
@@ -704,12 +684,12 @@ function CreateJobSheet({
                   <TimePicker label="Bitiş" value={endTime} onChange={setEndTime} />
                 </View>
               </View>
-              <Text style={styles.duration}>⏱️ Toplam Süre: {durationHours} saat (otomatik hesaplandı)</Text>
+              <Text style={styles.duration}>Toplam Süre: {durationHours} saat (otomatik hesaplandı)</Text>
 
               <View style={styles.row}>
                 <View style={styles.half}>
                   <SheetField
-                    label="Ücret (₺) *"
+                    label="Ücret Tutarı (₺) *"
                     value={wage}
                     onChangeText={(v) => setWage(v.replace(/\D/g, ""))}
                     keyboardType="number-pad"
@@ -717,7 +697,7 @@ function CreateJobSheet({
                   />
                 </View>
                 <View style={styles.half}>
-                  <Text style={styles.sheetLabel}>Ücret türü</Text>
+                  <Text style={styles.sheetLabel}>Ücret Türü</Text>
                   <View style={styles.pillRow}>
                     <Pill active={wageType === "DAILY"} label="Günlük" onPress={() => setWageType("DAILY")} />
                     <Pill active={wageType === "HOURLY"} label="Saatlik" onPress={() => setWageType("HOURLY")} />
@@ -730,7 +710,7 @@ function CreateJobSheet({
                 <View style={styles.pillRow}>
                   <Pill active={urgency === "LOW"} label="Normal" onPress={() => setUrgency("LOW")} />
                   <Pill active={urgency === "MEDIUM"} label="Orta" onPress={() => setUrgency("MEDIUM")} />
-                  <Pill active={urgency === "HIGH"} label="🔥 Acil" onPress={() => setUrgency("HIGH")} />
+                  <Pill active={urgency === "HIGH"} label="Acil" onPress={() => setUrgency("HIGH")} />
                 </View>
               </View>
 
@@ -742,7 +722,7 @@ function CreateJobSheet({
                 </Pressable>
                 <View style={{ flex: 1 }}>
                   <PrimaryButton
-                    label="Devam Et → (Level 3)"
+                    label="Devam Et →"
                     onPress={handleNextStep}
                   />
                 </View>
@@ -762,18 +742,17 @@ function CreateJobSheet({
                 </View>
               </View>
 
-              {/* Konum Al GPS */}
               <View style={styles.locBox}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.locTitle}>İş konumu (Harita)</Text>
+                  <Text style={styles.locTitle}>İş Yeri Harita Konumu</Text>
                   <Text style={styles.locDesc} numberOfLines={2}>
                     {latLng
-                      ? `📍 ${latLng.lat.toFixed(5)}, ${latLng.lng.toFixed(5)} — Haritada gösterilecek`
-                      : "GPS konumu ekle; işçiler ilanı haritada ve mesafe sıralamasında görsün."}
+                      ? `${latLng.lat.toFixed(5)}, ${latLng.lng.toFixed(5)} — Haritada gösterilecek`
+                      : "GPS konumu ekleyin; işçiler ilanı haritada ve mesafe sıralamasında görsün."}
                   </Text>
                 </View>
                 <PrimaryButton
-                  label={locating ? "Alınıyor…" : "📍 Konum Al"}
+                  label={locating ? "Alınıyor…" : "Konum Al"}
                   variant="outline"
                   loading={locating}
                   onPress={grabLocation}
@@ -795,22 +774,33 @@ function CreateJobSheet({
               {/* İlan Özeti Önizleme */}
               <View style={styles.previewBox}>
                 <View style={styles.previewTop}>
-                  <Text style={styles.previewCategoryIcon}>{CATEGORY_ICONS[category]}</Text>
+                  <View style={styles.previewCategoryIconBox}>
+                    {getCategoryIconComponent(category, 22, C.primary)}
+                  </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.previewTitle} numberOfLines={1}>{title || "İş Başlığı"}</Text>
-                    <Text style={styles.previewSubtitle}>
-                      📅 {workDate ? new Date(workDate).toLocaleDateString("tr-TR") : "Tarih"} · {startTime}–{endTime} ({durationHours} sa)
-                    </Text>
+                    <View style={styles.previewMetaRow}>
+                      <CalendarIcon size={12} color={C.primary} />
+                      <Text style={styles.previewSubtitle}>
+                        {workDate ? new Date(workDate).toLocaleDateString("tr-TR") : "Tarih"} · {startTime}–{endTime} ({durationHours} sa)
+                      </Text>
+                    </View>
                   </View>
                 </View>
                 <View style={styles.previewDivider} />
                 <View style={styles.previewBottom}>
-                  <Text style={styles.previewWage}>
-                    💰 {wage ? `${Number(wage).toLocaleString("tr-TR")} ₺` : "0 ₺"} / {wageType === "DAILY" ? "Günlük" : "Saatlik"}
-                  </Text>
-                  <Text style={styles.previewLoc}>
-                    📍 {district}, {city} ({openings} kişi)
-                  </Text>
+                  <View style={styles.previewMetaRow}>
+                    <WalletIcon size={13} color={C.primary} />
+                    <Text style={styles.previewWage}>
+                      {wage ? `${Number(wage).toLocaleString("tr-TR")} ₺` : "0 ₺"} / {wageType === "DAILY" ? "Günlük" : "Saatlik"}
+                    </Text>
+                  </View>
+                  <View style={styles.previewMetaRow}>
+                    <MapPinIcon size={12} color={C.muted} />
+                    <Text style={styles.previewLoc}>
+                      {district}, {city} ({openings} kişi)
+                    </Text>
+                  </View>
                 </View>
               </View>
 
@@ -822,7 +812,7 @@ function CreateJobSheet({
                 </Pressable>
                 <View style={{ flex: 1 }}>
                   <PrimaryButton
-                    label="🚀 İlanı Yayınla"
+                    label="İlanı Yayınla"
                     onPress={submit}
                     loading={saving}
                   />
@@ -854,15 +844,23 @@ function SheetField(props: {
         placeholder={props.placeholder}
         placeholderTextColor={C.muted}
         multiline={props.multiline}
-        keyboardType={props.keyboardType}
+        keyboardType={props.keyboardType ?? "default"}
       />
     </View>
   );
 }
 
-function Pill({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
+function Pill({
+  active,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  label: string;
+  onPress: () => void;
+}) {
   return (
-    <Pressable onPress={onPress} style={[styles.pill, active && styles.pillActive]}>
+    <Pressable style={[styles.pill, active && styles.pillActive]} onPress={onPress}>
       <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>
     </Pressable>
   );
@@ -871,12 +869,8 @@ function Pill({ active, label, onPress }: { active: boolean; label: string; onPr
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: C.bg },
   wrap: { padding: 16, paddingBottom: 40, gap: 12 },
-
-  // Header & Karşılama
   headerBox: {
     gap: 4,
-    paddingTop: 2,
-    marginBottom: 2,
   },
   headerTop: {
     flexDirection: "row",
@@ -885,46 +879,45 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   employerBadge: {
-    backgroundColor: "#eef2ff",
+    backgroundColor: C.primarySoft,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: "#e0e7ff",
+    borderColor: "rgba(13,104,71,0.15)",
     alignSelf: "flex-start",
   },
   employerBadgeText: {
     fontSize: 11,
     fontWeight: "800",
-    color: "#4f46e5",
+    color: C.primary,
     letterSpacing: 0.6,
   },
   quickStatPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#ecfdf5",
+    backgroundColor: C.primarySoft,
     borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: "#d1fae5",
+    borderColor: "rgba(13,104,71,0.15)",
   },
   livePulseDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#10b981",
+    backgroundColor: "#10B981",
   },
   quickStatPillText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#047857",
+    color: C.primary,
   },
   h1: { fontSize: 22, fontWeight: "800", color: C.text },
   sub: { fontSize: 13, color: C.muted, lineHeight: 18 },
 
-  // Üst Metrik Kartları
   statRow: {
     flexDirection: "row",
     gap: 8,
@@ -933,15 +926,15 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     flex: 1,
-    aspectRatio: 1, // TAM KARE
-    backgroundColor: "#ffffff",
+    aspectRatio: 1,
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 10,
-    borderWidth: 1.5,
-    borderColor: "#f1f5f9",
-    shadowColor: "#0f172a",
+    borderWidth: 1,
+    borderColor: "#E2E0D8",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 6,
     elevation: 2,
     justifyContent: "space-between",
@@ -963,9 +956,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
   },
-  metricIconText: {
-    fontSize: 13,
-  },
   metricPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -978,7 +968,6 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#10b981",
   },
   metricPillText: {
     fontSize: 9,
@@ -990,16 +979,15 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#0f172a",
+    color: C.text,
     fontVariant: ["tabular-nums"],
   },
   metricLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#334155",
+    color: C.muted,
   },
 
-  // Yeni İlan Butonu (Düzgün Dikdörtgen)
   createJobBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1022,23 +1010,22 @@ const styles = StyleSheet.create({
   createJobBtnIcon: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#ffffff",
+    color: "#FFFFFF",
   },
   createJobBtnText: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#ffffff",
+    color: "#FFFFFF",
     letterSpacing: 0.3,
   },
 
-  // İlan Kartı
   jobCard: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#f1f5f9",
-    shadowColor: "#0f172a",
+    borderColor: "#E2E0D8",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -1049,15 +1036,15 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: "#f8fafc",
+    backgroundColor: C.primarySoft,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "rgba(13,104,71,0.12)",
   },
-  catIcon: { fontSize: 20 },
   title: { fontSize: 15, fontWeight: "800", color: C.text },
-  meta: { fontSize: 12, color: C.muted, marginTop: 3 },
+  cardMetaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
+  meta: { fontSize: 12, color: C.muted },
   jobBottomRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1065,7 +1052,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: "#f8fafc",
+    borderTopColor: "#F6F5F2",
   },
   wageText: {
     fontSize: 14,
@@ -1073,24 +1060,24 @@ const styles = StyleSheet.create({
     color: C.primary,
   },
   metaSmall: { fontSize: 12, color: C.muted },
-  actions: { flexDirection: "row", gap: 8, marginTop: 10, borderTopWidth: 1, borderTopColor: "#f3f4f6", paddingTop: 10 },
+  actions: { flexDirection: "row", gap: 8, marginTop: 10, borderTopWidth: 1, borderTopColor: "#E2E0D8", paddingTop: 10 },
   segmentContainer: {
     flexDirection: "row",
-    backgroundColor: "#f3f4f6",
-    borderRadius: 14,
-    padding: 4,
+    backgroundColor: "#EBE9E3",
+    borderRadius: 12,
+    padding: 3,
     gap: 4,
     marginTop: 4,
   },
   segmentBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 10,
+    borderRadius: 9,
   },
   segmentBtnActive: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#FFFFFF",
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 4,
@@ -1106,47 +1093,47 @@ const styles = StyleSheet.create({
     color: C.primary,
   },
   searchInput: {
-    borderWidth: 1.5,
-    borderColor: "#e5e7eb",
-    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E2E0D8",
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 14,
     color: C.text,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFFFFF",
   },
   sheetPage: { flex: 1, backgroundColor: C.bg },
-  sheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: C.border },
+  sheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, backgroundColor: "#FFFFFF", borderBottomWidth: 1, borderBottomColor: C.border },
   sheetTitle: { fontSize: 17, fontWeight: "800", color: C.text },
   sheetClose: { fontSize: 18, color: C.muted },
   sheetBody: { padding: 16, paddingBottom: 40, gap: 12 },
   fieldWrap: { gap: 6 },
   sheetLabel: { fontSize: 13, fontWeight: "600", color: C.text },
-  input: { borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: C.text, backgroundColor: "#fff" },
+  input: { borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: C.text, backgroundColor: "#FFFFFF" },
   textArea: { minHeight: 90, textAlignVertical: "top" },
   row: { flexDirection: "row", gap: 10 },
   half: { flex: 1 },
   duration: { fontSize: 12, color: C.muted, marginTop: -4 },
   catGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  catItem: { width: "23%", alignItems: "center", gap: 4, borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingVertical: 10, backgroundColor: "#fff" },
-  catItemActive: { borderWidth: 2, borderColor: C.primary, backgroundColor: C.primarySoft },
-  catEmoji: { fontSize: 18 },
+  catItem: { width: "23%", alignItems: "center", gap: 4, borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingVertical: 10, backgroundColor: "#FFFFFF" },
+  catItemActive: { borderWidth: 1.5, borderColor: C.primary, backgroundColor: C.primarySoft },
+  catIconSmall: { alignItems: "center", justifyContent: "center" },
   catLabel: { fontSize: 10, color: C.muted, fontWeight: "600" },
-  catLabelActive: { color: C.primary },
+  catLabelActive: { color: C.primary, fontWeight: "700" },
   pillRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
-  pill: { borderRadius: 999, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: "#fff" },
+  pill: { borderRadius: 999, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: "#FFFFFF" },
   pillActive: { backgroundColor: C.primary, borderColor: C.primary },
   pillText: { fontSize: 12, fontWeight: "600", color: C.muted },
-  pillTextActive: { color: "#fff" },
-  locBox: { borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 12, backgroundColor: "#fff", gap: 8, flexDirection: "row", flexWrap: "wrap", alignItems: "center" },
+  pillTextActive: { color: "#FFFFFF" },
+  locBox: { borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 12, backgroundColor: "#FFFFFF", gap: 8, flexDirection: "row", flexWrap: "wrap", alignItems: "center" },
   locTitle: { fontSize: 13, fontWeight: "700", color: C.text },
   locDesc: { fontSize: 12, color: C.muted, marginTop: 2 },
   error: { color: C.danger, fontSize: 13 },
   sheetWizardCard: {
-    backgroundColor: "#f0fdf4",
-    borderWidth: 1.5,
-    borderColor: "#bbf7d0",
-    borderRadius: 16,
+    backgroundColor: "#F6F5F2",
+    borderWidth: 1,
+    borderColor: "#E2E0D8",
+    borderRadius: 14,
     padding: 12,
     marginBottom: 6,
     gap: 8,
@@ -1162,41 +1149,45 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sheetWizardStepBadge: {
-    backgroundColor: "#059669",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    backgroundColor: C.primary,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
   },
   sheetWizardStepBadgeText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontSize: 11,
-    fontWeight: "800",
+    fontWeight: "900",
   },
   sheetWizardTitleText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "800",
-    color: "#065f46",
+    color: C.primary,
   },
   sheetXpPill: {
-    backgroundColor: "#dcfce7",
+    backgroundColor: C.primarySoft,
+    borderWidth: 1,
+    borderColor: "rgba(13,104,71,0.2)",
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
   },
   sheetXpPillText: {
-    color: "#059669",
-    fontSize: 11,
+    color: C.primary,
+    fontSize: 10,
     fontWeight: "800",
   },
   sheetProgressBarTrack: {
-    height: 6,
-    backgroundColor: "#dcfce7",
+    height: 5,
+    backgroundColor: "#E2E0D8",
     borderRadius: 999,
     overflow: "hidden",
   },
   sheetProgressBarFill: {
     height: "100%",
-    backgroundColor: "#10b981",
+    backgroundColor: C.primary,
     borderRadius: 999,
   },
   sheetStepChipsRow: {
@@ -1211,49 +1202,49 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   sheetStepDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#e2e8f0",
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#E2E0D8",
     alignItems: "center",
     justifyContent: "center",
   },
   sheetStepDotActive: {
-    backgroundColor: "#059669",
+    backgroundColor: C.primary,
   },
   sheetStepDotText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "800",
-    color: "#64748b",
+    color: "#64748B",
   },
   sheetStepDotTextActive: {
-    color: "#fff",
+    color: "#FFFFFF",
   },
   sheetStepLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#64748b",
+    color: C.muted,
   },
   sheetStepLabelActive: {
-    color: "#065f46",
+    color: C.primary,
     fontWeight: "800",
   },
   sheetStepConnector: {
     flex: 1,
     height: 1.5,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#E2E0D8",
     marginHorizontal: 8,
   },
   sheetStepConnectorActive: {
-    backgroundColor: "#34d399",
+    backgroundColor: C.primary,
   },
   sheetStepContent: {
     gap: 12,
   },
   previewBox: {
-    backgroundColor: "#f8fafc",
-    borderWidth: 1.5,
-    borderColor: "#e2e8f0",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E0D8",
     borderRadius: 14,
     padding: 12,
     gap: 8,
@@ -1264,22 +1255,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  previewCategoryIcon: {
-    fontSize: 24,
+  previewCategoryIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: C.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
   },
   previewTitle: {
     fontSize: 14,
     fontWeight: "800",
     color: C.text,
   },
+  previewMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   previewSubtitle: {
     fontSize: 12,
     color: C.muted,
-    marginTop: 2,
   },
   previewDivider: {
     height: 1,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#E8E6DF",
   },
   previewBottom: {
     flexDirection: "row",
@@ -1302,16 +1302,16 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   backBtn: {
-    paddingVertical: 14,
+    paddingVertical: 13,
     paddingHorizontal: 16,
-    borderRadius: 14,
-    backgroundColor: "#f1f5f9",
+    borderRadius: 12,
+    backgroundColor: "#F6F5F2",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#E2E0D8",
   },
   backBtnText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#475569",
+    color: C.muted,
   },
 });
