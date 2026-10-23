@@ -29,12 +29,13 @@ import QRScreen from "@/screens/QRScreen";
 import QrScannerScreen from "@/screens/QrScannerScreen";
 import { Card, C, EmptyState, PrimaryButton } from "@/components/ui";
 import { useCachedList } from "@/hooks/use-cached-list";
+import AnimatedSplashScreen from "@/components/AnimatedSplashScreen";
 
 type Tab = "jobs" | "saved" | "applications" | "messages" | "notifications" | "profile";
 
 type QrTarget = { app: ApiApplication };
 
-// Runtime hatasında beyaz ekran yerine hatayı ekranda göster.
+// Runtime hatasında beyaz ekran yerine hatayı ekranda göster ve tekrar deneme şansı ver.
 class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
 
@@ -51,10 +52,22 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error
     if (error) {
       return (
         <View style={[styles.flex, styles.center, { padding: 24, backgroundColor: "#fff" }]}>
-          <Text style={styles.h1}>Beklenmeyen bir hata oluştu</Text>
-          <Text style={{ fontSize: 12, color: C.muted, textAlign: "center", marginTop: 8 }}>
+          <Text style={styles.h1}>Bir şeyler ters gitti</Text>
+          <Text style={{ fontSize: 13, color: C.muted, textAlign: "center", marginTop: 8, lineHeight: 18 }}>
             {String(error?.message ?? error)}
           </Text>
+          <Pressable
+            onPress={() => this.setState({ error: null })}
+            style={{
+              marginTop: 18,
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+              backgroundColor: C.primary,
+              borderRadius: 12,
+            }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Tekrar Dene</Text>
+          </Pressable>
         </View>
       );
     }
@@ -68,7 +81,8 @@ export default function App() {
   initOneSignal();
   return (
     <AppErrorBoundary>
-      <SafeAreaProvider>
+      <SafeAreaProvider style={styles.flex}>
+        <StatusBar style="dark" />
         <MaintenanceGate>
           <AuthProvider>
             <Root />
@@ -89,7 +103,7 @@ const MAINT_CACHE_KEY = "gb_maint_cache";
  */
 function MaintenanceGate({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<MaintenanceStatus | null>(null);
-  const [gateReady, setGateReady] = useState(false);
+  const [gateReady, setGateReady] = useState(true);
 
   const applyStatus = useCallback(async (s: MaintenanceStatus) => {
     setStatus(s);
@@ -106,9 +120,14 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
   }, []);
 
   const check = useCallback(async () => {
-    const s = await fetchMaintenanceStatus();
-    await applyStatus(s);
-    setGateReady(true);
+    try {
+      const s = await fetchMaintenanceStatus();
+      await applyStatus(s);
+    } catch {
+      // Ağ hatası veya offline: uygulamayı kilitleme
+    } finally {
+      setGateReady(true);
+    }
   }, [applyStatus]);
 
   useEffect(() => {
@@ -145,12 +164,7 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
   }, [check]);
 
   if (!gateReady) {
-    return (
-      <View style={[styles.flex, styles.center]}>
-        <Text style={{ fontSize: 26, fontWeight: "800", color: C.primary, marginBottom: 6 }}>Günübirlik</Text>
-        <ActivityIndicator size="large" color={C.primary} />
-      </View>
-    );
+    return <AnimatedSplashScreen isReady={false} statusText="Bağlantı kuruluyor…" />;
   }
 
   if (status?.maintenanceMode) {
@@ -167,31 +181,32 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
 
 function Root() {
   const { user, isLoading, isAuthenticated } = useAuth();
-
-  if (isLoading) {
-    return (
-      <View style={[styles.flex, styles.center]}>
-        <Text style={{ fontSize: 26, fontWeight: "800", color: C.primary, marginBottom: 6 }}>Günübirlik</Text>
-        <ActivityIndicator size="large" color={C.primary} />
-        <Text style={{ fontSize: 12, color: C.muted, marginTop: 10 }}>Yükleniyor…</Text>
-      </View>
-    );
-  }
-
-  if (!isAuthenticated || !user) {
-    return (
-      <SafeAreaView style={styles.flex} edges={["top", "bottom"]}>
-        <StatusBar style="dark" />
-        <AuthScreen onDone={() => { /* user state değişince Root yeniden render olur */ }} />
-      </SafeAreaView>
-    );
-  }
+  const [splashFinished, setSplashFinished] = useState(false);
+  const handleSplashFinish = useCallback(() => setSplashFinished(true), []);
 
   return (
-    <SafeAreaView style={styles.flex} edges={["top"]}>
-      <StatusBar style="dark" />
-      <MainTabs />
-    </SafeAreaView>
+    <View style={styles.flex}>
+      {!isAuthenticated || !user ? (
+        <SafeAreaView style={styles.flex} edges={["top", "bottom"]}>
+          <StatusBar style="dark" />
+          <AuthScreen onDone={() => { /* user state değişince Root yeniden render olur */ }} />
+        </SafeAreaView>
+      ) : (
+        <SafeAreaView style={styles.flex} edges={["top", "bottom"]}>
+          <StatusBar style="dark" />
+          <MainTabs />
+        </SafeAreaView>
+      )}
+
+      {/* Animasyonlu Marka Splash Ekranı */}
+      {!splashFinished && (
+        <AnimatedSplashScreen
+          isReady={!isLoading}
+          onFinish={handleSplashFinish}
+          statusText={isLoading ? "Hesap doğrulanıyor…" : "Hoş geldiniz!"}
+        />
+      )}
+    </View>
   );
 }
 
@@ -355,6 +370,9 @@ function MainTabs() {
           onShowQR={(job) => {
             void showJobQR(job);
           }}
+          onScanQR={() => {
+            setScannerOpen(true);
+          }}
         />
         <TabBar tab={tab} onPressTab={handleTabPress} isEmployer={!!isEmployer} unread={unread} />
         {qrTarget && (
@@ -378,13 +396,22 @@ function MainTabs() {
       <View style={styles.content}>
         {tab === "jobs" &&
           (isEmployer ? (
-            <DashboardScreen onOpenJob={openJob} refreshKey={refreshKey} />
+            <DashboardScreen
+              onOpenJob={openJob}
+              refreshKey={refreshKey}
+              onNavigateApplications={() => handleTabPress("applications")}
+            />
           ) : (
             <JobsScreen userCoords={user ? null : null} onOpenJob={openJob} refreshKey={refreshKey} />
           ))}
         {tab === "saved" && <SavedScreen onOpenJob={openJob} refreshKey={refreshKey} />}
         {tab === "applications" && (
-          <ApplicationsScreen refreshKey={refreshKey} onStartChat={startChat} onShowQR={showAppQR} />
+          <ApplicationsScreen
+            refreshKey={refreshKey}
+            onStartChat={startChat}
+            onShowQR={showAppQR}
+            onScanQR={() => setScannerOpen(true)}
+          />
         )}
         {tab === "messages" && (
           <MessagesScreen
@@ -471,31 +498,33 @@ function SavedScreen({ onOpenJob, refreshKey }: { onOpenJob: (job: ApiJob) => vo
   }, [refreshKey, reload]);
 
   return (
-    <ScrollView
-      style={styles.flex}
-      contentContainerStyle={styles.savedWrap}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={refreshSaved}
-          tintColor={C.primary}
-          colors={[C.primary]}
-          progressBackgroundColor="#fff"
-        />
-      }
-    >
-      <Text style={styles.h1}>Kaydedilenler</Text>
-      <Text style={styles.sub}>Daha sonra başvurmak için kaydettiğin ilanlar. ↓ Aşağı çekerek yenile.</Text>
-      {loading ? (
-        <ActivityIndicator style={{ marginTop: 30 }} color={C.primary} />
-      ) : jobs.length === 0 ? (
-        <EmptyState emoji="✓" title="Kayıtlı ilan yok" subtitle="İlan kartlarındaki ♡ simgesine dokunarak ilan kaydet." />
-      ) : (
-        jobs.map((job) => (
-          <JobCardInline key={job.id} job={job} onOpen={() => onOpenJob(job)} onUnsave={reload} />
-        ))
-      )}
-    </ScrollView>
+    <View style={styles.savedScreenContainer}>
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={styles.savedWrap}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refreshSaved}
+            tintColor={C.primary}
+            colors={[C.primary]}
+            progressBackgroundColor="#ffffff"
+          />
+        }
+      >
+        <Text style={styles.h1}>Kaydedilenler</Text>
+        <Text style={styles.sub}>Daha sonra başvurmak için kaydettiğin ilanlar. ↓ Aşağı çekerek yenile.</Text>
+        {loading ? (
+          <ActivityIndicator style={{ marginTop: 30 }} color={C.primary} />
+        ) : jobs.length === 0 ? (
+          <EmptyState emoji="✓" title="Kayıtlı ilan yok" subtitle="İlan kartlarındaki ♡ simgesine dokunarak ilan kaydet." />
+        ) : (
+          jobs.map((job) => (
+            <JobCardInline key={job.id} job={job} onOpen={() => onOpenJob(job)} onUnsave={reload} />
+          ))
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -574,14 +603,15 @@ function TabBar({
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  flex: { flex: 1, backgroundColor: C.bg },
   center: { alignItems: "center", justifyContent: "center", backgroundColor: C.bg },
-  content: { flex: 1 },
+  content: { flex: 1, backgroundColor: C.bg },
+  savedScreenContainer: { flex: 1, backgroundColor: C.bg },
   tabBar: {
     flexDirection: "row",
     borderTopWidth: 1,
     borderTopColor: C.border,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
   },
   tabItem: {
     flex: 1,

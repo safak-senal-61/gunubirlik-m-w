@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { Badge, Card, Chip, C, EmptyState, Loading, PrimaryButton } from "@/components/ui";
+import { BrandRefreshFlatList } from "@/components/BrandPullToRefresh";
 import { useCachedList } from "@/hooks/use-cached-list";
 import { fetchCategories, fetchJobs, suggestAddress } from "@/lib/api";
 import { toggleSaved, useSavedIds } from "@/lib/saved-store";
@@ -90,7 +91,7 @@ export default function JobsScreen({
     () =>
       fetchJobs({
         page,
-        limit: PAGE_SIZE,
+        pageSize: PAGE_SIZE,
         status: "OPEN",
         ...(category !== "ALL" ? { category } : {}),
         ...(search.trim() ? { search: search.trim() } : {}),
@@ -181,19 +182,12 @@ export default function JobsScreen({
   };
 
   return (
-    <FlatList
+    <BrandRefreshFlatList
       data={visible}
       keyExtractor={({ job }) => job.id}
       contentContainerStyle={styles.list}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={refreshJobs}
-          tintColor={C.primary}
-          colors={[C.primary]}
-          progressBackgroundColor="#fff"
-        />
-      }
+      refreshing={refreshing}
+      onRefresh={refreshJobs}
       ListHeaderComponent={
         <View style={styles.header}>
           <Text style={styles.h1}>Bugünün işleri</Text>

@@ -30,6 +30,7 @@ import {
   fetchDeleteAccountStatus,
   fetchMyRatingSummary,
   fetchMyReceivedReviews,
+  fetchSecurityInfo,
   fetchSupportTickets,
   fetchVerificationStatus,
   requestDeleteAccount,
@@ -47,6 +48,7 @@ import type {
   ApiUser,
   DeleteAccountStatus,
   RatingSummary,
+  SecurityInfo,
   SupportCategory,
   SupportPriority,
   SupportTicket,
@@ -387,7 +389,10 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <View style={styles.sheetOverlay}>
           <Pressable style={{ flex: 1 }} onPress={() => setOpen(false)} />
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={{ width: "100%", maxHeight: "88%" }}
+          >
             <View style={styles.sheet}>
               <View style={styles.sheetHandle} />
               {/* Modern başlık: ikon rozeti + başlık + kapat butonu */}
@@ -403,34 +408,48 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
                   <Text style={styles.sheetCloseText}>✕</Text>
                 </Pressable>
               </View>
-              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                <View style={{ gap: 12, paddingBottom: 12 }}>
-                  <Text style={styles.sectionLabel}>Kişisel bilgiler</Text>
-                  <Field label="Ad Soyad" value={fullName} onChangeText={setFullName} />
-                  <Field label="Telefon" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
-                  {isEmployer && <Field label="Şirket adı" value={companyName} onChangeText={setCompanyName} />}
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={true}
+                contentContainerStyle={{ gap: 14, paddingBottom: 32 }}
+              >
+                <View style={styles.formSectionCard}>
+                  <Text style={styles.sectionLabel}>👤 Kişisel Bilgiler</Text>
+                  <Field label="Ad Soyad" value={fullName} onChangeText={setFullName} placeholder="Adınız Soyadınız" />
+                  <Field label="Telefon" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="0532 000 00 00" />
+                  {isEmployer && <Field label="Şirket adı" value={companyName} onChangeText={setCompanyName} placeholder="Şirket Ünvanı" />}
+                </View>
+
+                <View style={styles.formSectionCard}>
+                  <Text style={styles.sectionLabel}>📍 Konum & Adres</Text>
                   <View style={styles.row}>
-                    <View style={styles.half}><Field label="İl" value={city} onChangeText={setCity} /></View>
-                    <View style={styles.half}><Field label="İlçe" value={district} onChangeText={setDistrict} /></View>
+                    <View style={styles.half}><Field label="İl" value={city} onChangeText={setCity} placeholder="İstanbul" /></View>
+                    <View style={styles.half}><Field label="İlçe" value={district} onChangeText={setDistrict} placeholder="Kadıköy" /></View>
                   </View>
-                  {!isEmployer && (
-                    <>
-                      <Text style={[styles.sectionLabel, { marginTop: 4 }]}>İşçi profili</Text>
-                      <Field label="Beceriler (virgülle ayır)" value={skills} onChangeText={setSkills} />
-                      <View style={styles.row}>
-                        <View style={styles.half}><Field label="Deneyim (yıl)" value={exp} onChangeText={(v) => setExp(v.replace(/\D/g, ""))} keyboardType="number-pad" /></View>
-                        <View style={styles.half}><Field label="Saatlik min ₺" value={wMin} onChangeText={(v) => setWMin(v.replace(/\D/g, ""))} keyboardType="number-pad" /></View>
-                        <View style={styles.half}><Field label="max ₺" value={wMax} onChangeText={(v) => setWMax(v.replace(/\D/g, ""))} keyboardType="number-pad" /></View>
-                      </View>
-                    </>
-                  )}
-                  <Text style={[styles.sectionLabel, { marginTop: 4 }]}>Hakkımda</Text>
-                  <Field label="Kendini kısaca tanıt" value={bio} onChangeText={setBio} multiline />
-                  {error ? <Text style={styles.error}>{error}</Text> : null}
-                  <View style={styles.row}>
-                    <View style={styles.half}><PrimaryButton label="Vazgeç" variant="ghost" onPress={() => setOpen(false)} /></View>
-                    <View style={styles.half}><PrimaryButton label="Kaydet" loading={saving} onPress={submit} /></View>
+                </View>
+
+                {!isEmployer && (
+                  <View style={styles.formSectionCard}>
+                    <Text style={styles.sectionLabel}>🔨 İşçi Profili & Ücret</Text>
+                    <Field label="Beceriler (virgülle ayır)" value={skills} onChangeText={setSkills} placeholder="Garsonluk, Kurye, Temizlik..." />
+                    <View style={styles.row}>
+                      <View style={styles.half}><Field label="Deneyim (yıl)" value={exp} onChangeText={(v) => setExp(v.replace(/\D/g, ""))} keyboardType="number-pad" placeholder="2" /></View>
+                      <View style={styles.half}><Field label="Saatlik min ₺" value={wMin} onChangeText={(v) => setWMin(v.replace(/\D/g, ""))} keyboardType="number-pad" placeholder="150" /></View>
+                      <View style={styles.half}><Field label="max ₺" value={wMax} onChangeText={(v) => setWMax(v.replace(/\D/g, ""))} keyboardType="number-pad" placeholder="300" /></View>
+                    </View>
                   </View>
+                )}
+
+                <View style={styles.formSectionCard}>
+                  <Text style={styles.sectionLabel}>📝 Hakkımda</Text>
+                  <Field label="Kendini kısaca tanıt" value={bio} onChangeText={setBio} multiline placeholder="Deneyimlerinden ve çalışma prensiplerinden kısaca bahset..." />
+                </View>
+
+                {error ? <Text style={styles.error}>⚠️ {error}</Text> : null}
+
+                <View style={[styles.row, { marginTop: 4 }]}>
+                  <View style={styles.half}><PrimaryButton label="Vazgeç" variant="ghost" onPress={() => setOpen(false)} /></View>
+                  <View style={styles.half}><PrimaryButton label="Değişiklikleri Kaydet" loading={saving} onPress={submit} /></View>
                 </View>
               </ScrollView>
             </View>
@@ -887,10 +906,17 @@ function SecurityTab({ user }: { user: ApiUser }) {
 }
 
 function AccountSecuritySection({ user }: { user: ApiUser }) {
+  const [secInfo, setSecInfo] = useState<SecurityInfo | null>(null);
+
+  useEffect(() => {
+    fetchSecurityInfo().then(setSecInfo).catch(() => {});
+  }, []);
+
   const rows: { icon: string; label: string; value: string; danger?: boolean }[] = [
-    { icon: "📧", label: "E-posta doğrulanmış", value: user.emailVerified ? "Evet ✓" : "Hayır" },
-    { icon: "🔐", label: "İki faktörlü koruma", value: user.twoFactorEnabled ? "Açık ✓" : "Kapalı" },
+    { icon: "📧", label: "E-posta doğrulanmış", value: (secInfo?.emailVerified ?? user.emailVerified) ? "Evet ✓" : "Hayır" },
+    { icon: "🔐", label: "İki faktörlü koruma", value: (secInfo?.twoFactorEnabled ?? user.twoFactorEnabled) ? "Açık ✓" : "Kapalı" },
     { icon: "🌐", label: "Giriş yöntemi", value: user.provider === "GOOGLE" ? "Google hesabı" : "E-posta + şifre" },
+    ...(secInfo?.activeSessions ? [{ icon: "💻", label: "Aktif oturum", value: `${secInfo.activeSessions} oturum` }] : []),
     { icon: "⚠️", label: "Uyarı sayısı", value: String(user.warningCount ?? 0), danger: (user.warningCount ?? 0) > 0 },
     { icon: "🚩", label: "Rapor sayısı", value: String(user.flagCount ?? 0), danger: (user.flagCount ?? 0) > 0 },
   ];
@@ -1650,21 +1676,26 @@ function Field(props: {
   maxLength?: number;
   placeholder?: string;
 }) {
+  const [focused, setFocused] = useState(false);
   return (
     <View style={{ gap: 5 }}>
-      <Text style={styles.label}>{props.label}</Text>
-      <TextInput
-        style={[styles.input, props.multiline && styles.textArea]}
-        value={props.value}
-        onChangeText={props.onChangeText}
-        secureTextEntry={props.secureTextEntry}
-        keyboardType={props.keyboardType}
-        autoCapitalize={props.autoCapitalize ?? "sentences"}
-        multiline={props.multiline}
-        maxLength={props.maxLength}
-        placeholder={props.placeholder}
-        placeholderTextColor={C.muted}
-      />
+      {props.label ? <Text style={styles.label}>{props.label}</Text> : null}
+      <View style={[styles.inputWrap, focused && styles.inputWrapFocused]}>
+        <TextInput
+          style={[styles.input, props.multiline && styles.textArea]}
+          value={props.value}
+          onChangeText={props.onChangeText}
+          secureTextEntry={props.secureTextEntry}
+          keyboardType={props.keyboardType}
+          autoCapitalize={props.autoCapitalize ?? "sentences"}
+          multiline={props.multiline}
+          maxLength={props.maxLength}
+          placeholder={props.placeholder}
+          placeholderTextColor="#94a3b8"
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+        />
+      </View>
     </View>
   );
 }
@@ -1748,10 +1779,37 @@ const styles = StyleSheet.create({
   backupCodes: { fontSize: 12, color: C.amber, lineHeight: 20 },
   qrImage: { width: 180, height: 180, alignSelf: "center", borderRadius: 12, backgroundColor: "#fff", borderWidth: 1, borderColor: C.border },
   secretText: { fontSize: 12, fontWeight: "700", color: C.text, textAlign: "center", letterSpacing: 1 },
-  label: { fontSize: 13, fontWeight: "600", color: C.text },
-  input: { borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: C.text, backgroundColor: "#fff" },
-  textArea: { minHeight: 70, textAlignVertical: "top" },
-  error: { color: C.danger, fontSize: 13 },
+  label: { fontSize: 12, fontWeight: "800", color: "#334155", letterSpacing: 0.2 },
+  inputWrap: {
+    borderWidth: 1.5,
+    borderColor: "#e2e8f0",
+    borderRadius: 14,
+    backgroundColor: "#f8fafc",
+    paddingHorizontal: 12,
+  },
+  inputWrapFocused: {
+    borderColor: C.primary,
+    backgroundColor: "#ffffff",
+    shadowColor: C.primary,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  input: { paddingVertical: 11, fontSize: 14, fontWeight: "600", color: C.text },
+  textArea: { minHeight: 74, textAlignVertical: "top" },
+  formSectionCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    padding: 14,
+    gap: 10,
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  error: { color: C.danger, fontSize: 13, fontWeight: "600" },
   row: { flexDirection: "row", gap: 8 },
   half: { flex: 1 },
   statRow: { flexDirection: "row", gap: 10 },

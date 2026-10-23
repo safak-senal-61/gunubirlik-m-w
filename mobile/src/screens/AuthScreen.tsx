@@ -23,7 +23,7 @@ import {
 import { getIdTokenFromGoogle } from "@/lib/google-auth";
 
 // src/screens/ → mobile/assets/ (EAS arşiv kökü repo kökü olduğundan tam iki seviye)
-const LOGO = require("../../assets/splash-icon.png");
+const LOGO = require("../../assets/app-icon.png");
 
 type Mode = "login" | "register" | "twofactor" | "forgot" | "reset" | "verify";
 
@@ -137,7 +137,48 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
     }
   };
 
+  const [regStep, setRegStep] = useState<1 | 2 | 3>(1);
+
+  const handleNextStep = () => {
+    setError(null);
+    if (regStep === 1) {
+      setRegStep(2);
+    } else if (regStep === 2) {
+      if (!fullName.trim()) {
+        setError("Lütfen adını ve soyadını gir.");
+        return;
+      }
+      if (!email.trim() || !email.includes("@")) {
+        setError("Lütfen geçerli bir e-posta adresi gir.");
+        return;
+      }
+      if (!phoneDigits || phoneDigits.length < 7) {
+        setError("Lütfen geçerli bir telefon numarası gir.");
+        return;
+      }
+      if (role === "EMPLOYER" && !companyName.trim()) {
+        setError("Lütfen şirket veya işletme adını gir.");
+        return;
+      }
+      setRegStep(3);
+    }
+  };
+
+  const handlePrevStep = () => {
+    setError(null);
+    if (regStep === 3) setRegStep(2);
+    else if (regStep === 2) setRegStep(1);
+  };
+
   const submitRegister = async () => {
+    if (password.length < 6) {
+      setError("Şifre en az 6 karakter olmalıdır.");
+      return;
+    }
+    if (!city.trim() || !district.trim()) {
+      setError("Lütfen il ve ilçe bilgilerini gir.");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -310,58 +351,256 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
               <Pressable onPress={() => { setMode("forgot"); setError(null); }} style={styles.linkBtn}>
                 <Text style={styles.link}>Şifremi unuttum</Text>
               </Pressable>
-              <Divider text="veya" />
-              <GoogleButton
-                loading={googleLoading}
-                onPress={() => {
-                  void submitGoogle();
-                }}
-              />
-              <SwitchMode text="Hesabın yok mu?" action="Ücretsiz kayıt ol" onPress={() => { setMode("register"); setError(null); }} />
+
+              <View style={styles.googleContainer}>
+                <Divider text="veya" />
+                <GoogleButton
+                  loading={googleLoading}
+                  onPress={() => {
+                    void submitGoogle();
+                  }}
+                />
+              </View>
+
+              <View style={styles.switchModeContainer}>
+                <SwitchMode
+                  text="Hesabın yok mu?"
+                  action="Hesap Oluştur"
+                  onPress={() => {
+                    setMode("register");
+                    setError(null);
+                    setRegStep(1);
+                  }}
+                />
+              </View>
             </>
           )}
 
           {mode === "register" && (
             <>
-              <Text style={styles.sectionLabel}>Nasıl kullanacaksın?</Text>
-              <View style={styles.roleRow}>
-                <RoleCard active={role === "WORKER"} emoji="🔨" label="İşçiyim" hint="İş arıyorum" onPress={() => setRole("WORKER")} />
-                <RoleCard active={role === "EMPLOYER"} emoji="🏢" label="İşverenim" hint="İlan vereceğim" onPress={() => setRole("EMPLOYER")} />
-              </View>
-              <Field icon="👤" label="Ad Soyad" value={fullName} onChangeText={setFullName} placeholder="Adın ve soyadın" />
-              <Field icon="✉️" label="E-posta" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="ornek@eposta.com" />
-              <PhoneField
-                country={country}
-                digits={phoneDigits}
-                onCountry={(c) => {
-                  setCountry(c);
-                  setPhoneDigits((d) => d.slice(0, c.digits));
-                }}
-                onDigits={setPhoneDigits}
-              />
-              <Field icon="🔒" label="Şifre" value={password} onChangeText={setPassword} secureTextEntry placeholder="En az 6 karakter" />
-              {role === "EMPLOYER" && (
-                <Field icon="🏢" label="Şirket adı" value={companyName} onChangeText={setCompanyName} placeholder="Örn. Yılmaz İnşaat" />
-              )}
-              <View style={styles.row}>
-                <View style={styles.half}>
-                  <Field icon="📍" label="İl" value={city} onChangeText={setCity} />
+              {/* Gamified Level Progress Bar */}
+              <View style={styles.wizardCard}>
+                <View style={styles.wizardTopRow}>
+                  <View style={styles.wizardBadgeRow}>
+                    <View style={styles.wizardStepBadge}>
+                      <Text style={styles.wizardStepBadgeText}>{regStep}</Text>
+                    </View>
+                    <Text style={styles.wizardTitleText}>
+                      {regStep === 1 && "Level 1: Rolünü Seç 🎯"}
+                      {regStep === 2 && "Level 2: Kimlik & İletişim 👤"}
+                      {regStep === 3 && "Level 3: Güvenlik & Konum 🔐"}
+                    </Text>
+                  </View>
+                  <View style={styles.xpPill}>
+                    <Text style={styles.xpPillText}>
+                      {regStep === 1 && "⚡ 33% XP"}
+                      {regStep === 2 && "🔥 66% XP"}
+                      {regStep === 3 && "🏆 Son Seviye"}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.half}>
-                  <Field icon="🗺️" label="İlçe" value={district} onChangeText={setDistrict} />
-                </View>
-              </View>
-              {error ? <Banner tone="error" text={error} /> : null}
-              <PrimaryButton label="Hesap oluştur" onPress={submitRegister} loading={loading} />
 
-              <Divider text="veya" />
-              <GoogleButton
-                loading={googleLoading}
-                onPress={() => {
-                  void submitGoogle();
-                }}
-              />
-              <SwitchMode text="Zaten hesabın var mı?" action="Giriş yap" onPress={() => { setMode("login"); setError(null); }} />
+                {/* Progress track */}
+                <View style={styles.progressBarTrack}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: regStep === 1 ? "33.3%" : regStep === 2 ? "66.6%" : "100%",
+                      },
+                    ]}
+                  />
+                </View>
+
+                {/* Step Chips */}
+                <View style={styles.stepChipsRow}>
+                  <Pressable onPress={() => setRegStep(1)} style={styles.stepChipItem}>
+                    <View style={[styles.stepDot, regStep >= 1 && styles.stepDotActive]}>
+                      <Text style={[styles.stepDotText, regStep >= 1 && styles.stepDotTextActive]}>
+                        {regStep > 1 ? "✓" : "1"}
+                      </Text>
+                    </View>
+                    <Text style={[styles.stepLabel, regStep >= 1 && styles.stepLabelActive]}>Rol</Text>
+                  </Pressable>
+
+                  <View style={[styles.stepConnector, regStep >= 2 && styles.stepConnectorActive]} />
+
+                  <Pressable
+                    onPress={() => {
+                      if (regStep > 2) setRegStep(2);
+                      else if (regStep === 1) handleNextStep();
+                    }}
+                    style={styles.stepChipItem}
+                  >
+                    <View style={[styles.stepDot, regStep >= 2 && styles.stepDotActive]}>
+                      <Text style={[styles.stepDotText, regStep >= 2 && styles.stepDotTextActive]}>
+                        {regStep > 2 ? "✓" : "2"}
+                      </Text>
+                    </View>
+                    <Text style={[styles.stepLabel, regStep >= 2 && styles.stepLabelActive]}>Bilgiler</Text>
+                  </Pressable>
+
+                  <View style={[styles.stepConnector, regStep >= 3 && styles.stepConnectorActive]} />
+
+                  <Pressable
+                    onPress={() => {
+                      if (regStep === 2) handleNextStep();
+                    }}
+                    style={styles.stepChipItem}
+                  >
+                    <View style={[styles.stepDot, regStep >= 3 && styles.stepDotActive]}>
+                      <Text style={[styles.stepDotText, regStep >= 3 && styles.stepDotTextActive]}>
+                        3
+                      </Text>
+                    </View>
+                    <Text style={[styles.stepLabel, regStep >= 3 && styles.stepLabelActive]}>Güvenlik</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* LEVEL 1: ROL SEÇİMİ */}
+              {regStep === 1 && (
+                <View style={styles.stepContent}>
+                  <Text style={styles.sectionLabel}>Nasıl katılmak istiyorsun?</Text>
+                  <View style={styles.roleRow}>
+                    <RoleCard
+                      active={role === "WORKER"}
+                      emoji="🔨"
+                      label="İşçiyim"
+                      hint="İş bul, hemen kazan"
+                      onPress={() => setRole("WORKER")}
+                    />
+                    <RoleCard
+                      active={role === "EMPLOYER"}
+                      emoji="🏢"
+                      label="İşverenim"
+                      hint="İlan ver, eleman bul"
+                      onPress={() => setRole("EMPLOYER")}
+                    />
+                  </View>
+
+                  <PrimaryButton
+                    label="Devam Et → (Level 2)"
+                    onPress={handleNextStep}
+                  />
+
+                  <View style={styles.googleContainer}>
+                    <Divider text="veya hızlı başla" />
+                    <GoogleButton
+                      loading={googleLoading}
+                      onPress={() => {
+                        void submitGoogle();
+                      }}
+                    />
+                  </View>
+
+                  <View style={styles.switchModeContainer}>
+                    <SwitchMode
+                      text="Zaten hesabın var mı?"
+                      action="Giriş yap"
+                      onPress={() => {
+                        setMode("login");
+                        setError(null);
+                      }}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* LEVEL 2: KİMLİK & BİLGİLER */}
+              {regStep === 2 && (
+                <View style={styles.stepContent}>
+                  <Field
+                    icon="👤"
+                    label="Ad Soyad *"
+                    value={fullName}
+                    onChangeText={setFullName}
+                    placeholder="Adın ve soyadın"
+                  />
+                  <Field
+                    icon="✉️"
+                    label="E-posta *"
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    placeholder="ornek@eposta.com"
+                  />
+                  <PhoneField
+                    country={country}
+                    digits={phoneDigits}
+                    onCountry={(c) => {
+                      setCountry(c);
+                      setPhoneDigits((d) => d.slice(0, c.digits));
+                    }}
+                    onDigits={setPhoneDigits}
+                  />
+                  {role === "EMPLOYER" && (
+                    <Field
+                      icon="🏢"
+                      label="Şirket / İşletme Adı *"
+                      value={companyName}
+                      onChangeText={setCompanyName}
+                      placeholder="Örn. Yılmaz İnşaat Ltd."
+                    />
+                  )}
+
+                  {error ? <Banner tone="error" text={error} /> : null}
+
+                  <View style={styles.stepNavRow}>
+                    <Pressable onPress={handlePrevStep} style={styles.backBtn}>
+                      <Text style={styles.backBtnText}>← Geri</Text>
+                    </Pressable>
+                    <View style={{ flex: 1 }}>
+                      <PrimaryButton
+                        label="Devam Et → (Level 3)"
+                        onPress={handleNextStep}
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* LEVEL 3: GÜVENLİK & KONUM */}
+              {regStep === 3 && (
+                <View style={styles.stepContent}>
+                  <Field
+                    icon="🔒"
+                    label="Şifre * (En az 6 karakter)"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    placeholder="••••••••"
+                  />
+                  <View style={styles.row}>
+                    <View style={styles.half}>
+                      <Field icon="📍" label="İl *" value={city} onChangeText={setCity} />
+                    </View>
+                    <View style={styles.half}>
+                      <Field icon="🗺️" label="İlçe *" value={district} onChangeText={setDistrict} />
+                    </View>
+                  </View>
+
+                  <Text style={styles.level3Hint}>
+                    ✨ Son adım! Bilgilerin kaydedilecek ve hesabın oluşturulacak.
+                  </Text>
+
+                  {error ? <Banner tone="error" text={error} /> : null}
+
+                  <View style={styles.stepNavRow}>
+                    <Pressable onPress={handlePrevStep} style={styles.backBtn}>
+                      <Text style={styles.backBtnText}>← Geri</Text>
+                    </Pressable>
+                    <View style={{ flex: 1 }}>
+                      <PrimaryButton
+                        label="🎉 Hesap Oluştur"
+                        onPress={submitRegister}
+                        loading={loading}
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
             </>
           )}
 
@@ -627,20 +866,20 @@ const styles = StyleSheet.create({
   heroBlob1: { position: "absolute", top: -40, left: -30, width: 150, height: 150, borderRadius: 75, backgroundColor: "rgba(79,70,229,0.10)" },
   heroBlob2: { position: "absolute", top: 20, right: -40, width: 120, height: 120, borderRadius: 60, backgroundColor: "rgba(79,70,229,0.07)" },
   logoBox: {
-    width: 62,
-    height: 62,
+    width: 68,
+    height: 68,
     borderRadius: 20,
-    backgroundColor: "#fff",
+    backgroundColor: "#000833",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#1e50a2",
-    shadowOpacity: 0.25,
+    shadowColor: "#00e5ff",
+    shadowOpacity: 0.3,
     shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 6 },
     elevation: 6,
     overflow: "hidden",
   },
-  logoImage: { width: 62, height: 62, borderRadius: 20 },
+  logoImage: { width: 68, height: 68, borderRadius: 20 },
   logoText: { fontSize: 26, fontWeight: "900", color: C.text, letterSpacing: -0.5 },
   tagline: { fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 19, maxWidth: 300, paddingHorizontal: 10 },
   card: {
@@ -677,7 +916,7 @@ const styles = StyleSheet.create({
   bannerText: { fontSize: 13, fontWeight: "600", lineHeight: 18 },
   bannerTextError: { color: C.danger },
   bannerTextSuccess: { color: C.success },
-  dividerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 16 },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 14 },
   dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
   dividerText: { fontSize: 12, color: C.muted, fontWeight: "600" },
   primaryBtn: { backgroundColor: C.primary, borderRadius: 14, paddingVertical: 15, alignItems: "center", marginTop: 4, shadowColor: C.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
@@ -687,16 +926,171 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 10,
     backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: C.border,
+    borderWidth: 1.5,
+    borderColor: "#e2e8f0",
     borderRadius: 14,
     paddingVertical: 14,
-    marginTop: 4,
+    marginTop: 2,
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
+  },
+  googleContainer: {
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  switchModeContainer: {
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  // Level Up Wizard Styles
+  wizardCard: {
+    backgroundColor: "#f0fdf4",
+    borderWidth: 1,
+    borderColor: "#bbf7d0",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 14,
+  },
+  wizardTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  wizardBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  wizardStepBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#059669",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  wizardStepBadgeText: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: "#ffffff",
+  },
+  wizardTitleText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#065f46",
+    flex: 1,
+  },
+  xpPill: {
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#86efac",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  xpPillText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#047857",
+  },
+  progressBarTrack: {
+    height: 6,
+    backgroundColor: "#dcfce7",
+    borderRadius: 999,
+    overflow: "hidden",
+    marginVertical: 4,
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: "#10b981",
+    borderRadius: 999,
+  },
+  stepChipsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 6,
+    paddingHorizontal: 4,
+  },
+  stepChipItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  stepDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#e2e8f0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepDotActive: {
+    backgroundColor: "#059669",
+  },
+  stepDotText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#64748b",
+  },
+  stepDotTextActive: {
+    color: "#ffffff",
+  },
+  stepLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#64748b",
+  },
+  stepLabelActive: {
+    color: "#065f46",
+    fontWeight: "800",
+  },
+  stepConnector: {
+    flex: 1,
+    height: 1.5,
+    backgroundColor: "#e2e8f0",
+    marginHorizontal: 8,
+  },
+  stepConnectorActive: {
+    backgroundColor: "#34d399",
+  },
+  stepContent: {
+    gap: 2,
+  },
+  stepNavRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 8,
+  },
+  backBtn: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: "#f1f5f9",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  backBtnText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#475569",
+  },
+  level3Hint: {
+    fontSize: 12,
+    color: "#059669",
+    backgroundColor: "#ecfdf5",
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#a7f3d0",
+    marginBottom: 10,
+    lineHeight: 17,
   },
   googleBtnText: { fontSize: 15, fontWeight: "600", color: C.text },
   googleG: { fontSize: 19, fontWeight: "800", color: "#4285F4", lineHeight: 22 },

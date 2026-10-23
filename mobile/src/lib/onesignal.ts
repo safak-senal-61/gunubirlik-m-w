@@ -5,12 +5,21 @@
 // Not: push bildirimleri Expo Go'da ÇALIŞMAZ. Yalnızca EAS Build / development build ile
 // üretilmiş APK/IPA içinde aktiftir.
 
-import { Alert, Platform } from "react-native";
+import { Alert, Platform, NativeModules, LogBox } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LogLevel, OneSignal } from "react-native-onesignal";
 import type { NotificationClickEvent, NotificationWillDisplayEvent, PushSubscriptionChangedState } from "react-native-onesignal";
 import type { ApiUser, NotificationSettings } from "./types";
 import { ALL_PREF_KEYS, type NotificationPrefKey } from "./notification-prefs";
+
+LogBox.ignoreLogs([
+  "[OneSignal]",
+  "Could not load RNOneSignal native module",
+  "hasNotificationPermission",
+]);
+
+/** Native OneSignal modülü cihazda yüklü mü (Expo Go'da false'tur). */
+export const isOneSignalNativeAvailable = !!NativeModules?.OneSignal;
 
 /** OneSignal Uygulama ID (OneSignal Dashboard → Apps & Platforms). */
 export const ONESIGNAL_APP_ID = "6bddc78e-79e7-4701-9e46-6fca772e402a";
@@ -87,8 +96,9 @@ function isServerAssignedId(id: string | null | undefined): boolean {
   return !!id && !id.startsWith("local-");
 }
 
-/** SDK çağrılarını güvenli sarmalar: native modül yoksa (Expo Go) uygulama çökmez. */
+/** SDK çağrılarını güvenli sarmalar: native modül yoksa (Expo Go) çağrı yapılmaz ve uygulama çökmez. */
 function safe<T>(fn: () => T, fallback: T): T {
+  if (!isOneSignalNativeAvailable) return fallback;
   try {
     return fn();
   } catch (err) {
@@ -98,6 +108,7 @@ function safe<T>(fn: () => T, fallback: T): T {
 }
 
 function safeAsync<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
+  if (!isOneSignalNativeAvailable) return Promise.resolve(fallback);
   try {
     return fn().catch((err) => {
       if (__DEV__) console.warn("[OneSignal]", err);
@@ -161,7 +172,13 @@ function emitArrived() {
 /** Bildirim verisinden hedef sekmeyi çıkarır (backend `data` alanı OneSignal `additionalData` içine girer). */
 function intentFromPayload(additional: unknown): PushNavigateIntent {
   const data = (additional ?? {}) as { jobId?: string; conversationId?: string; applicationId?: string; type?: string };
-  if (data.conversationId || data.type === "NEW_MESSAGE") return { tab: "messages", ...(data.jobId ? { jobId: data.jobId } : {}) };
+  if (data.conversationId || data.type === "NEW_MESSAGE") {
+    return {
+      tab: "messages",
+      conversationId: data.conversationId,
+      ...(data.jobId ? { jobId: data.jobId } : {}),
+    };
+  }
   if (data.jobId) return { tab: "jobs", jobId: data.jobId };
   if (data.applicationId) return { tab: "applications" };
   return { tab: "notifications" };
@@ -344,7 +361,7 @@ let started = false;
  * bulunmadığı için sessizce atlanır.
  */
 export function initOneSignal(): void {
-  if (started) return;
+  if (!isOneSignalNativeAvailable || started) return;
   started = true;
 
   safe(() => OneSignal.Debug.setLogLevel(__DEV__ ? LogLevel.Verbose : LogLevel.None), undefined);

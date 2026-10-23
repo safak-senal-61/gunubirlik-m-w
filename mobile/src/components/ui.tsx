@@ -2,25 +2,30 @@ import { type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 export const C = {
-  primary: "#4f46e5",
-  primarySoft: "#eef2ff",
-  text: "#1e1b33",
-  muted: "#6b7280",
-  border: "#e5e7eb",
-  bg: "#fafafa",
-  card: "#ffffff",
-  danger: "#dc2626",
-  success: "#047857",
-  amber: "#b45309",
-  amberBg: "#fef3c7",
-  indigo: "#4338ca",
-  indigoBg: "#e0e7ff",
-  emerald: "#047857",
-  emeraldBg: "#d1fae5",
-  rose: "#be123c",
-  roseBg: "#ffe4e6",
-  stone: "#57534e",
-  stoneBg: "#e7e5e4",
+  primary: "#0D6847",
+  primaryDark: "#095237",
+  primarySoft: "#EAF3EE",
+  accent: "#5CD6A5",
+  text: "#141615",
+  muted: "#5C615E",
+  border: "#E2E0D8",
+  borderLight: "#ECEAE4",
+  bg: "#F6F5F2",
+  card: "#FFFFFF",
+  danger: "#C84B31",
+  dangerSoft: "#FCEBE8",
+  success: "#0D6847",
+  successSoft: "#EAF3EE",
+  amber: "#D97706",
+  amberBg: "#FEF3C7",
+  indigo: "#0D6847",
+  indigoBg: "#EAF3EE",
+  emerald: "#0D6847",
+  emeraldBg: "#EAF3EE",
+  rose: "#C84B31",
+  roseBg: "#FCEBE8",
+  stone: "#5C615E",
+  stoneBg: "#ECEAE4",
 };
 
 export function Card({ children, style }: { children: ReactNode; style?: object }) {
@@ -123,13 +128,15 @@ export function SectionTitle({ children }: { children: ReactNode }) {
 
 export function StatCard({ emoji, label, value }: { emoji: string; label: string; value: string }) {
   return (
-    <Card style={styles.stat}>
+    <View style={styles.stat}>
       <View style={styles.statTop}>
-        <Text style={styles.statLabel}>{label}</Text>
-        <Text style={styles.statEmoji}>{emoji}</Text>
+        <View style={styles.statEmojiWrap}>
+          <Text style={styles.statEmoji}>{emoji}</Text>
+        </View>
+        <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
       </View>
       <Text style={styles.statValue}>{value}</Text>
-    </Card>
+    </View>
   );
 }
 
@@ -158,9 +165,29 @@ const styles = StyleSheet.create({
   emptySub: { fontSize: 13, color: C.muted, marginTop: 6, textAlign: "center", lineHeight: 19 },
   loading: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 40 },
   sectionTitle: { fontSize: 16, fontWeight: "800", color: C.text },
-  stat: { flex: 1 },
-  statTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  statLabel: { fontSize: 12, color: C.muted },
-  statEmoji: { fontSize: 16 },
-  statValue: { fontSize: 26, fontWeight: "800", color: C.text, marginTop: 6 },
+  stat: {
+    flex: 1,
+    backgroundColor: C.card,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: "#f1f5f9",
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  statTop: { flexDirection: "row", alignItems: "center", gap: 8 },
+  statEmojiWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "#f8fafc",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statLabel: { fontSize: 12, fontWeight: "600", color: C.muted, flex: 1 },
+  statEmoji: { fontSize: 14 },
+  statValue: { fontSize: 24, fontWeight: "800", color: C.text, marginTop: 8, fontVariant: ["tabular-nums"] },
 });

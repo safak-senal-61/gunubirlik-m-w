@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Badge, Card, C, Chip, EmptyState, Loading, PrimaryButton, SectionTitle } from "@/components/ui";
+import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
 import { useCachedList } from "@/hooks/use-cached-list";
-import { fetchApplications, rateApplication, updateApplicationStatus } from "@/lib/api";
+import { fetchApplications, fetchApplicationsByEmployer, rateApplication, updateApplicationStatus, withdrawApplication } from "@/lib/api";
+import { markApplicationRated, useRatedMap } from "@/lib/rated-store";
 import type { ApiApplication, ApplicationStatus } from "@/lib/types";
 import {
   APPLICATION_STATUS_COLORS,
@@ -12,30 +14,35 @@ import {
 } from "@/lib/format";
 import { useAuth } from "@/hooks/use-auth";
 
-type Filter = "ALL" | ApplicationStatus;
+type Filter = "ALL" | "PENDING" | "ACCEPTED" | "REJECTED" | "COMPLETED";
 
 export default function ApplicationsScreen({
   refreshKey,
   onStartChat,
   onShowQR,
+  onScanQR,
 }: {
   refreshKey: number;
   onStartChat?: (participantId: string, jobId: string) => void;
   onShowQR?: (app: ApiApplication) => void;
+  onScanQR?: () => void;
 }) {
   const { user } = useAuth();
   const [apps, setApps] = useState<ApiApplication[]>([]);
   const [filter, setFilter] = useState<Filter>("ALL");
   const isEmployer = user?.role === "EMPLOYER";
 
-  const appsFetcher = useCallback(() => fetchApplications(), []);
+  const appsFetcher = useCallback(
+    () => (isEmployer ? fetchApplicationsByEmployer() : fetchApplications()),
+    [isEmployer],
+  );
   const {
     data: appsData,
     loading,
     refreshing,
     refresh: refreshApps,
     reload,
-  } = useCachedList("applications:all", appsFetcher, []);
+  } = useCachedList(isEmployer ? "applications:employer" : "applications:worker", appsFetcher, []);
 
   useEffect(() => {
     if (appsData) setApps(appsData);
@@ -56,18 +63,11 @@ export default function ApplicationsScreen({
   };
 
   return (
-    <ScrollView
+    <BrandRefreshScrollView
       style={styles.flex}
       contentContainerStyle={styles.wrap}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={refreshApps}
-          tintColor={C.primary}
-          colors={[C.primary]}
-          progressBackgroundColor="#fff"
-        />
-      }
+      refreshing={refreshing}
+      onRefresh={refreshApps}
     >
       <Text style={styles.h1}>{isEmployer ? "Gelen başvurular" : "Başvurularım"}</Text>
       <Text style={styles.sub}>
@@ -100,10 +100,11 @@ export default function ApplicationsScreen({
             onChanged={reload}
             onStartChat={onStartChat}
             onShowQR={onShowQR}
+            onScanQR={onScanQR}
           />
         ))
       )}
-    </ScrollView>
+    </BrandRefreshScrollView>
   );
 }
 
@@ -113,21 +114,23 @@ function ApplicationCard({
   onChanged,
   onStartChat,
   onShowQR,
+  onScanQR,
 }: {
   app: ApiApplication;
   isEmployer: boolean;
   onChanged: () => void;
   onStartChat?: (participantId: string, jobId: string) => void;
   onShowQR?: (app: ApiApplication) => void;
+  onScanQR?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [ratingOpen, setRatingOpen] = useState(false);
-  // Sunucudan dönen liste bayat olabilir; verilen puanı lokalde tutarak
-  // butonun anında kaybolmasını garanti ederiz.
-  const [localRating, setLocalRating] = useState<number | null>(null);
-  const rating = localRating ?? app.rating ?? null;
+  const ratedMap = useRatedMap();
+  const persistentRating = ratedMap[app.id] ?? null;
+  const rating = persistentRating ?? app.myRating ?? app.rating ?? null;
+  const isRated = Boolean(rating != null || app.hasRated || persistentRating != null);
 
-  const act = async (status: "ACCEPTED" | "REJECTED" | "COMPLETED") => {
+  const act = async (status: ApplicationStatus) => {
     setBusy(true);
     try {
       await updateApplicationStatus(app.id, status);
@@ -191,12 +194,22 @@ function ApplicationCard({
               if (otherId) onStartChat(otherId, app.jobId ?? job.id);
             }}
           />
-          {onShowQR && (
-            <PrimaryButton
-              label={isEmployer ? "📱 İş QR'ı" : "📱 QR Göster"}
-              variant="outline"
-              onPress={() => onShowQR(app)}
-            />
+          {isEmployer ? (
+            onShowQR && (
+              <PrimaryButton
+                label="📱 QR Göster"
+                variant="outline"
+                onPress={() => onShowQR(app)}
+              />
+            )
+          ) : (
+            (onScanQR || onShowQR) && (
+              <PrimaryButton
+                label="📷 QR Tara"
+                variant="outline"
+                onPress={() => (onScanQR ? onScanQR() : onShowQR?.(app))}
+              />
+            )
           )}
         </View>
       )}
@@ -212,23 +225,27 @@ function ApplicationCard({
           {app.status === "ACCEPTED" && (
             <PrimaryButton label="Tamamlandı" disabled={busy} onPress={() => act("COMPLETED")} />
           )}
-          {app.status === "COMPLETED" && !rating && (
+          {app.status === "COMPLETED" && !isRated && (
             <PrimaryButton label="⭐ Puan ver" variant="outline" onPress={() => setRatingOpen(true)} />
           )}
-          {rating ? <Badge label={`⭐ ${rating}/5`} color={C.amber} bg={C.amberBg} /> : null}
+          {isRated ? <Badge label={`⭐ ${rating ?? 5}/5`} color={C.amber} bg={C.amberBg} /> : null}
         </View>
       ) : (
-        app.status === "COMPLETED" && !rating && (
-          <View style={styles.actions}>
-            <PrimaryButton label="⭐ İşvereni puanla" variant="outline" onPress={() => setRatingOpen(true)} />
-          </View>
-        )
-      )}
-      {!isEmployer && rating ? (
         <View style={styles.actions}>
-          <Badge label={`⭐ ${rating}/5`} color={C.amber} bg={C.amberBg} />
+          {app.status === "PENDING" && (
+            <PrimaryButton
+              label="Başvuruyu Geri Çek"
+              variant="outline"
+              disabled={busy}
+              onPress={() => act("WITHDRAWN")}
+            />
+          )}
+          {app.status === "COMPLETED" && !isRated && (
+            <PrimaryButton label="⭐ İşvereni puanla" variant="outline" onPress={() => setRatingOpen(true)} />
+          )}
+          {isRated ? <Badge label={`⭐ ${rating ?? 5}/5`} color={C.amber} bg={C.amberBg} /> : null}
         </View>
-      ) : null}
+      )}
 
       <RatingModal
         open={ratingOpen}
@@ -236,11 +253,17 @@ function ApplicationCard({
         onSubmit={async (value, comment) => {
           try {
             await rateApplication(app.id, value, comment);
-            setLocalRating(value); // buton anında kaybolsun
+            await markApplicationRated(app.id, value);
             setRatingOpen(false);
             onChanged();
-          } catch {
-            // sessiz
+          } catch (err) {
+            if (err instanceof Error && err.message.toLowerCase().includes("zaten puanlanmış")) {
+              await markApplicationRated(app.id, value);
+              setRatingOpen(false);
+              onChanged();
+            } else {
+              Alert.alert("Değerlendirme kaydedilemedi", err instanceof Error ? err.message : "Tekrar deneyin.");
+            }
           }
         }}
       />

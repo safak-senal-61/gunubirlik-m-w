@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { Badge, Card, C, Loading, PrimaryButton, SectionTitle } from "@/components/ui";
 import LeafletMap from "@/components/LeafletMap";
-import { applyToJob, fetchJob } from "@/lib/api";
+import { applyToJob, deleteJob, fetchJob } from "@/lib/api";
 import { toggleSaved, useSavedIds } from "@/lib/saved-store";
 import type { ApiApplication, ApiJob } from "@/lib/types";
 import {
@@ -31,11 +31,13 @@ export default function JobDetailScreen({
   onBack,
   onStartChat,
   onShowQR,
+  onScanQR,
 }: {
   jobId: string;
   onBack: () => void;
   onStartChat?: (participantId: string, jobId: string) => void;
   onShowQR?: (job: ApiJob) => void;
+  onScanQR?: () => void;
 }) {
   const { user } = useAuth();
   const [job, setJob] = useState<ApiJob | null>(null);
@@ -55,6 +57,8 @@ export default function JobDetailScreen({
       .finally(() => setLoading(false));
   }, [jobId]);
 
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
   const handleToggleSave = async () => {
     if (saveBusy) return;
     setSaveBusy(true);
@@ -65,6 +69,27 @@ export default function JobDetailScreen({
     } finally {
       setSaveBusy(false);
     }
+  };
+
+  const handleDeleteJob = () => {
+    Alert.alert("İlanı sil", "Bu ilan kalıcı olarak silinsin mi?", [
+      { text: "Vazgeç", style: "cancel" },
+      {
+        text: "Sil",
+        style: "destructive",
+        onPress: async () => {
+          setDeleteBusy(true);
+          try {
+            await deleteJob(jobId);
+            onBack();
+          } catch (err) {
+            Alert.alert("Hata", err instanceof Error ? err.message : "İlan silinemedi.");
+          } finally {
+            setDeleteBusy(false);
+          }
+        },
+      },
+    ]);
   };
 
   if (loading) return <Loading />;
@@ -149,11 +174,11 @@ export default function JobDetailScreen({
                 onPress={() => onStartChat(job.employerId, job.id)}
               />
             )}
-            {onShowQR && job.myApplication && (
+            {(onScanQR || onShowQR) && job.myApplication && (
               <PrimaryButton
-                label="📱 QR Göster"
+                label="📷 QR Tara"
                 variant="outline"
-                onPress={() => onShowQR(job)}
+                onPress={() => (onScanQR ? onScanQR() : onShowQR?.(job))}
               />
             )}
             {job.myApplication ? null : job.status === "OPEN" ? (
@@ -164,12 +189,20 @@ export default function JobDetailScreen({
           </View>
         )}
 
-        {isOwner && onShowQR && (
+        {isOwner && (
           <View style={styles.actionRow}>
+            {onShowQR && (
+              <PrimaryButton
+                label="📱 QR Göster"
+                variant="outline"
+                onPress={() => onShowQR(job)}
+              />
+            )}
             <PrimaryButton
-              label="📱 İş QR'ı (Başlat / Bitir)"
-              variant="outline"
-              onPress={() => onShowQR(job)}
+              label="İlanı Sil"
+              variant="ghost"
+              disabled={deleteBusy}
+              onPress={handleDeleteJob}
             />
           </View>
         )}

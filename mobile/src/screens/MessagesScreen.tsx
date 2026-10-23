@@ -22,6 +22,8 @@ import {
 import type { ApiConversation, ApiMessage } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
 import { useAuth } from "@/hooks/use-auth";
+import { joinConversation, leaveConversation, sendRealtimeMessage, sendTyping, onRealtimeEvent } from "@/lib/socket";
+import { sendTypingStatus } from "@/lib/api";
 
 export default function MessagesScreen({
   refreshKey,
@@ -165,7 +167,11 @@ function ThreadView({
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
+  const [otherTypingName, setOtherTypingName] = useState<string | null>(null);
   const listRef = useRef<FlatList<ApiMessage>>(null);
+  const typingTimerRef = useRef<any>(null);
+  const remoteTypingTimerRef = useRef<any>(null);
 
   const load = useCallback(async () => {
     try {
@@ -179,27 +185,123 @@ function ThreadView({
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 8000);
-    return () => clearInterval(t);
-  }, [load]);
+    joinConversation(conversation.id);
+
+    const unsubMsg = onRealtimeEvent("message:new", (msg: any) => {
+      if (msg && msg.conversationId === conversation.id) {
+        setMessages((prev) => {
+          if (msg.id && prev.some((m) => m.id === msg.id)) return prev;
+          if (msg.tempId) {
+            const idx = prev.findIndex((m: any) => m.id === msg.tempId || m.tempId === msg.tempId);
+            if (idx !== -1) {
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], ...msg, id: msg.id || updated[idx].id };
+              return updated;
+            }
+          }
+          if (msg.senderId === user?.id) {
+            const idx = prev.findIndex((m: any) => (m.id && String(m.id).startsWith("temp_")));
+            if (idx !== -1) {
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], ...msg, id: msg.id || updated[idx].id };
+              return updated;
+            }
+          }
+          return [...prev, msg];
+        });
+
+        if (msg.senderId !== user?.id) {
+          setIsOtherTyping(false);
+          setOtherTypingName(null);
+        }
+      }
+    });
+
+    const unsubTypingStart = onRealtimeEvent("typing:start", (data: any) => {
+      if (data && data.conversationId === conversation.id && data.userId !== user?.id) {
+        setIsOtherTyping(true);
+        if (data.userName) setOtherTypingName(data.userName);
+        if (remoteTypingTimerRef.current) clearTimeout(remoteTypingTimerRef.current);
+        remoteTypingTimerRef.current = setTimeout(() => {
+          setIsOtherTyping(false);
+          setOtherTypingName(null);
+        }, 3500);
+      }
+    });
+
+    const unsubTypingStop = onRealtimeEvent("typing:stop", (data: any) => {
+      if (data && data.conversationId === conversation.id && data.userId !== user?.id) {
+        setIsOtherTyping(false);
+        setOtherTypingName(null);
+      }
+    });
+
+    return () => {
+      unsubMsg();
+      unsubTypingStart();
+      unsubTypingStop();
+      leaveConversation(conversation.id);
+      if (remoteTypingTimerRef.current) clearTimeout(remoteTypingTimerRef.current);
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
+  }, [conversation.id, load, user?.id]);
+
+  const handleDraftChange = (text: string) => {
+    setDraft(text);
+    if (!user) return;
+
+    sendTyping(conversation.id, user.id, user.fullName || user.companyName || "Kullanıcı", true);
+    sendTypingStatus(conversation.id, true);
+
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      sendTyping(conversation.id, user.id, user.fullName || user.companyName || "Kullanıcı", false);
+      sendTypingStatus(conversation.id, false);
+    }, 1500);
+  };
 
   const submit = async () => {
-    if (!draft.trim()) return;
-    setSending(true);
+    if (!draft.trim() || !user) return;
+    const content = draft.trim();
+    const tempId = "temp_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
+
+    setDraft("");
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    sendTyping(conversation.id, user.id, user.fullName || user.companyName || "Kullanıcı", false);
+    sendTypingStatus(conversation.id, false);
+
+    const optimisticMsg: any = {
+      id: tempId,
+      tempId,
+      conversationId: conversation.id,
+      senderId: user.id,
+      sender: { id: user.id, fullName: user.fullName, companyName: user.companyName },
+      content,
+      type: "TEXT",
+      createdAt: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    sendRealtimeMessage(conversation.id, optimisticMsg);
+
     try {
-      await sendMessage({
+      const serverMsg = await sendMessage({
         recipientId: conversation.participant.id,
         conversationId: conversation.id,
         ...(conversation.job ? { jobId: conversation.job.id } : {}),
-        content: draft.trim(),
+        content,
         type: "TEXT",
       });
-      setDraft("");
-      await load();
+
+      if (serverMsg && serverMsg.id) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId || (m as any).tempId === tempId ? { ...m, ...serverMsg, id: serverMsg.id } : m
+          )
+        );
+      }
     } catch {
       // sessiz
-    } finally {
-      setSending(false);
     }
   };
 
@@ -230,6 +332,17 @@ function ThreadView({
           data={[...messages].reverse()}
           keyExtractor={(m) => m.id}
           contentContainerStyle={styles.msgList}
+          ListHeaderComponent={
+            isOtherTyping ? (
+              <View style={[styles.msgRow, styles.msgTheirs, { marginBottom: 8 }]}>
+                <View style={[styles.bubble, styles.bubbleTheirs, { flexDirection: "row", alignItems: "center", gap: 6 }]}>
+                  <Text style={{ fontSize: 13, color: C.primary, fontWeight: "600" }}>
+                    {otherTypingName || conversation.participant.companyName || conversation.participant.fullName} yazıyor...
+                  </Text>
+                </View>
+              </View>
+            ) : null
+          }
           renderItem={({ item }) => {
             const mine = item.senderId === user?.id;
             return (
@@ -250,12 +363,12 @@ function ThreadView({
         <TextInput
           style={styles.composerInput}
           value={draft}
-          onChangeText={setDraft}
+          onChangeText={handleDraftChange}
           placeholder="Mesaj yaz…"
           placeholderTextColor={C.muted}
           multiline
         />
-        <Pressable style={styles.sendBtn} onPress={submit} disabled={sending || !draft.trim()}>
+        <Pressable style={styles.sendBtn} onPress={submit} disabled={!draft.trim()}>
           {sending ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (

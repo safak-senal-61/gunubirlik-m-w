@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cachedFetch } from "@/lib/api";
+import { cachedFetch, peekMemoryCache } from "@/lib/api";
 
 /**
  * stale-while-revalidate list verisi:
@@ -13,8 +13,9 @@ export function useCachedList<T>(
   fetcher: () => Promise<T>,
   deps: unknown[] = [],
 ) {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+  const initial = peekMemoryCache<T>(cacheKey);
+  const [data, setData] = useState<T | null>(initial);
+  const [loading, setLoading] = useState(initial === null);
   const [refreshing, setRefreshing] = useState(false);
   const mounted = useRef(true);
 

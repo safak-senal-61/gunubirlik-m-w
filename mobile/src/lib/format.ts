@@ -34,6 +34,9 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   ACCEPTED: "Kabul edildi",
   REJECTED: "Reddedildi",
   COMPLETED: "Tamamlandı",
+  WITHDRAWN: "Geri çekildi",
+  NO_SHOW: "Gelmedi",
+  IN_PROGRESS: "Devam ediyor",
 };
 
 export const APPLICATION_STATUS_COLORS: Record<ApplicationStatus, string> = {
@@ -41,6 +44,9 @@ export const APPLICATION_STATUS_COLORS: Record<ApplicationStatus, string> = {
   ACCEPTED: "#047857",
   REJECTED: "#be123c",
   COMPLETED: "#4338ca",
+  WITHDRAWN: "#6b7280",
+  NO_SHOW: "#dc2626",
+  IN_PROGRESS: "#2563eb",
 };
 
 export const URGENCY_LABELS: Record<Urgency, string> = {

@@ -7,7 +7,33 @@
 // Not: ID token'ın aud (audience) alanı buradaki webClientId olur. Backend bu
 // client ID ile yapılandırılmalıdır; aksi halde "Geçersiz Google token" hatası döner.
 
-import { GoogleSignin, statusCodes, isErrorWithCode } from "@react-native-google-signin/google-signin";
+import type { GoogleSignin as GoogleSigninType, statusCodes as statusCodesType } from "@react-native-google-signin/google-signin";
+
+type GoogleSigninModuleType = {
+  GoogleSignin: typeof GoogleSigninType;
+  statusCodes: typeof statusCodesType;
+  isErrorWithCode: (error: unknown) => error is { code: string };
+};
+
+let cachedModule: GoogleSigninModuleType | null = null;
+let moduleAvailable: boolean | null = null;
+
+function getGoogleSigninModule(): GoogleSigninModuleType | null {
+  if (moduleAvailable === false) return null;
+  if (cachedModule) return cachedModule;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    cachedModule = require("@react-native-google-signin/google-signin");
+    moduleAvailable = !!cachedModule?.GoogleSignin;
+    return cachedModule;
+  } catch (err) {
+    if (__DEV__) {
+      console.warn("[GoogleAuth] Native RNGoogleSignin module is not available (running in Expo Go).");
+    }
+    moduleAvailable = false;
+    return null;
+  }
+}
 
 /**
  * Web istemci kimliği — Google Cloud Console → APIs & Services → Credentials.
@@ -18,16 +44,22 @@ import { GoogleSignin, statusCodes, isErrorWithCode } from "@react-native-google
  */
 const GOOGLE_WEB_CLIENT_ID = "411578437442-gs1rck2124rgr516fe9dn9tuu15ge9ig.apps.googleusercontent.com";
 
-/** Client ID gerçek değerle değiştirilmemişse true. */
+/** Client ID gerçek değerle değiştirilmemişse ve native modül varsa true. */
 export function isGoogleConfigured(): boolean {
-  return !GOOGLE_WEB_CLIENT_ID.startsWith("TODO_");
+  return !GOOGLE_WEB_CLIENT_ID.startsWith("TODO_") && getGoogleSigninModule() !== null;
 }
 
 let configured = false;
 
 function ensureConfigured(): void {
   if (configured) return;
-  GoogleSignin.configure({
+  const mod = getGoogleSigninModule();
+  if (!mod) {
+    throw new Error(
+      "Google ile giriş Expo Go uygulamasında desteklenmez (native modül gerektirir). Lütfen e-posta/şifre ile giriş yapın veya derlenmiş APK'yı kullanın."
+    );
+  }
+  mod.GoogleSignin.configure({
     webClientId: GOOGLE_WEB_CLIENT_ID,
     offlineAccess: false,
   });
@@ -46,6 +78,12 @@ export type GoogleIdTokenResult = {
  * Kullanıcı diyaloğu kapatırsa null döner (hata DEĞİL — sessizce iptal).
  */
 export async function getIdTokenFromGoogle(): Promise<GoogleIdTokenResult | null> {
+  const mod = getGoogleSigninModule();
+  if (!mod) {
+    throw new Error(
+      "Google ile giriş Expo Go uygulamasında desteklenmez (native modül gerektirir). Lütfen e-posta ve şifrenizle giriş yapın veya derlenmiş APK'yı kullanın."
+    );
+  }
   if (!isGoogleConfigured()) {
     throw new Error(
       "Google girişi henüz etkinleştirilmedi. Lütfen e-posta ve şifrenle giriş yap.",
@@ -53,8 +91,8 @@ export async function getIdTokenFromGoogle(): Promise<GoogleIdTokenResult | null
   }
   ensureConfigured();
   try {
-    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-    const userInfo = await GoogleSignin.signIn();
+    await mod.GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const userInfo = await mod.GoogleSignin.signIn();
 
     // RN google-signin v13+: başarılı girişte { data: {...} }, iptalde { type: "cancelled" }
     const data = (userInfo as { data?: { idToken?: string; user?: { email?: string; name?: string } } } & { type?: string })
@@ -68,10 +106,10 @@ export async function getIdTokenFromGoogle(): Promise<GoogleIdTokenResult | null
       fullName: data?.user?.name,
     };
   } catch (err) {
-    if (isErrorWithCode(err)) {
-      if (err.code === statusCodes.IN_PROGRESS) return null; // zaten açık diyaloğu beklet
-      if (err.code === statusCodes.SIGN_IN_CANCELLED) return null; // kullanıcı iptal etti
-      if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+    if (mod.isErrorWithCode(err)) {
+      if (err.code === mod.statusCodes.IN_PROGRESS) return null; // zaten açık diyaloğu beklet
+      if (err.code === mod.statusCodes.SIGN_IN_CANCELLED) return null; // kullanıcı iptal etti
+      if (err.code === mod.statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
         throw new Error("Google Play Services bulunamadı. Lütfen cihazınızı güncelleyin.");
       }
     }
@@ -82,8 +120,10 @@ export async function getIdTokenFromGoogle(): Promise<GoogleIdTokenResult | null
 /** Çıkışta Google oturumunu da temizler (hataları yutar). */
 export async function signOutGoogle(): Promise<void> {
   try {
+    const mod = getGoogleSigninModule();
+    if (!mod) return;
     ensureConfigured();
-    await GoogleSignin.signOut();
+    await mod.GoogleSignin.signOut();
   } catch {
     // non-critical
   }

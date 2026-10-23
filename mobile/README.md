@@ -5,7 +5,15 @@ Web uygulamasının React Native (Expo) sürümü. Aynı backend'e bağlanır:
 
 ## Hazır APK (Doğrudan Kurulum)
 
-**v1.4.0 (versionCode 16) — UX İYİLEŞTİRMELERİ + UYGULAMA İÇİ ROTA + DEEP LINK (en güncel):**
+**v1.4.1 (versionCode 17) — YENİ İKON + ŞEFFAF SPLASH + LEVEL UP FORMLAR (en güncel):**
+> 📥 **APK:** https://expo.dev/artifacts/eas/B2ZhKBeHikRHd5DX8EPN9QAxhARmia05cnb0jGXNdgw.apk
+> Build: https://expo.dev/accounts/safak610s-team/projects/gunubirlik/builds/1dc5f8fd-2632-4f11-9fc9-847337912814
+- 🎨 **Yeni Uygulama İkonu:** Yüklenen degrade amblemli squircle G logosu ile tüm launcher ve adaptif ikonlar yenilendi.
+- ✨ **Şeffaf Splash Logo:** Splash ekranındaki logonun arkasındaki koyu dikdörtgen çerçeve tamamen kaldırıldı, şeffaf hale getirildi.
+- 🚀 **Level Up Stepped Formlar:** Kayıt ekranı ve iş paylaşım formu 3 aşamalı XP/seviye ilerlemeli forma dönüştürüldü.
+- 📱 **Giriş/Kayıt güncellemeleri:** "Hesap Oluştur" başlığı ve Google butonu boşlukları düzenlendi.
+
+**v1.4.0 (versionCode 16) — UX İYİLEŞTİRMELERİ + UYGULAMA İÇİ ROTA + DEEP LINK:**
 > 📥 **APK:** https://expo.dev/artifacts/eas/okA5DPxVEUKLvJPJaqzk0OsokrP1H9OhJNAZYAyMxks.apk
 > Build: https://expo.dev/accounts/safak61s-team/projects/gunubirlik/builds/6929280b-74d9-4292-8392-afa7e41c6558
 - 🔔 **Bildirimler otomatik okundu:** ekran açılır açılmaz tüm bildirimler sessizce okundu işaretlenir — "Tümünü okundu işaretle" butonu KALDIRILDI; rozet anında düşer

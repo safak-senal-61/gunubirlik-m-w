@@ -15,9 +15,16 @@ export type JobStatus = "OPEN" | "FILLED" | "CLOSED" | "CANCELLED";
 
 export type Urgency = "LOW" | "MEDIUM" | "HIGH" | "NORMAL" | "URGENT";
 
-export type ApplicationStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "COMPLETED";
+export type ApplicationStatus =
+  | "PENDING"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "WITHDRAWN"
+  | "COMPLETED"
+  | "NO_SHOW"
+  | "IN_PROGRESS";
 
-export type UserRole = "WORKER" | "EMPLOYER";
+export type UserRole = "WORKER" | "EMPLOYER" | "ADMIN";
 
 export interface Pagination {
   page: number;
@@ -94,7 +101,7 @@ export interface ApiJob {
   endTime: string;
   durationHours: number;
   wageAmount: number;
-  wageType: "DAILY" | "HOURLY";
+  wageType: "DAILY" | "HOURLY" | "FIXED";
   currency: string;
   isWageNegotiable: boolean;
   city: string;
@@ -114,6 +121,9 @@ export interface ApiJob {
   savedCount: number;
   myApplication: ApiApplication | null;
   distanceKm?: number | null;
+  approvalStatus?: "PENDING" | "APPROVED" | "REJECTED";
+  escrowAmount?: number;
+  escrowStatus?: "NONE" | "HELD" | "RELEASED" | "REFUNDED" | "DISPUTED";
 }
 
 export interface ApiApplication {
@@ -133,6 +143,9 @@ export interface ApiApplication {
   proposedWage?: number | null;
   employerNote?: string | null;
   rating?: number | null;
+  myRating?: number | null;
+  hasRated?: boolean;
+  ratedAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -227,6 +240,18 @@ export interface TwoFactorSetup {
   qrCode: string;
   secret: string;
   backupCodes: string[];
+}
+
+export interface SecurityInfo {
+  id?: string;
+  email?: string;
+  emailVerified?: boolean;
+  twoFactorEnabled?: boolean;
+  provider?: string;
+  googleId?: string | null;
+  hasPassword?: boolean;
+  lastPasswordChange?: string;
+  activeSessions?: number;
 }
 
 /* ================= Cüzdan & Ödemeler ================= */

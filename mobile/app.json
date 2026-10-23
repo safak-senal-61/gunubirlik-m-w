@@ -2,16 +2,25 @@
   "expo": {
     "name": "Günübirlik",
     "slug": "gunubirlik",
-    "version": "1.4.0",
+    "version": "1.4.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "gunubirlik",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
+    "androidStatusBar": {
+      "barStyle": "dark-content",
+      "backgroundColor": "#F6F5F2",
+      "translucent": true
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#FFFFFF",
+      "barStyle": "dark-content"
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0C0E0D"
     },
     "ios": {
       "supportsTablet": true,
@@ -29,7 +38,8 @@
     },
     "android": {
       "package": "com.gunubirlik.app",
-      "versionCode": 16,
+      "versionCode": 19,
+      "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
@@ -38,7 +48,7 @@
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0C0E0D"
       }
     },
     "plugins": [
@@ -46,7 +56,7 @@
         "onesignal-expo-plugin",
         {
           "mode": "production",
-          "smallIconAccentColor": "#4f46e5"
+          "smallIconAccentColor": "#0D6847"
         }
       ],
       "expo-location",
@@ -63,7 +73,8 @@
         {
           "cameraPermission": "İşe başlama/bitiş ve QR ile ödeme kodlarını okutmak için kamera erişimi gerekiyor."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": false
@@ -85,14 +96,32 @@
                       "group.com.gunubirlik.app.onesignal"
                     ]
                   }
+                },
+                {
+                  "targetName": "OneSignalNotificationServiceExtension",
+                  "bundleIdentifier": "com.gunubirlik.app.OneSignalNotificationServiceExtension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.gunubirlik.app.onesignal"
+                    ]
+                  }
+                },
+                {
+                  "targetName": "OneSignalNotificationServiceExtension",
+                  "bundleIdentifier": "com.gunubirlik.app.OneSignalNotificationServiceExtension",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.gunubirlik.app.onesignal"
+                    ]
+                  }
                 }
               ]
             }
           }
         },
-        "projectId": "7caca633-ad71-45c8-9c19-86e76215da99"
+        "projectId": "178dfc96-c0db-481a-964a-a26361470d0d"
       }
     },
-    "owner": "safak61s-team"
+    "owner": "safak610s-team"
   }
 }

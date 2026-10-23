@@ -13,8 +13,10 @@ import { armPermissionPrompt, clearUser, identifyUser, syncPreferenceTags } from
 import type { ApiUser } from "@/lib/types";
 
 export class TwoFactorRequiredError extends Error {
-  constructor() {
+  userId?: string;
+  constructor(userId?: string) {
     super("requiresTwoFactor");
+    this.userId = userId;
   }
 }
 
@@ -116,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string, twoFactorCode?: string) => {
     const result = await API.login(email, password, twoFactorCode);
     if (result.requiresTwoFactor) {
-      throw new TwoFactorRequiredError();
+      throw new TwoFactorRequiredError(result.userId);
     }
     if (result.token) await API.setToken(result.token);
     const me = result.user ?? (await API.fetchMe());

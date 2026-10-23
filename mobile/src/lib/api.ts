@@ -15,6 +15,7 @@ import type {
   ApiNotification,
   ApiReview,
   ApiUser,
+  ApplicationStatus,
   DeleteAccountStatus,
   NotificationSettings,
   NotificationSettingsPatch,
@@ -29,6 +30,7 @@ import type {
   RatingSummary,
   ReviewListResult,
   ReviewType,
+  SecurityInfo,
   SupportTicket,
   TwoFactorSetup,
   UserRole,
@@ -41,7 +43,33 @@ import type {
   WithdrawRequest,
 } from "./types";
 
-export const API_BASE = "https://gunubirlik.space-z.ai/api/v1";
+import Constants from "expo-constants";
+
+/**
+ * Günübirlik canlı backend API adresi (https://gunubirlik.qrders.com.tr/api/v1).
+ * - Standalone APK (EAS Build / Production / Preview) varsayılan olarak canlı sunucuya bağlanır.
+ * - EXPO_PUBLIC_API_URL ortam değişkeni varsa onu kullanır.
+ * - EXPO_PUBLIC_USE_LOCAL="true" ve __DEV__ durumunda yerel IP'ye düşer.
+ */
+function resolveApiBase(): string {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/+$/, "");
+  }
+  if (__DEV__ && process.env.EXPO_PUBLIC_USE_LOCAL === "true") {
+    const hostUri = Constants.expoConfig?.hostUri;
+    if (hostUri) {
+      const ip = hostUri.split(":")[0];
+      if (ip && ip !== "localhost" && ip !== "127.0.0.1") {
+        return `http://${ip}:3000/api/v1`;
+      }
+    }
+    return "http://192.168.2.67:3000/api/v1";
+  }
+  // Standalone APK (EAS Build) ve varsayılan: Canlı Vercel sunucusu
+  return "https://gunubirlik.qrders.com.tr/api/v1";
+}
+
+export const API_BASE = resolveApiBase();
 const TOKEN_KEY = "gb_token";
 const USER_KEY = "gb_user";
 
@@ -146,10 +174,23 @@ api.interceptors.request.use(async (config) => {
 
 function toApiError(err: unknown): ApiError {
   if (axios.isAxiosError(err)) {
-    const body = err.response?.data as { error?: string; message?: string } | undefined;
+    const errAxios = err as AxiosError<{ error?: string; message?: string }>;
+    const body = errAxios.response?.data;
+    if (body && (body.error || body.message)) {
+      return new ApiError(
+        body.error ?? body.message ?? "Bir hata oluştu.",
+        errAxios.response?.status ?? 0,
+      );
+    }
+    if (errAxios.code === "ECONNABORTED" || errAxios.message?.toLowerCase().includes("timeout")) {
+      return new ApiError("Sunucu yanıt vermedi, lütfen internet bağlantınızı kontrol edip tekrar deneyin.", 408);
+    }
+    if (!errAxios.response) {
+      return new ApiError("Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.", 0);
+    }
     return new ApiError(
-      body?.error ?? body?.message ?? "Bir şeyler ters gitti. Lütfen tekrar dene.",
-      err.response?.status ?? 0,
+      "Sunucu ile iletişim kurulurken bir sorun oluştu. Lütfen tekrar deneyin.",
+      errAxios.response?.status ?? 0,
     );
   }
   return new ApiError(
@@ -164,6 +205,8 @@ export interface LoginResult {
   user?: ApiUser;
   token?: string;
   requiresTwoFactor?: boolean;
+  userId?: string;
+  message?: string;
 }
 
 export async function login(email: string, password: string, twoFactorCode?: string): Promise<LoginResult> {
@@ -177,9 +220,15 @@ export async function login(email: string, password: string, twoFactorCode?: str
       success?: boolean;
       data?: LoginResult;
       requiresTwoFactor?: boolean;
+      userId?: string;
+      message?: string;
     };
-    if (body?.requiresTwoFactor) {
-      return { requiresTwoFactor: true };
+    if (body?.requiresTwoFactor || (body as any)?.data?.requiresTwoFactor) {
+      return {
+        requiresTwoFactor: true,
+        userId: body?.userId ?? (body as any)?.data?.userId,
+        message: body?.message,
+      };
     }
     return body.data as LoginResult;
   } catch (err) {
@@ -369,6 +418,16 @@ export async function disable2fa(code: string): Promise<{ enabled: boolean }> {
   }
 }
 
+/** Kullanıcının güvenlik durumunu (2FA, şifre durumu, e-posta doğrulama) döner. */
+export async function fetchSecurityInfo(): Promise<SecurityInfo> {
+  try {
+    const res = await api.get("/auth/security-info");
+    return res.data.data as SecurityInfo;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
 // ---------------- Google ----------------
 
 export interface GoogleLoginResult {
@@ -410,6 +469,7 @@ export async function confirmEmailChange(code: string): Promise<{ email: string 
 
 export interface JobsQuery {
   page?: number;
+  pageSize?: number;
   limit?: number;
   category?: JobCategory;
   status?: JobStatus;
@@ -419,11 +479,30 @@ export interface JobsQuery {
   search?: string;
   lat?: number;
   lng?: number;
+  radiusKm?: number;
+  minWage?: number;
+  maxWage?: number;
+  workDateFrom?: string;
+  workDateTo?: string;
+  employerId?: string;
+  sortBy?: "NEWEST" | "OLDEST" | "WAGE_HIGH" | "WAGE_LOW" | "NEAREST" | "URGENT";
 }
 
 export async function fetchJobs(query: JobsQuery = {}): Promise<{ items: ApiJob[]; pagination: Pagination }> {
   try {
-    const res = await api.get("/jobs", { params: query });
+    const { limit, pageSize, mine, ...rest } = query;
+    const params: Record<string, any> = {
+      ...rest,
+      pageSize: pageSize ?? limit ?? 10,
+    };
+    if (mine) {
+      params.mine = "true";
+      const user = await getCachedUser();
+      if (user?.id) {
+        params.employerId = user.id;
+      }
+    }
+    const res = await api.get("/jobs", { params });
     return res.data.data as { items: ApiJob[]; pagination: Pagination };
   } catch (err) {
     throw toApiError(err);
@@ -570,9 +649,19 @@ export async function applyToJob(
   }
 }
 
-export async function fetchApplications(): Promise<ApiApplication[]> {
+export async function fetchApplications(status?: ApplicationStatus): Promise<ApiApplication[]> {
   try {
-    const res = await api.get("/applications");
+    const res = await api.get("/applications", { params: status ? { status } : undefined });
+    const data = res.data.data;
+    return (Array.isArray(data) ? data : data?.items ?? []) as ApiApplication[];
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+export async function fetchApplicationsByEmployer(status?: ApplicationStatus): Promise<ApiApplication[]> {
+  try {
+    const res = await api.get("/applications/by-employer", { params: status ? { status } : undefined });
     const data = res.data.data;
     return (Array.isArray(data) ? data : data?.items ?? []) as ApiApplication[];
   } catch (err) {
@@ -592,7 +681,7 @@ export async function fetchApplicationsByJob(jobId: string): Promise<ApiApplicat
 
 export async function updateApplicationStatus(
   id: string,
-  status: "ACCEPTED" | "REJECTED" | "COMPLETED",
+  status: ApplicationStatus,
   employerNote?: string,
 ): Promise<ApiApplication> {
   try {
@@ -601,6 +690,10 @@ export async function updateApplicationStatus(
   } catch (err) {
     throw toApiError(err);
   }
+}
+
+export async function withdrawApplication(id: string): Promise<ApiApplication> {
+  return updateApplicationStatus(id, "WITHDRAWN");
 }
 
 export async function rateApplication(id: string, rating: number, comment?: string): Promise<void> {
@@ -680,12 +773,14 @@ export async function fetchMessages(conversationId: string): Promise<ApiMessage[
 }
 
 export async function sendMessage(payload: {
-  recipientId: string;
-  jobId?: string;
+  recipientId?: string;
   conversationId?: string;
+  jobId?: string;
+  applicationId?: string;
   content: string;
-  /** Backend doc: "TEXT" (aynı zamanda job bağlamını korur). */
+  /** Backend: "TEXT" | "IMAGE" | "LOCATION" | "SYSTEM" */
   type?: string;
+  metadata?: any;
 }): Promise<ApiMessage> {
   try {
     const res = await api.post("/conversations", payload);
@@ -693,6 +788,12 @@ export async function sendMessage(payload: {
   } catch (err) {
     throw toApiError(err);
   }
+}
+
+export async function sendTypingStatus(conversationId: string, isTyping: boolean): Promise<void> {
+  try {
+    await api.post(`/conversations/${conversationId}/typing`, { isTyping });
+  } catch {}
 }
 
 export async function markConversationRead(conversationId: string): Promise<void> {
@@ -1025,6 +1126,16 @@ function normalizeReviewList(data: unknown): ReviewListResult {
   };
 }
 
+/** Bir kullanıcının herkese açık profilini döner (GET /users/{id}). */
+export async function fetchUserProfile(userId: string): Promise<ApiUser> {
+  try {
+    const res = await api.get(`/users/${userId}`);
+    return res.data.data as ApiUser;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
 /** Bir kullanıcının aldığı yorumlar (herkese açık). */
 export async function fetchUserReviews(userId: string, query: ReviewQuery = {}): Promise<ReviewListResult> {
   try {
@@ -1204,7 +1315,7 @@ export interface MaintenanceStatus {
 /** Herkese açık bakım durumu. Hata olursa { maintenanceMode:false } döner (uygulama açılır kalır). */
 export async function fetchMaintenanceStatus(): Promise<MaintenanceStatus> {
   try {
-    const res = await api.get("/maintenance/status");
+    const res = await api.get("/maintenance/status", { timeout: 3000 });
     return res.data.data as MaintenanceStatus;
   } catch {
     // Bakım endpoint'i erişilemezse uygulamayı kilitleme.
@@ -1231,6 +1342,12 @@ const CACHE_PREFIX = "gb_cache_";
 const CACHE_TTL = 5 * 60 * 1000; // 5 dk sonra arka plan yenilemesi zaten yapılır
 
 const memoryCache = new Map<string, { at: number; data: unknown }>();
+
+/** Bellekteki önbelleği anında (senkron) döner; ilk render'da boş ekran/spinner oluşmasını önler. */
+export function peekMemoryCache<T>(key: string): T | null {
+  const mem = memoryCache.get(key);
+  return mem ? (mem.data as T) : null;
+}
 
 async function readCache<T>(key: string): Promise<{ at: number; data: T } | null> {
   const mem = memoryCache.get(key);
