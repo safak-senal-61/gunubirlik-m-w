@@ -3,9 +3,8 @@
 // (bkz. api-doc → "Bildirimler & Ayarlar"). Anahtar listesi tek kaynaktan gelir:
 // @/lib/notification-prefs
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Animated,
   Easing,
   Linking,
@@ -18,9 +17,7 @@ import {
 } from "react-native";
 import { Card, C, PrimaryButton, SectionTitle } from "@/components/ui";
 import {
-  ApiError,
   fetchNotificationSettingsCached,
-  fetchNotificationSettings,
   resetNotificationSettings,
   updateNotificationSettings,
 } from "@/lib/api";
@@ -30,7 +27,6 @@ import {
   ONESIGNAL_APP_ID,
   refreshPermission,
   requestPermission,
-  setPushOptedIn,
   syncPreferenceTags,
 } from "@/lib/onesignal";
 import {
@@ -40,6 +36,22 @@ import {
   type NotificationPrefKey,
 } from "@/lib/notification-prefs";
 import type { NotificationSettings, NotificationSettingsPatch } from "@/lib/types";
+import {
+  BellIcon,
+  BriefcaseIcon,
+  MessageIcon,
+  WalletIcon,
+  ClockIcon,
+  CheckIcon,
+  XIcon,
+  ShieldIcon,
+  GiftIcon,
+  SparklesIcon,
+  BuildingIcon,
+  AlertCircleIcon,
+  MapPinIcon,
+  FilterIcon,
+} from "@/components/icons";
 
 const ALL_ON: NotificationSettingsPatch = ALL_PREF_KEYS.reduce(
   (acc, k) => ({ ...acc, [k]: true }),
@@ -47,6 +59,48 @@ const ALL_ON: NotificationSettingsPatch = ALL_PREF_KEYS.reduce(
 );
 
 type SaveState = "idle" | "saving" | "saved" | "error";
+
+function PrefVectorIcon({
+  name,
+  size = 18,
+  color = "#0D6847",
+}: {
+  name: string;
+  size?: number;
+  color?: string;
+}) {
+  switch (name) {
+    case "briefcase":
+      return <BriefcaseIcon size={size} color={color} />;
+    case "message":
+      return <MessageIcon size={size} color={color} />;
+    case "wallet":
+      return <WalletIcon size={size} color={color} />;
+    case "clock":
+      return <ClockIcon size={size} color={color} />;
+    case "check":
+      return <CheckIcon size={size} color={color} />;
+    case "x":
+      return <XIcon size={size} color="#DC2626" />;
+    case "pin":
+      return <MapPinIcon size={size} color={color} />;
+    case "shield":
+      return <ShieldIcon size={size} color={color} />;
+    case "building":
+      return <BuildingIcon size={size} color={color} />;
+    case "gift":
+      return <GiftIcon size={size} color={color} />;
+    case "sparkles":
+      return <SparklesIcon size={size} color="#D97706" />;
+    case "alert":
+      return <AlertCircleIcon size={size} color="#DC2626" />;
+    case "inbox":
+      return <FilterIcon size={size} color={color} />;
+    case "bell":
+    default:
+      return <BellIcon size={size} color={color} />;
+  }
+}
 
 export default function NotificationSettingsScreen() {
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
@@ -68,8 +122,6 @@ export default function NotificationSettingsScreen() {
     }).start();
   }, [saveFlash]);
 
-  // Cache-first yükleme: sekme her açıldığında SPINNER ASLA ÇIKMAZ — önce önbellekteki
-  // ayarlar anında gösterilir, arka planda tazelenir (onUpdate ile ekran güncellenir).
   const load = useCallback(async (asRefresh = false) => {
     if (asRefresh) setRefreshing(true);
     try {
@@ -101,101 +153,65 @@ export default function NotificationSettingsScreen() {
     );
   }, []);
 
-  /** Tek bir alanı backend'e yazar (optimistic UI + hata durumunda geri al). */
   const toggle = useCallback(
-    async (key: NotificationPrefKey, value: boolean, retryCount = 0) => {
-      const prev = settings;
-      if (!prev) return;
-      setSettings({ ...prev, [key]: value });
+    async (key: NotificationPrefKey, next: boolean) => {
+      if (!settings || busyKey) return;
+      const prev = settings[key];
+      setSettings((s) => (s ? { ...s, [key]: next } : s));
       setBusyKey(key);
       setSaveState("saving");
       try {
-        if (key === "pushEnabled" && value) {
-          // Ana anahtar AÇILIYOR: önce sistem iznini dene (zaten varsa sormaz),
-          // izin yoksa izin diyaloğunu göster. API çağrısından ÖNCE yapılır.
-          const granted = await requestPermission(true);
-          setPermission(granted);
-        }
-        const updated = await updateNotificationSettings({ [key]: value } as NotificationSettingsPatch);
-        setSettings(updated);
-        syncPreferenceTags(updated);
-        if (key === "pushEnabled") setPushOptedIn(value);
+        const patch: NotificationSettingsPatch = { [key]: next };
+        const saved = await updateNotificationSettings(patch);
+        setSettings(saved);
+        syncPreferenceTags(saved);
         setSaveState("saved");
         flash();
       } catch (err) {
-        // Geçici ağ hatasında 1 kez sessizce tekrar dene.
-        if (retryCount < 1 && !(err instanceof ApiError)) {
-          await new Promise((r) => setTimeout(r, 800));
-          return toggle(key, value, retryCount + 1);
-        }
-        setSettings(prev);
+        setSettings((s) => (s ? { ...s, [key]: prev } : s));
         setSaveState("error");
-        setError(err instanceof Error ? err.message : "Ayar kaydedilemedi.");
+        setError(err instanceof Error ? err.message : "Kaydedilemedi.");
       } finally {
         setBusyKey(null);
       }
     },
-    [settings, flash],
+    [settings, busyKey, flash],
   );
 
-  /** Tüm kategorileri tek seferde açar (hepsi açık = varsayılan). */
   const enableAll = useCallback(async () => {
-    const prev = settings;
-    if (!prev) return;
-    setSettings({ ...prev, ...ALL_ON });
     setSaveState("saving");
     try {
-      await requestPermission(true);
-      setPermission(await refreshPermission());
-      const updated = await updateNotificationSettings(ALL_ON);
-      setSettings(updated);
-      syncPreferenceTags(updated);
+      const saved = await updateNotificationSettings(ALL_ON);
+      setSettings(saved);
+      syncPreferenceTags(saved);
       setSaveState("saved");
       flash();
     } catch (err) {
-      setSettings(prev);
+      setError(err instanceof Error ? err.message : "Tümü açılamadı.");
       setSaveState("error");
-      setError(err instanceof Error ? err.message : "Ayarlar güncellenemedi.");
     }
-  }, [settings, flash]);
+  }, [flash]);
 
-  const resetAll = useCallback(() => {
-    Alert.alert(
-      "Varsayılanlara sıfırla",
-      "Tüm bildirim kategorileri açık olacak ve OneSignal abonelik durumun sıfırlanacak. Devam edilsin mi?",
-      [
-        { text: "Vazgeç", style: "cancel" },
-        {
-          text: "Sıfırla",
-          onPress: async () => {
-            try {
-              const updated = await resetNotificationSettings();
-              setSettings(updated);
-              syncPreferenceTags(updated);
-              setSaveState("saved");
-              flash();
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Sıfırlanamadı.");
-            }
-          },
-        },
-      ],
-    );
+  const resetAll = useCallback(async () => {
+    setSaveState("saving");
+    try {
+      const saved = await resetNotificationSettings();
+      setSettings(saved);
+      syncPreferenceTags(saved);
+      setSaveState("saved");
+      flash();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sıfırlanamadı.");
+      setSaveState("error");
+    }
   }, [flash]);
 
   const askPermission = useCallback(async () => {
-    const granted = await requestPermission(true);
+    const granted = await requestPermission();
     setPermission(granted);
-    if (!granted) {
-      Alert.alert(
-        "Bildirim izni kapalı",
-        "Sistem ayarlarından Günübirlik → Bildirimler bölümünden izni açabilirsin.",
-        [
-          { text: "Vazgeç", style: "cancel" },
-          { text: "Ayarları aç", onPress: () => void Linking.openSettings() },
-        ],
-      );
-    }
+    void refreshPermission().then(setPermission);
+    const d = await getPushDiagnostics();
+    setDiag({ subscriptionId: d.subscriptionId, optedIn: d.optedIn });
   }, []);
 
   const pushOff = settings ? !settings.pushEnabled : false;
@@ -203,9 +219,6 @@ export default function NotificationSettingsScreen() {
     ? ALL_PREF_KEYS.filter((k) => settings[k] === false).length
     : 0;
 
-  // İlk açılışta bile tam ekran circular spinner GÖSTERME — iskelet kartlar yeterli
-  // (sekme değişiminde "bir şey olmuyor" hissi yaratan tam da buydu). settings henüz
-  // gelmemişse PrefSwitch'ler varsayılan (açık) durumda çizilir, veri gelince güncellenir.
   return (
     <ScrollView
       contentContainerStyle={styles.wrap}
@@ -223,21 +236,30 @@ export default function NotificationSettingsScreen() {
       <View style={styles.hero}>
         <View style={styles.heroBlobA} />
         <View style={styles.heroBlobB} />
-        <Text style={styles.heroIcon}>🔔</Text>
-        <Text style={styles.heroTitle}>Bildirim tercihlerin</Text>
+        <View style={styles.heroIconBox}>
+          <BellIcon size={22} color="#FFFFFF" strokeWidth={2} />
+        </View>
+        <Text style={styles.heroTitle}>Bildirim Tercihleri</Text>
         <Text style={styles.heroSub}>
           {settings?.pushEnabled
-            ? `${ALL_PREF_KEYS.length - activeCount} / ${ALL_PREF_KEYS.length} kategori açık`
+            ? `${ALL_PREF_KEYS.length - activeCount} / ${ALL_PREF_KEYS.length} kategori aktif`
             : "Tüm push bildirimleri kapalı"}
         </Text>
         <View style={styles.heroChips}>
           <View style={[styles.heroChip, permission === true ? styles.heroChipOk : styles.heroChipOff]}>
-            <Text style={styles.heroChipText}>
-              {permission === true ? "✅ Sistem izni var" : "🔕 Sistem izni yok"}
-            </Text>
+            <View style={styles.chipRow}>
+              {permission === true ? (
+                <CheckIcon size={12} color="#FFFFFF" strokeWidth={2.5} />
+              ) : (
+                <XIcon size={12} color="#FFFFFF" strokeWidth={2.5} />
+              )}
+              <Text style={styles.heroChipText}>
+                {permission === true ? "Sistem İzni Var" : "Sistem İzni Yok"}
+              </Text>
+            </View>
           </View>
           <View style={styles.heroChip}>
-            <Text style={styles.heroChipText}>⚡ OneSignal bağlı</Text>
+            <Text style={styles.heroChipText}>OneSignal Aktif</Text>
           </View>
         </View>
         <Animated.View
@@ -249,7 +271,7 @@ export default function NotificationSettingsScreen() {
           }}
         >
           {saveState === "saved" && (
-            <Text style={styles.savedFlash}>✓ Kaydedildi</Text>
+            <Text style={styles.savedFlash}>✓ Tercihler kaydedildi</Text>
           )}
         </Animated.View>
       </View>
@@ -257,33 +279,36 @@ export default function NotificationSettingsScreen() {
       {error && (
         <Pressable onPress={() => setError(null)}>
           <View style={styles.errorBox}>
-            <Text style={styles.errorText}>⚠️ {error}</Text>
-            <Text style={styles.errorHint}>Kapatmak için dokun.</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <AlertCircleIcon size={16} color={C.rose} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+            <Text style={styles.errorHint}>Kapatmak için dokunun.</Text>
           </View>
         </Pressable>
       )}
 
       {/* ---------- Sistem izni ---------- */}
       <Card style={{ gap: 10 }}>
-        <SectionTitle>Cihaz izni</SectionTitle>
+        <SectionTitle>Cihaz İzni</SectionTitle>
         <Text style={styles.desc}>
-          Android 13 ve üzeri, bildirim gönderilmeden önce uygulama iznini ister. İzin
-          kapalıyken uygulama içi bildirimlerin çalışır, cihaz dışı push gelmez.
+          Android ve iOS, bildirim gönderilmeden önce sistem düzeyinde izin ister. İzin
+          kapalıyken uygulama içi bildirimler çalışır, kilit ekranına bildirim düşmez.
         </Text>
         <View style={styles.statusRow}>
-          <Text style={styles.statusLabel}>Sistem bildirim izni</Text>
+          <Text style={styles.statusLabel}>Sistem Bildirim İzni</Text>
           <Text
             style={[
               styles.statusValue,
               { color: permission ? C.emerald : C.danger },
             ]}
           >
-            {permission ? "Verildi" : "Yok"}
+            {permission ? "Açık" : "Kapalı"}
           </Text>
         </View>
         {permission === false && (
           <PrimaryButton
-            label="Bildirimlere izin ver"
+            label="Bildirim İznini Aç"
             onPress={askPermission}
             variant="primary"
           />
@@ -299,7 +324,7 @@ export default function NotificationSettingsScreen() {
               OneSignal App ID: {ONESIGNAL_APP_ID}
             </Text>
             <Text style={styles.diagText} numberOfLines={1}>
-              Abonelik: {diag.subscriptionId ?? "bekleniyor"}
+              Abonelik: {diag.subscriptionId ?? "Bağlanıyor..."}
             </Text>
           </View>
         )}
@@ -308,24 +333,26 @@ export default function NotificationSettingsScreen() {
       {/* ---------- Ana anahtar ---------- */}
       <Card style={{ gap: 4 }}>
         <PrefSwitch
-          icon="📲"
-          label="Push bildirimleri"
-          desc="Ana anahtar. Kapatırsan aşağıdaki tüm kategoriler de susar."
+          iconName="bell"
+          label="Push Bildirimleri"
+          desc="Ana bildirim anahtarı. Kapatırsanız tüm kategoriler devre dışı kalır."
           value={!!settings?.pushEnabled}
           disabled={busyKey === "pushEnabled"}
           onChange={(v) => toggle("pushEnabled", v)}
           master
         />
         <Text style={styles.footNote}>
-          Kategoriler ayrı ayrı da kapatılabilir; bu anahtar tümünü tek hamlede susturur.
+          Kategorileri ayrı ayrı seçebilir veya bu anahtarla hepsini tek seferde susturabilirsiniz.
         </Text>
       </Card>
 
       {/* ---------- Kategoriler ---------- */}
       {PREF_GROUPS.map((g) => (
-        <Card key={g.title} style={{ gap: 2 }}>
+        <Card key={g.title} style={{ gap: 4 }}>
           <View style={styles.groupHeader}>
-            <Text style={styles.groupIcon}>{g.icon}</Text>
+            <View style={styles.groupIconBox}>
+              <PrefVectorIcon name={g.iconName} size={18} color="#0D6847" />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.groupTitle}>{g.title}</Text>
               <Text style={styles.groupHint}>{g.hint}</Text>
@@ -341,7 +368,7 @@ export default function NotificationSettingsScreen() {
               <View key={key} style={{ opacity: pushOff ? 0.45 : 1 }}>
                 {idx > 0 && <View style={styles.rowDivider} />}
                 <PrefSwitch
-                  icon={meta.icon}
+                  iconName={meta.iconName}
                   label={meta.label}
                   desc={meta.desc}
                   value={settings?.[key] !== false}
@@ -356,58 +383,52 @@ export default function NotificationSettingsScreen() {
 
       {/* ---------- Toplu işlemler ---------- */}
       <Card style={{ gap: 10 }}>
-        <SectionTitle>Toplu işlemler</SectionTitle>
+        <SectionTitle>Toplu İşlemler</SectionTitle>
         <View style={styles.actionRow}>
           <View style={styles.actionCol}>
-            <PrimaryButton label="Tümünü aç" onPress={enableAll} variant="primary" />
+            <PrimaryButton label="Tümünü Aç" onPress={enableAll} variant="primary" />
           </View>
           <View style={styles.actionCol}>
-            <PrimaryButton label="Varsayılana sıfırla" onPress={resetAll} variant="outline" />
+            <PrimaryButton label="Varsayılana Dön" onPress={resetAll} variant="outline" />
           </View>
         </View>
-        <Text style={styles.footNote}>
-          “Varsayılana sıfırla” sunucudaki tüm bildirim ayarlarını varsayılan değerlere
-          (hepsi açık) döndürür. Aşağı çekerek de ayarları yenileyebilirsin.
-        </Text>
       </Card>
 
       {/* ---------- Bilgi ---------- */}
       <Card style={{ gap: 8 }}>
-        <SectionTitle>Bildirimler nasıl çalışıyor?</SectionTitle>
+        <SectionTitle>Bildirim Güvencesi</SectionTitle>
         <View style={styles.infoRow}>
-          <Text style={styles.infoIcon}>1️⃣</Text>
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepNum}>1</Text>
+          </View>
           <Text style={styles.infoText}>
-            Ayarın anında kaydedilir. Kapattığın kategori için sunucu hiçbir bildirim
-            oluşturmaz — sadece telefonda gizlemez, tamamen engellenir.
+            Tercihleriniz anında sunucuya kaydedilir. Kapattığınız kategori için sunucu bildirim üretmez.
           </Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoIcon}>2️⃣</Text>
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepNum}>2</Text>
+          </View>
           <Text style={styles.infoText}>
-            Ayarların OneSignal etiketlerine de yansıtılır; böylece kampanya gönderirken
-            sadece istersen belirli kategorileri açık olan kullanıcılar hedeflenir.
+            OneSignal etiketleri senkronize edilerek sadece ilgilendiğiniz kategoriler hedeflenir.
           </Text>
         </View>
         <View style={styles.infoRow}>
-          <Text style={styles.infoIcon}>3️⃣</Text>
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepNum}>3</Text>
+          </View>
           <Text style={styles.infoText}>
-            Bildirim listesi alt çubuktaki 🔔 Bildirimler sekmesinde; altındaki rozet
-            okunmamış sayısını gösterir. Bildirime dokunmak onu okundu yapar.
+            Güvenlik ve ödeme itirazı gibi kritik işlem bildirimleri cihaz izni kapalı olsa da uygulama içinde korunur.
           </Text>
         </View>
-        <View style={styles.divider} />
-        <Text style={styles.footNote}>
-          Ödeme itirazı, güvenlik ve bakım uyarıları gibi kritik bildirimler cihaz
-          izni kapalıyken de uygulama içinde görünür.
-        </Text>
       </Card>
     </ScrollView>
   );
 }
 
-/** Etiket + açıklama + Switch satırı. Tüm sekme animasyonları useNativeDriver:false. */
+/** Etiket + açıklama + Switch satırı. */
 function PrefSwitch({
-  icon,
+  iconName,
   label,
   desc,
   value,
@@ -415,7 +436,7 @@ function PrefSwitch({
   onChange,
   master,
 }: {
-  icon: string;
+  iconName: string;
   label: string;
   desc: string;
   value: boolean;
@@ -429,13 +450,13 @@ function PrefSwitch({
       toValue: value ? 1 : 0,
       duration: 170,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: false, // backgroundColor native driver desteklemez
+      useNativeDriver: false,
     }).start();
   }, [value, anim]);
 
   const trackColor = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["#d1d5db", C.primary],
+    outputRange: ["#E2E0D8", "#0D6847"],
   });
 
   return (
@@ -448,7 +469,7 @@ function PrefSwitch({
       style={({ pressed }) => [styles.prefRow, pressed && !disabled && styles.prefRowPressed]}
     >
       <View style={[styles.prefIconBox, master && styles.prefIconBoxMaster]}>
-        <Text style={styles.prefIcon}>{icon}</Text>
+        <PrefVectorIcon name={iconName} size={18} color={master ? "#0D6847" : "#3D423F"} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.prefLabel, master && styles.prefLabelMaster]}>{label}</Text>
@@ -463,19 +484,17 @@ function PrefSwitch({
 
 const styles = StyleSheet.create({
   wrap: { padding: 16, paddingBottom: 48, gap: 12 },
-  center: { alignItems: "center", justifyContent: "center", paddingVertical: 40, gap: 10 },
-
   hero: {
-    backgroundColor: C.primary,
-    borderRadius: 22,
+    backgroundColor: "#0D6847",
+    borderRadius: 20,
     padding: 18,
     gap: 6,
     overflow: "hidden",
-    shadowColor: C.primary,
-    shadowOpacity: 0.28,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 5,
+    shadowColor: "#0D6847",
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
   },
   heroBlobA: {
     position: "absolute",
@@ -484,7 +503,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(255,255,255,0.12)",
   },
   heroBlobB: {
     position: "absolute",
@@ -493,72 +512,187 @@ const styles = StyleSheet.create({
     width: 180,
     height: 180,
     borderRadius: 90,
-    backgroundColor: "rgba(255,255,255,0.09)",
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
-  heroIcon: { fontSize: 26 },
-  heroTitle: { fontSize: 19, fontWeight: "800", color: "#fff" },
-  heroSub: { fontSize: 12, color: "rgba(255,255,255,0.85)" },
+  heroIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  heroTitle: {
+    fontSize: 20,
+    fontFamily: "PlusJakartaSans_800ExtraBold",
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: -0.3,
+  },
+  heroSub: {
+    fontSize: 13,
+    fontFamily: "PlusJakartaSans_500Medium",
+    color: "rgba(255,255,255,0.85)",
+  },
   heroChips: { flexDirection: "row", gap: 6, flexWrap: "wrap", marginTop: 4 },
-  heroChip: { backgroundColor: "rgba(255,255,255,0.22)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
-  heroChipOk: { backgroundColor: "rgba(16,185,129,0.32)" },
-  heroChipOff: { backgroundColor: "rgba(255,255,255,0.14)" },
-  heroChipText: { fontSize: 10, fontWeight: "700", color: "#fff" },
-  savedFlash: { fontSize: 11, fontWeight: "800", color: "#a7f3d0", marginTop: 4 },
+  heroChip: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  chipRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  heroChipOk: { backgroundColor: "rgba(16,185,129,0.35)" },
+  heroChipOff: { backgroundColor: "rgba(255,255,255,0.15)" },
+  heroChipText: {
+    fontSize: 11,
+    fontFamily: "PlusJakartaSans_600SemiBold",
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  savedFlash: {
+    fontSize: 12,
+    fontFamily: "PlusJakartaSans_700Bold",
+    fontWeight: "700",
+    color: "#A7F3D0",
+    marginTop: 4,
+  },
 
-  errorBox: { backgroundColor: C.roseBg, borderRadius: 12, padding: 12, gap: 2 },
-  errorText: { fontSize: 13, color: C.rose, fontWeight: "700" },
-  errorHint: { fontSize: 11, color: C.rose },
+  errorBox: { backgroundColor: "#FEE2E2", borderRadius: 12, padding: 12, gap: 4 },
+  errorText: { fontSize: 13, color: "#DC2626", fontWeight: "700" },
+  errorHint: { fontSize: 11, color: "#DC2626" },
 
-  desc: { fontSize: 13, color: C.muted, lineHeight: 19 },
-  link: { fontSize: 12, fontWeight: "700", color: C.primary, textAlign: "center" },
-  footNote: { fontSize: 11, color: C.muted, lineHeight: 16 },
-  divider: { height: 1, backgroundColor: "#f3f4f6" },
-  rowDivider: { height: 1, backgroundColor: "#f9fafb", marginLeft: 46 },
+  desc: { fontSize: 13, color: "#5C615E", lineHeight: 19 },
+  link: { fontSize: 12, fontWeight: "700", color: "#0D6847", textAlign: "center", marginTop: 4 },
+  footNote: { fontSize: 11, color: "#717673", lineHeight: 16, marginTop: 4 },
+  divider: { height: 1, backgroundColor: "#EAE8E2", marginVertical: 4 },
+  rowDivider: { height: 1, backgroundColor: "#F3F1EC", marginLeft: 44 },
 
   statusRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#f5f5f7",
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  statusLabel: { fontSize: 13, fontWeight: "600", color: "#141615" },
+  statusValue: { fontSize: 13, fontWeight: "800" },
+  diagBox: {
+    backgroundColor: "#F6F5F2",
+    borderRadius: 8,
+    padding: 8,
+    gap: 2,
+    borderWidth: 1,
+    borderColor: "#E2E0D8",
+  },
+  diagText: { fontSize: 10, color: "#717673", fontFamily: "monospace" },
+
+  groupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 6,
+  },
+  groupIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#EAF3EE",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#C5DDD0",
+  },
+  groupTitle: {
+    fontSize: 15,
+    fontFamily: "PlusJakartaSans_700Bold",
+    fontWeight: "700",
+    color: "#141615",
+  },
+  groupHint: { fontSize: 11, color: "#717673" },
+  groupCount: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#717673",
+    backgroundColor: "#F0EFEA",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+
+  prefRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     paddingVertical: 10,
   },
-  statusLabel: { fontSize: 13, fontWeight: "600", color: C.text },
-  statusValue: { fontSize: 13, fontWeight: "800" },
-  diagBox: { backgroundColor: "#f8fafc", borderRadius: 10, padding: 10, gap: 3 },
-  diagText: { fontSize: 10, color: C.muted },
-
-  groupHeader: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
-  groupIcon: { fontSize: 18 },
-  groupTitle: { fontSize: 14, fontWeight: "800", color: C.text },
-  groupHint: { fontSize: 11, color: C.muted, marginTop: 1 },
-  groupCount: { fontSize: 11, fontWeight: "700", color: C.muted },
-
-  prefRow: { flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 10 },
-  prefRowPressed: { backgroundColor: "#f8fafc", borderRadius: 12 },
+  prefRowPressed: { opacity: 0.75 },
   prefIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    backgroundColor: C.primarySoft,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#F4F3F0",
     alignItems: "center",
     justifyContent: "center",
   },
-  prefIconBoxMaster: { backgroundColor: C.indigoBg },
-  prefIcon: { fontSize: 16 },
-  prefLabel: { fontSize: 13, fontWeight: "700", color: C.text },
-  prefLabelMaster: { fontSize: 15, fontWeight: "800" },
-  prefDesc: { fontSize: 11, color: C.muted, marginTop: 1, lineHeight: 15 },
-  // Özel anahtar (native Switch görünmez ama erişilebilir/semantik olarak kullanılır)
-  trackFake: { width: 44, height: 26, borderRadius: 999, justifyContent: "center" },
-  knob: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff", marginLeft: 3 },
-  knobOn: { marginLeft: 21 },
+  prefIconBoxMaster: {
+    backgroundColor: "#EAF3EE",
+  },
+  prefLabel: {
+    fontSize: 14,
+    fontFamily: "PlusJakartaSans_600SemiBold",
+    fontWeight: "600",
+    color: "#141615",
+  },
+  prefLabelMaster: {
+    fontSize: 15,
+    fontFamily: "PlusJakartaSans_700Bold",
+    fontWeight: "700",
+    color: "#0D6847",
+  },
+  prefDesc: { fontSize: 11, color: "#717673", marginTop: 2, lineHeight: 15 },
+  trackFake: {
+    width: 44,
+    height: 24,
+    borderRadius: 12,
+    padding: 2,
+    justifyContent: "center",
+  },
+  knob: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
+  knobOn: {
+    alignSelf: "flex-end",
+  },
 
   actionRow: { flexDirection: "row", gap: 10 },
   actionCol: { flex: 1 },
 
-  infoRow: { flexDirection: "row", gap: 9, alignItems: "flex-start" },
-  infoIcon: { fontSize: 13 },
-  infoText: { flex: 1, fontSize: 12, color: C.muted, lineHeight: 18 },
+  infoRow: { flexDirection: "row", gap: 10, alignItems: "flex-start", paddingVertical: 2 },
+  stepBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#EAF3EE",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#C5DDD0",
+    marginTop: 2,
+  },
+  stepNum: {
+    fontSize: 11,
+    fontFamily: "PlusJakartaSans_700Bold",
+    fontWeight: "700",
+    color: "#0D6847",
+  },
+  infoText: { flex: 1, fontSize: 12, color: "#5C615E", lineHeight: 18 },
 });

@@ -68,6 +68,15 @@ import {
   FileTextIcon,
   InfoIcon,
   TrashIcon,
+  CameraIcon,
+  EditIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  StarIcon,
+  VerifiedCheckIcon,
+  ShieldCheckIcon,
+  HourglassIcon,
+  XIcon,
 } from "@/components/icons";
 
 type SettingsTab = "account" | "wallet" | "security" | "notifications" | "policies" | "about";
@@ -283,7 +292,7 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
               </View>
             )}
             <View style={styles.avatarBadge}>
-              <Text style={styles.avatarBadgeText}>Düzenle</Text>
+              <CameraIcon size={12} color="#FFFFFF" strokeWidth={2.2} />
             </View>
           </Pressable>
 
@@ -297,7 +306,8 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
               </View>
               {user.isVerified && (
                 <View style={[styles.profileChip, styles.profileChipOk]}>
-                  <Text style={[styles.profileChipText, styles.profileChipTextOk]}>✓ Doğrulanmış</Text>
+                  <VerifiedCheckIcon size={13} color="#0D6847" />
+                  <Text style={[styles.profileChipText, styles.profileChipTextOk]}>Doğrulanmış Hesap</Text>
                 </View>
               )}
             </View>
@@ -421,7 +431,7 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
 
   return (
     <>
-      <PrimaryButton label="✏️ Profili düzenle" variant="outline" onPress={openSheet} />
+      <PrimaryButton label="Profili Düzenle" variant="outline" onPress={openSheet} />
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
         <View style={styles.sheetOverlay}>
@@ -435,14 +445,14 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
               {/* Modern başlık: ikon rozeti + başlık + kapat butonu */}
               <View style={styles.sheetHeader}>
                 <View style={styles.sheetIconBox}>
-                  <Text style={styles.sheetIcon}>✏️</Text>
+                  <EditIcon size={18} color="#0D6847" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.sheetTitle}>Profili düzenle</Text>
                   <Text style={styles.sheetSub}>Bilgilerini güncel tut, işverenler seni daha kolay bulur.</Text>
                 </View>
                 <Pressable onPress={() => setOpen(false)} hitSlop={8} style={styles.sheetClose}>
-                  <Text style={styles.sheetCloseText}>✕</Text>
+                  <XIcon size={16} color="#717673" />
                 </Pressable>
               </View>
               <ScrollView
@@ -791,14 +801,11 @@ function VerificationSection() {
   if (status.isVerified && !status.pendingRequest) {
     return (
       <View style={styles.verifiedBanner}>
-        <View style={styles.verifiedBadgeIcon}>
-          <Text style={styles.verifiedBadgeCheck}>✓</Text>
-        </View>
+        <VerifiedCheckIcon size={24} color="#0D6847" />
         <View style={{ flex: 1 }}>
-          <Text style={styles.verifiedTitle}>Hesabın doğrulanmış</Text>
-          <Text style={styles.verifiedSub}>Mavi rozet profilinde ve ilanlarında görünüyor.</Text>
+          <Text style={styles.verifiedTitle}>Hesabınız Doğrulanmış</Text>
+          <Text style={styles.verifiedSub}>Onaylı rozet profilinizde ve ilanlarınızda görüntülenir.</Text>
         </View>
-        
       </View>
     );
   }
@@ -807,12 +814,11 @@ function VerificationSection() {
   if (status.pendingRequest) {
     return (
       <View style={[styles.verifiedBanner, styles.verifiedBannerPending]}>
-        <Text style={{ fontSize: 24 }}>⏳</Text>
+        <HourglassIcon size={24} color={C.amber} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.verifiedTitle, { color: C.amber }]}>Doğrulama talebin beklemede</Text>
+          <Text style={[styles.verifiedTitle, { color: C.amber }]}>Doğrulama Talebiniz Beklemede</Text>
           <Text style={[styles.verifiedSub, { color: C.amber }]}>
-            {VERIF_TYPES.find((t) => t.type === status.pendingRequest?.type)?.label ?? "Belge"} kontrol ediliyor.
-            Sonuç bildirimle gelir.
+            {VERIF_TYPES.find((t) => t.type === status.pendingRequest?.type)?.label ?? "Belge"} kontrol ediliyor. Sonuç bildirimle iletilecektir.
           </Text>
         </View>
       </View>
@@ -1341,7 +1347,7 @@ function PoliciesTab() {
         <Pressable onPress={() => toggle("payment")}>
           <View style={styles.accHeader}>
             <SectionTitle>Ödeme politikası</SectionTitle>
-            <Text style={styles.accChevron}>{openRule === "payment" ? "▾" : "▸"}</Text>
+            {openRule === "payment" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
           </View>
         </Pressable>
         {openRule === "payment" && (
@@ -1358,7 +1364,7 @@ function PoliciesTab() {
         <Pressable onPress={() => toggle("job")}>
           <View style={styles.accHeader}>
             <SectionTitle>İlan onay politikası</SectionTitle>
-            <Text style={styles.accChevron}>{openRule === "job" ? "▾" : "▸"}</Text>
+            {openRule === "job" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
           </View>
         </Pressable>
         {openRule === "job" && (
@@ -1373,7 +1379,7 @@ function PoliciesTab() {
         <Pressable onPress={() => toggle("conduct")}>
           <View style={styles.accHeader}>
             <SectionTitle>Topluluk kuralları</SectionTitle>
-            <Text style={styles.accChevron}>{openRule === "conduct" ? "▾" : "▸"}</Text>
+            {openRule === "conduct" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
           </View>
         </Pressable>
         {openRule === "conduct" && (
@@ -1515,7 +1521,7 @@ function SupportTicketSection() {
       <Text style={styles.desc}>
         Sorun, öneri veya ödeme itirazlarını yaz; admin ekibine bildirim gider.
       </Text>
-      <PrimaryButton label="✍️ Yeni talep oluştur" onPress={openSheet} />
+      <PrimaryButton label="Yeni Destek Talebi Oluştur" onPress={openSheet} />
 
       {history === null ? null : history.length === 0 ? null : (
         <>
@@ -1533,7 +1539,7 @@ function SupportTicketSection() {
                   {new Date(t.createdAt).toLocaleDateString("tr-TR")}
                 </Text>
                 {t.reply ? (
-                  <Text style={styles.ticketReply} numberOfLines={2}>↩️ {t.reply}</Text>
+                  <Text style={styles.ticketReply} numberOfLines={2}>Admin Cevabı: {t.reply}</Text>
                 ) : null}
               </View>
             </View>
@@ -1752,7 +1758,7 @@ const styles = StyleSheet.create({
   idRow: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   avatar: { width: 62, height: 62, borderRadius: 31, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },
   avatarImg: { width: 62, height: 62, borderRadius: 31 },
-  avatarBadge: { position: "absolute", bottom: -2, right: -2, width: 24, height: 24, borderRadius: 12, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
+  avatarBadge: { position: "absolute", bottom: 0, right: 0, width: 24, height: 24, borderRadius: 12, backgroundColor: "#0D6847", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#FFFFFF", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 4 },
   avatarBadgeText: { fontSize: 11 },
   avatarText: { fontSize: 18, fontWeight: "800", color: C.primary },
   avatarEdit: { fontSize: 9, fontWeight: "700", color: C.primary, textAlign: "center", marginTop: 3 },

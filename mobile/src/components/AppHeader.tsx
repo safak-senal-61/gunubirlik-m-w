@@ -1,10 +1,8 @@
 import React from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "@/hooks/use-auth";
 import { BellIcon } from "./icons";
 import { C } from "./ui";
-
-const LOGO = require("../../assets/logo-wordmark.png");
 
 interface AppHeaderProps {
   unreadCount?: number;
@@ -20,26 +18,29 @@ export function AppHeader({
   subtitle,
 }: AppHeaderProps) {
   const { user } = useAuth();
-  const isEmployer = user?.role === "EMPLOYER";
+  const role = user?.role;
+  const isEmployer = role === "EMPLOYER";
+  const isAdmin = (role as string) === "ADMIN" || (role as string) === "SUPERADMIN";
+
+  const roleLabel = isAdmin ? "Yönetici" : isEmployer ? "İşveren" : "İş Arayan";
 
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
+        {/* Brand Lockup — Aligned flush to the far left matching gunubirlik.qrders.com.tr */}
         <View style={styles.brandBox}>
-          <Image
-            source={LOGO}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
+          <View style={styles.brandIcon}>
+            <Text style={styles.brandIconChar}>G</Text>
+          </View>
+          <Text style={styles.brandTitle}>Günübirlik</Text>
         </View>
 
+        {/* Right Actions: Refined Editorial Role Pill & Notification Button */}
         <View style={styles.rightActions}>
           {user && (
             <View style={styles.roleBadge}>
               <View style={styles.roleDot} />
-              <Text style={styles.roleText}>
-                {isEmployer ? "İşveren" : "İş Arayan"}
-              </Text>
+              <Text style={styles.roleText}>{roleLabel}</Text>
             </View>
           )}
 
@@ -54,7 +55,7 @@ export function AppHeader({
               accessibilityLabel="Bildirimler"
               accessibilityRole="button"
             >
-              <BellIcon size={18} color={C.text} strokeWidth={2} />
+              <BellIcon size={18} color="#141615" strokeWidth={1.8} />
               {unreadCount > 0 && (
                 <View style={styles.badgeDot}>
                   {unreadCount > 9 ? (
@@ -81,27 +82,53 @@ export function AppHeader({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: C.bg, // Seamless integration with #F6F5F2
+    backgroundColor: "#F6F5F2",
     borderBottomWidth: 1,
-    borderBottomColor: "#E2E0D8",
+    borderBottomColor: "#E8E6DF",
     paddingHorizontal: 16,
     paddingTop: 8,
-    paddingBottom: 8,
+    paddingBottom: 10,
   },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 40,
+    minHeight: 38,
   },
   brandBox: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
+    gap: 8,
+    marginLeft: 0,
+    paddingLeft: 0,
   },
-  logoImage: {
+  brandIcon: {
+    width: 30,
     height: 30,
-    width: 132,
+    borderRadius: 8,
+    backgroundColor: "#0D6847",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#0D6847",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  brandIconChar: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontFamily: "PlusJakartaSans_800ExtraBold",
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  brandTitle: {
+    fontSize: 18,
+    fontFamily: "PlusJakartaSans_800ExtraBold",
+    fontWeight: "800",
+    color: "#141615",
+    letterSpacing: -0.4,
   },
   rightActions: {
     flexDirection: "row",
@@ -111,30 +138,31 @@ const styles = StyleSheet.create({
   roleBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
     backgroundColor: "#EAF3EE",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4.5,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: "#C5DDD0",
   },
   roleDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
     backgroundColor: "#0D6847",
   },
   roleText: {
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 11,
+    fontFamily: "PlusJakartaSans_600SemiBold",
+    fontWeight: "600",
     color: "#0D6847",
-    letterSpacing: -0.2,
+    letterSpacing: 0.2,
   },
   iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -143,38 +171,40 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   iconButtonPressed: {
-    backgroundColor: "#F0EFEA",
+    backgroundColor: "#ECEAE4",
   },
   badgeDot: {
     position: "absolute",
-    top: 4,
-    right: 4,
-    minWidth: 14,
-    height: 14,
-    borderRadius: 7,
+    top: 3,
+    right: 3,
+    minWidth: 13,
+    height: 13,
+    borderRadius: 6.5,
     backgroundColor: "#DC2626",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 3,
+    paddingHorizontal: 2.5,
   },
   badgeText: {
     color: "#FFFFFF",
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: "800",
   },
   titleRow: {
     marginTop: 6,
-    paddingBottom: 4,
+    paddingBottom: 2,
   },
   headerTitle: {
     fontSize: 20,
+    fontFamily: "PlusJakartaSans_800ExtraBold",
     fontWeight: "800",
-    color: C.text,
+    color: "#141615",
     letterSpacing: -0.3,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: C.muted,
+    fontFamily: "PlusJakartaSans_500Medium",
+    color: "#5C615E",
     marginTop: 2,
   },
 });

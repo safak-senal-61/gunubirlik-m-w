@@ -5,7 +5,6 @@ import {
   BookmarkIcon,
   ApplicationsIcon,
   MessageIcon,
-  BellIcon,
   UserIcon,
 } from "./icons";
 import { C } from "./ui";
@@ -22,7 +21,7 @@ interface AnimatedTabBarProps {
   currentTab: TabKey;
   onPressTab: (tab: TabKey) => void;
   isEmployer: boolean;
-  unreadCount: number;
+  unreadCount?: number;
 }
 
 function TabButton({
@@ -36,34 +35,45 @@ function TabButton({
   onPress: () => void;
   badgeCount?: number;
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const pillOpacity = useRef(new Animated.Value(isActive ? 1 : 0)).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
+  const activeAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current;
 
   useEffect(() => {
-    Animated.timing(pillOpacity, {
+    Animated.spring(activeAnim, {
       toValue: isActive ? 1 : 0,
-      duration: 200,
+      friction: 7,
+      tension: 90,
       useNativeDriver: true,
     }).start();
-  }, [isActive, pillOpacity]);
+  }, [isActive, activeAnim]);
 
   const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.92,
-      useNativeDriver: true,
-      speed: 50,
+    Animated.spring(pressScale, {
+      toValue: 0.88,
+      speed: 60,
       bounciness: 0,
+      useNativeDriver: true,
     }).start();
   };
 
   const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
+    Animated.spring(pressScale, {
       toValue: 1,
-      useNativeDriver: true,
       friction: 4,
-      tension: 60,
+      tension: 80,
+      useNativeDriver: true,
     }).start();
   };
+
+  const iconScale = activeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.12],
+  });
+
+  const iconTranslateY = activeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -2],
+  });
 
   return (
     <Pressable
@@ -74,18 +84,27 @@ function TabButton({
       accessibilityRole="tab"
       accessibilityState={{ selected: isActive }}
     >
-      <Animated.View style={[styles.tabContent, { transform: [{ scale: scaleAnim }] }]}>
-        {/* Aktif Pill Arka Planı (Web sitesi EAF3EE zümrüt yumuşaklığı) */}
+      <Animated.View style={[styles.tabContent, { transform: [{ scale: pressScale }] }]}>
+        {/* Animated Active Soft Pill Background */}
         <Animated.View
           style={[
             styles.activePill,
             {
-              opacity: pillOpacity,
+              opacity: activeAnim,
+              transform: [{ scale: activeAnim }],
             },
           ]}
         />
 
-        <View style={styles.iconContainer}>
+        {/* Animated Icon with Spring Bounce */}
+        <Animated.View
+          style={[
+            styles.iconContainer,
+            {
+              transform: [{ scale: iconScale }, { translateY: iconTranslateY }],
+            },
+          ]}
+        >
           {item.renderIcon(isActive)}
 
           {badgeCount && badgeCount > 0 ? (
@@ -95,8 +114,9 @@ function TabButton({
               </Text>
             </View>
           ) : null}
-        </View>
+        </Animated.View>
 
+        {/* Tab Label */}
         <Text
           style={[
             styles.tabLabel,
@@ -106,6 +126,17 @@ function TabButton({
         >
           {item.label}
         </Text>
+
+        {/* Active Dot Indicator */}
+        <Animated.View
+          style={[
+            styles.activeDot,
+            {
+              opacity: activeAnim,
+              transform: [{ scale: activeAnim }],
+            },
+          ]}
+        />
       </Animated.View>
     </Pressable>
   );
@@ -123,28 +154,28 @@ export function AnimatedTabBar({
           key: "jobs",
           label: "Panel",
           renderIcon: (active) => (
-            <BriefcaseIcon size={20} color={active ? C.primary : "#5C615E"} strokeWidth={active ? 2.2 : 1.8} />
+            <BriefcaseIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "applications",
-          label: "Başvuru",
+          label: "Başvurular",
           renderIcon: (active) => (
-            <ApplicationsIcon size={20} color={active ? C.primary : "#5C615E"} strokeWidth={active ? 2.2 : 1.8} />
+            <ApplicationsIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "messages",
           label: "Mesajlar",
           renderIcon: (active) => (
-            <MessageIcon size={20} color={active ? C.primary : "#5C615E"} strokeWidth={active ? 2.2 : 1.8} />
+            <MessageIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "profile",
           label: "Hesap",
           renderIcon: (active) => (
-            <UserIcon size={20} color={active ? C.primary : "#5C615E"} strokeWidth={active ? 2.2 : 1.8} />
+            <UserIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
       ]
@@ -153,35 +184,35 @@ export function AnimatedTabBar({
           key: "jobs",
           label: "İşler",
           renderIcon: (active) => (
-            <BriefcaseIcon size={20} color={active ? C.primary : "#5C615E"} strokeWidth={active ? 2.2 : 1.8} />
+            <BriefcaseIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "saved",
           label: "Kayıtlı",
           renderIcon: (active) => (
-            <BookmarkIcon size={20} color={active ? C.primary : "#5C615E"} strokeWidth={active ? 2.2 : 1.8} />
+            <BookmarkIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "applications",
-          label: "Başvuru",
+          label: "Başvurular",
           renderIcon: (active) => (
-            <ApplicationsIcon size={20} color={active ? C.primary : "#5C615E"} strokeWidth={active ? 2.2 : 1.8} />
+            <ApplicationsIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "messages",
           label: "Mesajlar",
           renderIcon: (active) => (
-            <MessageIcon size={20} color={active ? C.primary : "#5C615E"} strokeWidth={active ? 2.2 : 1.8} />
+            <MessageIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "profile",
           label: "Hesap",
           renderIcon: (active) => (
-            <UserIcon size={20} color={active ? C.primary : "#5C615E"} strokeWidth={active ? 2.2 : 1.8} />
+            <UserIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
       ];
@@ -195,7 +226,6 @@ export function AnimatedTabBar({
             item={item}
             isActive={currentTab === item.key}
             onPress={() => onPressTab(item.key)}
-            badgeCount={item.key === "notifications" ? unreadCount : undefined}
           />
         ))}
       </View>
@@ -207,43 +237,44 @@ const styles = StyleSheet.create({
   tabBarContainer: {
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
-    borderTopColor: C.border,
-    paddingTop: 4,
+    borderTopColor: "#E8E6DF",
+    paddingTop: 5,
     paddingBottom: 6,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 8,
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 10,
   },
   tabBarInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
   },
   tabButton: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   tabContent: {
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     borderRadius: 16,
     position: "relative",
+    minWidth: 54,
   },
   activePill: {
     position: "absolute",
-    top: 2,
-    left: 4,
-    right: 4,
+    top: 0,
+    left: 2,
+    right: 2,
     bottom: 2,
-    backgroundColor: C.primarySoft,
-    borderRadius: 14,
+    backgroundColor: "#EAF3EE",
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: "#C5DDD0",
   },
@@ -256,22 +287,31 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   tabLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    letterSpacing: 0.2,
+    fontSize: 10.5,
+    letterSpacing: 0.1,
   },
   tabLabelActive: {
-    color: C.primary,
+    color: "#0D6847",
+    fontFamily: "PlusJakartaSans_700Bold",
     fontWeight: "700",
   },
   tabLabelInactive: {
-    color: "#5C615E",
+    color: "#717673",
+    fontFamily: "PlusJakartaSans_500Medium",
+    fontWeight: "500",
+  },
+  activeDot: {
+    width: 3.5,
+    height: 3.5,
+    borderRadius: 2,
+    backgroundColor: "#0D6847",
+    marginTop: 2,
   },
   badge: {
     position: "absolute",
     top: -4,
     right: -8,
-    backgroundColor: C.danger,
+    backgroundColor: "#DC2626",
     borderRadius: 8,
     minWidth: 16,
     height: 16,

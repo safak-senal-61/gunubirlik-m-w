@@ -106,11 +106,126 @@ export function ClockIcon({ size = 14, color = "#5C615E", strokeWidth = 2 }: Ico
   );
 }
 
-export function VerifiedCheckIcon({ size = 14, color = "#0D6847" }: IconProps) {
+export function VerifiedCheckIcon({ size = 16, color = "#0D6847" }: IconProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color} stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <Path d="M12 2l3.09 3.26 4.41.64-1.28 4.28 2.28 3.82-3.4 2.93-.34 4.45-4.46-.86-3.8 2.31-2.31-3.8-4.45-.34.64-4.41L2 12l2.28-3.82L3.64 4.5l4.41-.64L12 2z" />
-      <Polyline points="9 12 11 14 15 10" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* 12-Point Scalloped Verified Seal */}
+      <Path
+        d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.67-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.34 2.19c-1.39-.46-2.9-.2-3.91.81s-1.27 2.52-.81 3.91C2.63 9.33 1.75 10.57 1.75 12c0 1.43.88 2.67 2.19 3.34-.46 1.39-.2 2.9.81 3.91s2.52 1.27 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.67-.88 3.34-2.19c1.39.46 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34z"
+        fill={color}
+      />
+      {/* Crisp White Checkmark */}
+      <Path
+        d="M10.2 16.2 6.8 12.8l1.41-1.41 2 2 5.6-5.6 1.41 1.41-7.02 7z"
+        fill="#FFFFFF"
+      />
+    </Svg>
+  );
+}
+
+export function ShieldCheckIcon({ size = 20, color = "#0D6847", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <Path d="m9 12 2 2 4-4" />
+    </Svg>
+  );
+}
+
+export function CameraIcon({ size = 16, color = "#FFFFFF", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+      <Circle cx="12" cy="13" r="3" />
+    </Svg>
+  );
+}
+
+export function EditIcon({ size = 16, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </Svg>
+  );
+}
+
+export function ChevronDownIcon({ size = 16, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="m6 9 6 6 6-6" />
+    </Svg>
+  );
+}
+
+export function ChevronUpIcon({ size = 16, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="m18 15-6-6-6 6" />
+    </Svg>
+  );
+}
+
+export function XIcon({ size = 16, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Line x1="18" y1="6" x2="6" y2="18" />
+      <Line x1="6" y1="6" x2="18" y2="18" />
+    </Svg>
+  );
+}
+
+export function AlertCircleIcon({ size = 18, color = "#DC2626", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx="12" cy="12" r="10" />
+      <Line x1="12" y1="8" x2="12" y2="12" />
+      <Line x1="12" y1="16" x2="12.01" y2="16" />
+    </Svg>
+  );
+}
+
+export function DoubleCheckIcon({ size = 14, color = "#0D6847", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M18 6 7 17l-5-5" />
+      <Path d="m22 10-7.5 7.5L13 16" />
+    </Svg>
+  );
+}
+
+export function PhoneIcon({ size = 18, color = "#0D6847", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+    </Svg>
+  );
+}
+
+export function PaperclipIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </Svg>
+  );
+}
+
+export function GiftIcon({ size = 18, color = "#0D6847", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Polyline points="20 12 20 22 4 22 4 12" />
+      <Rect width="20" height="5" x="2" y="7" />
+      <Line x1="12" y1="22" x2="12" y2="7" />
+      <Path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+      <Path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+    </Svg>
+  );
+}
+
+export function SparklesIcon({ size = 18, color = "#D97706", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z" />
     </Svg>
   );
 }

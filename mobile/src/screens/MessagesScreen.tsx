@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,11 @@ import {
   Platform,
   ActivityIndicator,
   StyleSheet,
+  ScrollView,
+  Pressable,
+  Animated,
+  Linking,
+  Alert,
 } from 'react-native';
 import {
   fetchConversations,
@@ -20,7 +25,18 @@ import {
 import type { ApiConversation, ApiMessage } from '../lib/types';
 import { subscribeToConversation, TypingUser } from '../lib/socket';
 import { Avatar } from '../components/ui';
-import { ArrowLeftIcon, SendIcon, VerifiedCheckIcon } from '../components/icons';
+import {
+  ArrowLeftIcon,
+  SendIcon,
+  VerifiedCheckIcon,
+  SearchIcon,
+  DoubleCheckIcon,
+  PhoneIcon,
+  PaperclipIcon,
+  MapPinIcon,
+  BriefcaseIcon,
+  ClockIcon,
+} from '../components/icons';
 
 interface MessagesScreenProps {
   initialConversationId?: string | null;
@@ -30,6 +46,14 @@ interface MessagesScreenProps {
   onActiveThreadChange?: (isActive: boolean) => void;
   refreshKey?: number;
 }
+
+const QUICK_ACTIONS = [
+  { label: '📍 Konum Gönder', text: 'İşin yapılacağı tam konumu paylaşabilir misiniz?' },
+  { label: '👍 İşi Onaylıyorum', text: 'Şartlar benim için uygundur, işi onaylıyorum.' },
+  { label: '⏰ Başlangıç Saati?', text: 'İşe tam olarak saat kaçta başlanacak?' },
+  { label: '💵 Ücret Detayı', text: 'Günlük yevmiye ve ödeme detaylarını teyit edebilir miyiz?' },
+  { label: '📞 İletişim Numarası', text: 'Görüşmek için telefon numaranızı alabilir miyim?' },
+];
 
 export function MessagesScreen({
   initialConversationId,
@@ -44,6 +68,8 @@ export function MessagesScreen({
   const [selected, setSelected] = useState<ApiConversation | null>(null);
   const [messages, setMessages] = useState<(ApiMessage & { tempId?: string })[]>([]);
   const [inputText, setInputText] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTab, setFilterTab] = useState<'all' | 'jobs' | 'unread'>('all');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -97,7 +123,6 @@ export function MessagesScreen({
 
     loadMessages(selected.id);
 
-    // Subscribe to realtime messages & typing
     const unsubscribe = subscribeToConversation(
       selected.id,
       (newMsg: any) => {
@@ -148,10 +173,10 @@ export function MessagesScreen({
     }, 2000);
   };
 
-  const handleSend = async () => {
-    if (!inputText.trim() || !selected || sending) return;
+  const handleSendText = async (textToSend: string) => {
+    if (!textToSend.trim() || !selected || sending) return;
 
-    const content = inputText.trim();
+    const content = textToSend.trim();
     setInputText('');
 
     if (typingTimeoutRef.current) {
@@ -192,13 +217,41 @@ export function MessagesScreen({
     }
   };
 
+  const handleCall = (phone?: string) => {
+    if (!phone) {
+      Alert.alert('İletişim', 'Kullanıcının telefon numarası profilinde gizli veya henüz eklenmemiş.');
+      return;
+    }
+    Linking.openURL(`tel:${phone}`);
+  };
+
+  const filteredConversations = useMemo(() => {
+    return conversations.filter((c) => {
+      const name = c.participant?.fullName || c.participant?.companyName || c.job?.title || '';
+      const jobTitle = c.job?.title || '';
+      const matchesSearch =
+        name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        jobTitle.toLowerCase().includes(searchQuery.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      if (filterTab === 'jobs') {
+        return !!c.job;
+      }
+      if (filterTab === 'unread') {
+        return (c.unreadCount ?? 0) > 0;
+      }
+      return true;
+    });
+  }, [conversations, searchQuery, filterTab]);
+
   const renderTypingIndicator = () => {
     if (typingUsers.length === 0) return null;
     return (
       <View style={styles.typingContainer}>
         <View style={styles.typingBubble}>
           <Text style={styles.typingText}>
-            {typingUsers.map((u) => u.name || u.userName || 'Biri').join(', ')} yazıyor
+            {typingUsers.map((u) => u.name || u.userName || 'Biri').join(', ')} yazıyor…
           </Text>
           <View style={styles.typingDots}>
             <View style={[styles.dot, styles.dot1]} />
@@ -214,13 +267,19 @@ export function MessagesScreen({
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#0D6847" />
+        <Text style={styles.loadingText}>Sohbetler yükleniyor…</Text>
       </View>
     );
   }
 
   // --- CONVERSATION CHAT VIEW ---
   if (selected) {
-    const displayName = selected.participant?.fullName || selected.participant?.companyName || selected.job?.title || 'Sohbet';
+    const displayName =
+      selected.participant?.fullName || selected.participant?.companyName || selected.job?.title || 'Sohbet';
+    const isVerified = (selected.participant as any)?.isVerified;
+    const phone = (selected.participant as any)?.phone;
+    const jobTitle = selected.job?.title;
+    const wageAmount = (selected.job as any)?.wageAmount;
 
     return (
       <KeyboardAvoidingView
@@ -228,29 +287,45 @@ export function MessagesScreen({
         style={styles.threadContainer}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 0}
       >
-        {/* Modern Architectural Header */}
+        {/* Modern Sleek Header */}
         <View style={styles.threadHeader}>
           <TouchableOpacity
             onPress={() => handleSelectConversation(null)}
             style={styles.backButton}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <ArrowLeftIcon size={22} color="#0C0E0D" />
+            <ArrowLeftIcon size={20} color="#141615" strokeWidth={2.2} />
           </TouchableOpacity>
-          <Avatar name={displayName} size={38} />
+
+          <View style={styles.headerAvatarContainer}>
+            <Avatar name={displayName} size={40} />
+            <View style={styles.onlineBadge} />
+          </View>
+
           <View style={styles.headerInfo}>
             <View style={styles.titleRow}>
               <Text style={styles.headerTitle} numberOfLines={1}>
                 {displayName}
               </Text>
-              <VerifiedCheckIcon size={14} color="#0D6847" />
+              {isVerified && <VerifiedCheckIcon size={15} color="#0D6847" />}
             </View>
-            {selected.job && (
-              <Text style={styles.headerSub} numberOfLines={1}>
-                {selected.job.title}
-              </Text>
+            {jobTitle && (
+              <View style={styles.headerJobPill}>
+                <BriefcaseIcon size={11} color="#0D6847" />
+                <Text style={styles.headerJobText} numberOfLines={1}>
+                  {jobTitle} {wageAmount ? `· ₺${wageAmount.toLocaleString('tr-TR')}` : ''}
+                </Text>
+              </View>
             )}
           </View>
+
+          <TouchableOpacity
+            onPress={() => handleCall(phone)}
+            style={styles.headerActionBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <PhoneIcon size={18} color="#0D6847" strokeWidth={2} />
+          </TouchableOpacity>
         </View>
 
         {/* Messages Feed */}
@@ -259,20 +334,46 @@ export function MessagesScreen({
           data={messages}
           keyExtractor={(item) => item.id || item.tempId || Math.random().toString()}
           contentContainerStyle={styles.messagesList}
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const isMe = item.senderId === currentUserId || item.senderId === 'me';
+            const prevItem = index > 0 ? messages[index - 1] : null;
+
+            // Show date separator if day changed
+            const isDifferentDay =
+              !prevItem ||
+              new Date(item.createdAt).toDateString() !== new Date(prevItem.createdAt).toDateString();
+
+            const dateStr = new Date(item.createdAt).toLocaleDateString('tr-TR', {
+              day: 'numeric',
+              month: 'long',
+            });
+
             return (
-              <View style={[styles.messageRow, isMe ? styles.myRow : styles.otherRow]}>
-                <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
-                  <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>
-                    {item.content}
-                  </Text>
-                  <Text style={[styles.messageTime, isMe ? styles.myTime : styles.otherTime]}>
-                    {new Date(item.createdAt).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
+              <View>
+                {isDifferentDay && (
+                  <View style={styles.dateSeparator}>
+                    <View style={styles.dateLine} />
+                    <View style={styles.datePill}>
+                      <Text style={styles.dateText}>{dateStr}</Text>
+                    </View>
+                    <View style={styles.dateLine} />
+                  </View>
+                )}
+                <View style={[styles.messageRow, isMe ? styles.myRow : styles.otherRow]}>
+                  <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
+                    <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>
+                      {item.content}
+                    </Text>
+                    <View style={styles.messageMetaRow}>
+                      <Text style={[styles.messageTime, isMe ? styles.myTime : styles.otherTime]}>
+                        {new Date(item.createdAt).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </Text>
+                      {isMe && <DoubleCheckIcon size={13} color="rgba(255,255,255,0.7)" strokeWidth={2} />}
+                    </View>
+                  </View>
                 </View>
               </View>
             );
@@ -281,19 +382,47 @@ export function MessagesScreen({
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         />
 
+        {/* Quick Suggestion Chips */}
+        <View style={styles.quickChipsWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickChipsScroll}
+          >
+            {QUICK_ACTIONS.map((action, i) => (
+              <TouchableOpacity
+                key={i}
+                style={styles.quickChip}
+                onPress={() => handleSendText(action.text)}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.quickChipText}>{action.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
         {/* Composer Bar */}
         <View style={styles.inputContainer}>
+          <TouchableOpacity
+            style={styles.attachButton}
+            onPress={() => Alert.alert('Dosya Paylaşımı', 'Konum, görsel ve belge ekleme özelliği yakında aktifleşecek.')}
+          >
+            <PaperclipIcon size={19} color="#5C615E" strokeWidth={1.8} />
+          </TouchableOpacity>
+
           <TextInput
             style={styles.textInput}
             value={inputText}
             onChangeText={handleTextChange}
-            placeholder="Mesajınızı yazın..."
+            placeholder="Mesajınızı yazın…"
             placeholderTextColor="#8C928E"
             multiline
             maxLength={1000}
           />
+
           <TouchableOpacity
-            onPress={handleSend}
+            onPress={() => handleSendText(inputText)}
             disabled={!inputText.trim() || sending}
             style={[
               styles.sendButton,
@@ -303,7 +432,7 @@ export function MessagesScreen({
             {sending ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <SendIcon size={18} color="#FFFFFF" />
+              <SendIcon size={16} color="#FFFFFF" strokeWidth={2.2} />
             )}
           </TouchableOpacity>
         </View>
@@ -314,26 +443,82 @@ export function MessagesScreen({
   // --- INBOX LIST VIEW ---
   return (
     <View style={styles.listContainer}>
-      <View style={styles.listHeader}>
-        <Text style={styles.listHeaderTitle}>Mesajlar</Text>
-        <Text style={styles.listHeaderSub}>Günübirlik İş Görüşmeleri</Text>
+      {/* Search Header */}
+      <View style={styles.inboxHeader}>
+        <View style={styles.inboxTitleRow}>
+          <Text style={styles.inboxTitle}>Mesajlar</Text>
+          <View style={styles.activeConvCountPill}>
+            <Text style={styles.activeConvCountText}>{conversations.length} Sohbet</Text>
+          </View>
+        </View>
+
+        {/* Search Bar */}
+        <View style={styles.searchBar}>
+          <SearchIcon size={16} color="#717673" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Kişi veya iş ilanlarında ara…"
+            placeholderTextColor="#8C928E"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+
+        {/* Filter Tabs */}
+        <View style={styles.filterRow}>
+          <Pressable
+            style={[styles.filterChip, filterTab === 'all' && styles.filterChipActive]}
+            onPress={() => setFilterTab('all')}
+          >
+            <Text style={[styles.filterChipText, filterTab === 'all' && styles.filterChipTextActive]}>
+              Tümü
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.filterChip, filterTab === 'jobs' && styles.filterChipActive]}
+            onPress={() => setFilterTab('jobs')}
+          >
+            <Text style={[styles.filterChipText, filterTab === 'jobs' && styles.filterChipTextActive]}>
+              İş Görüşmeleri
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.filterChip, filterTab === 'unread' && styles.filterChipActive]}
+            onPress={() => setFilterTab('unread')}
+          >
+            <Text style={[styles.filterChipText, filterTab === 'unread' && styles.filterChipTextActive]}>
+              Okunmamış
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <FlatList
-        data={conversations}
+        data={filteredConversations}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.conversationsScroll}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>Henüz mesajınız yok</Text>
-            <Text style={styles.emptyDesc}>İş ilanlarına başvurduğunuzda burada mesajlaşabilirsiniz.</Text>
+            <View style={styles.emptyIconBox}>
+              <SearchIcon size={24} color="#0D6847" />
+            </View>
+            <Text style={styles.emptyTitle}>
+              {searchQuery ? 'Aramayla eşleşen sohbet bulunamadı' : 'Henüz mesajınız yok'}
+            </Text>
+            <Text style={styles.emptyDesc}>
+              {searchQuery
+                ? 'Farklı bir arama kelimesi deneyebilir veya filtreyi temizleyebilirsiniz.'
+                : 'İş ilanlarına başvurduğunuzda veya ilan verdiğinizde burada mesajlaşabilirsiniz.'}
+            </Text>
           </View>
         }
         renderItem={({ item }) => {
           const name = item.participant?.fullName || item.participant?.companyName || item.job?.title || 'Sohbet';
+          const isVerified = (item.participant as any)?.isVerified;
           const lastMsg = item.lastMessage?.content || 'Henüz mesaj yok';
+          const unreadCount = item.unreadCount ?? 0;
           const time = item.lastMessage?.createdAt
-            ? new Date(item.lastMessage.createdAt).toLocaleDateString([], {
+            ? new Date(item.lastMessage.createdAt).toLocaleDateString('tr-TR', {
                 month: 'short',
                 day: 'numeric',
               })
@@ -341,26 +526,47 @@ export function MessagesScreen({
 
           return (
             <TouchableOpacity
-              activeOpacity={0.85}
+              activeOpacity={0.8}
               onPress={() => handleSelectConversation(item)}
               style={styles.conversationCard}
             >
-              <Avatar name={name} size={46} />
+              <View style={styles.cardAvatarContainer}>
+                <Avatar name={name} size={48} />
+                <View style={styles.onlineDot} />
+              </View>
+
               <View style={styles.cardCenter}>
                 <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardName} numberOfLines={1}>
-                    {name}
-                  </Text>
+                  <View style={styles.cardNameRow}>
+                    <Text style={styles.cardName} numberOfLines={1}>
+                      {name}
+                    </Text>
+                    {isVerified && <VerifiedCheckIcon size={14} color="#0D6847" />}
+                  </View>
                   {time ? <Text style={styles.cardTime}>{time}</Text> : null}
                 </View>
+
                 {item.job && (
-                  <Text style={styles.cardListing} numberOfLines={1}>
-                    {item.job.title}
-                  </Text>
+                  <View style={styles.cardJobBadge}>
+                    <BriefcaseIcon size={10} color="#0D6847" />
+                    <Text style={styles.cardJobTitle} numberOfLines={1}>
+                      {item.job.title}
+                    </Text>
+                  </View>
                 )}
-                <Text style={styles.cardLastMsg} numberOfLines={1}>
-                  {lastMsg}
-                </Text>
+
+                <View style={styles.cardBottomRow}>
+                  <Text style={styles.cardLastMsg} numberOfLines={1}>
+                    {lastMsg}
+                  </Text>
+                  {unreadCount > 0 && (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadBadgeText}>
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
             </TouchableOpacity>
           );
@@ -376,97 +582,234 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6F5F2',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: '#5C615E',
+    fontFamily: 'PlusJakartaSans_500Medium',
   },
   listContainer: {
     flex: 1,
     backgroundColor: '#F6F5F2',
   },
-  listHeader: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 14,
+  inboxHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
     backgroundColor: '#F6F5F2',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E0D8',
+    borderBottomColor: '#E8E6DF',
+    gap: 10,
   },
-  listHeaderTitle: {
-    fontSize: 24,
+  inboxTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  inboxTitle: {
+    fontSize: 22,
+    fontFamily: 'PlusJakartaSans_800ExtraBold',
     fontWeight: '800',
-    color: '#0C0E0D',
-    letterSpacing: -0.5,
+    color: '#141615',
+    letterSpacing: -0.4,
   },
-  listHeaderSub: {
-    fontSize: 12,
+  activeConvCountPill: {
+    backgroundColor: '#EAF3EE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#C5DDD0',
+  },
+  activeConvCountText: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
+    color: '#0D6847',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 40,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    color: '#141615',
+    height: '100%',
+    padding: 0,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  filterChipActive: {
+    backgroundColor: '#0D6847',
+    borderColor: '#0D6847',
+  },
+  filterChipText: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
     fontWeight: '600',
-    color: '#656D67',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginTop: 2,
+    color: '#5C615E',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
   },
   conversationsScroll: {
-    padding: 16,
-    gap: 10,
+    paddingVertical: 6,
   },
   conversationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 12,
+    marginVertical: 4,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E0D8',
-    marginBottom: 8,
+    borderColor: '#EAE8E2',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  cardAvatarContainer: {
+    position: 'relative',
+  },
+  onlineDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   cardCenter: {
     flex: 1,
-    marginLeft: 12,
+    gap: 3,
   },
   cardHeaderRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flex: 1,
   },
   cardName: {
     fontSize: 15,
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
-    color: '#0C0E0D',
-    flex: 1,
-    marginRight: 6,
+    color: '#141615',
+    letterSpacing: -0.2,
   },
   cardTime: {
     fontSize: 11,
-    fontWeight: '500',
-    color: '#8C928E',
+    fontFamily: 'PlusJakartaSans_500Medium',
+    color: '#717673',
   },
-  cardListing: {
-    fontSize: 12,
+  cardJobBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: '#EAF3EE',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  cardJobTitle: {
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
     fontWeight: '600',
     color: '#0D6847',
+  },
+  cardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 2,
   },
   cardLastMsg: {
+    flex: 1,
     fontSize: 13,
-    color: '#656D67',
-    marginTop: 3,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    color: '#5C615E',
+    marginRight: 8,
+  },
+  unreadBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#0D6847',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  unreadBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 80,
     paddingHorizontal: 32,
+    paddingVertical: 60,
+    gap: 8,
   },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0C0E0D',
+  emptyIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EAF3EE',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 6,
   },
+  emptyTitle: {
+    fontSize: 16,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
+    color: '#141615',
+    textAlign: 'center',
+  },
   emptyDesc: {
-    fontSize: 13,
-    color: '#656D67',
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    color: '#5C615E',
     textAlign: 'center',
     lineHeight: 18,
   },
+
+  // Thread Chat View Styles
   threadContainer: {
     flex: 1,
     backgroundColor: '#F6F5F2',
@@ -474,44 +817,111 @@ const styles = StyleSheet.create({
   threadHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E0D8',
+    borderBottomColor: '#E8E6DF',
+    gap: 10,
   },
   backButton: {
-    marginRight: 12,
-    padding: 4,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F6F5F2',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  headerAvatarContainer: {
+    position: 'relative',
+  },
+  onlineBadge: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#10B981',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
   headerInfo: {
     flex: 1,
-    marginLeft: 10,
+    gap: 2,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 15,
+    fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
-    color: '#0C0E0D',
+    color: '#141615',
+    letterSpacing: -0.2,
   },
-  headerSub: {
-    fontSize: 11,
+  headerJobPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EAF3EE',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+  },
+  headerJobText: {
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
     fontWeight: '600',
     color: '#0D6847',
-    marginTop: 1,
   },
+  headerActionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: '#EAF3EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#C5DDD0',
+  },
+
   messagesList: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  dateSeparator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 12,
+    gap: 8,
+  },
+  dateLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E2E0D8',
+  },
+  datePill: {
+    backgroundColor: '#EAE8E2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  dateText: {
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontWeight: '600',
+    color: '#5C615E',
   },
   messageRow: {
-    marginVertical: 3,
     flexDirection: 'row',
+    marginVertical: 2,
   },
   myRow: {
     justifyContent: 'flex-end',
@@ -520,60 +930,151 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   messageBubble: {
-    maxWidth: '78%',
-    borderRadius: 16,
+    maxWidth: '82%',
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 7,
+    borderRadius: 16,
   },
   myBubble: {
     backgroundColor: '#0D6847',
-    borderBottomRightRadius: 3,
+    borderBottomRightRadius: 4,
+    shadowColor: '#0D6847',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
   otherBubble: {
     backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: '#E2E0D8',
-    borderBottomLeftRadius: 3,
+    borderColor: '#E8E6DF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   messageText: {
     fontSize: 14,
-    lineHeight: 19,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    lineHeight: 20,
   },
   myText: {
     color: '#FFFFFF',
   },
   otherText: {
-    color: '#0C0E0D',
+    color: '#141615',
+  },
+  messageMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+    marginTop: 4,
   },
   messageTime: {
     fontSize: 10,
-    marginTop: 4,
-    alignSelf: 'flex-end',
+    fontFamily: 'PlusJakartaSans_400Regular',
   },
   myTime: {
     color: 'rgba(255,255,255,0.7)',
   },
   otherTime: {
-    color: '#8C928E',
+    color: '#717673',
   },
-  typingContainer: {
+
+  quickChipsWrapper: {
+    backgroundColor: '#F6F5F2',
+    borderTopWidth: 1,
+    borderTopColor: '#EAE8E2',
     paddingVertical: 6,
+  },
+  quickChipsScroll: {
     paddingHorizontal: 12,
+    gap: 6,
+  },
+  quickChip: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  quickChipText: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontWeight: '600',
+    color: '#0D6847',
+  },
+
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E8E6DF',
+    gap: 8,
+  },
+  attachButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F6F5F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textInput: {
+    flex: 1,
+    backgroundColor: '#F6F5F2',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    maxHeight: 90,
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    color: '#141615',
+  },
+  sendButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendButtonActive: {
+    backgroundColor: '#0D6847',
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#C5DDD0',
+  },
+
+  typingContainer: {
+    paddingHorizontal: 6,
+    paddingVertical: 4,
   },
   typingBubble: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EBE9E1',
-    alignSelf: 'flex-start',
-    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
     gap: 6,
+    borderWidth: 1,
+    borderColor: '#EAE8E2',
   },
   typingText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#656D67',
+    fontFamily: 'PlusJakartaSans_500Medium',
+    color: '#717673',
   },
   typingDots: {
     flexDirection: 'row',
@@ -588,42 +1089,6 @@ const styles = StyleSheet.create({
   dot1: { opacity: 0.4 },
   dot2: { opacity: 0.7 },
   dot3: { opacity: 1 },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E0D8',
-    gap: 8,
-  },
-  textInput: {
-    flex: 1,
-    minHeight: 40,
-    maxHeight: 100,
-    backgroundColor: '#F6F5F2',
-    borderWidth: 1,
-    borderColor: '#E2E0D8',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    fontSize: 14,
-    color: '#0C0E0D',
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sendButtonActive: {
-    backgroundColor: '#0D6847',
-  },
-  sendButtonDisabled: {
-    backgroundColor: '#C5C9C6',
-  },
 });
 
 export default MessagesScreen;
