@@ -26,7 +26,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, password: string, twoFactorCode?: string) => Promise<void>;
   register: (payload: API.RegisterPayload) => Promise<void>;
-  loginWithGoogle: (idToken: string) => Promise<void>;
+  loginWithGoogle: (idToken: string, registrationData?: API.GoogleCompleteRegistrationPayload) => Promise<API.GoogleLoginResult>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -138,14 +138,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await API.cacheUserForBootstrap(me);
   }, []);
 
-  const loginWithGoogle = useCallback(async (idToken: string) => {
-    const result = await API.googleLogin(idToken);
-    if (result.token) await API.setToken(result.token);
-    const me = result.user ?? (await API.fetchMe());
-    armPermissionPrompt();
-    setUser(me);
-    await API.cacheUserForBootstrap(me);
-  }, []);
+  const loginWithGoogle = useCallback(
+    async (idToken: string, registrationData?: API.GoogleCompleteRegistrationPayload) => {
+      const result = await API.googleLogin(idToken, registrationData);
+      if (result.requiresRegistration) {
+        return result;
+      }
+      if (result.token) await API.setToken(result.token);
+      const me = result.user ?? (await API.fetchMe());
+      armPermissionPrompt();
+      setUser(me);
+      await API.cacheUserForBootstrap(me);
+      return result;
+    },
+    [],
+  );
 
   const logout = useCallback(async () => {
     await API.logout();

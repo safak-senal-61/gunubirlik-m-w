@@ -430,16 +430,36 @@ export async function fetchSecurityInfo(): Promise<SecurityInfo> {
 
 // ---------------- Google ----------------
 
+export interface GoogleCompleteRegistrationPayload {
+  completeRegistration: boolean;
+  role: "WORKER" | "EMPLOYER";
+  fullName?: string;
+  phone?: string;
+  city?: string;
+  district?: string;
+  companyName?: string;
+  acceptedContracts?: boolean;
+}
+
 export interface GoogleLoginResult {
-  user?: ApiUser;
+  requiresRegistration?: boolean;
+  googleProfile?: {
+    email: string;
+    fullName: string;
+    avatarUrl?: string;
+  };
+  user?: ApiUser | null;
   token?: string;
   isNewUser?: boolean;
 }
 
-/** idToken comes from expo-auth-session Google provider (ID token). */
-export async function googleLogin(idToken: string): Promise<GoogleLoginResult> {
+/** idToken comes from Google Sign-In */
+export async function googleLogin(
+  idToken: string,
+  registrationData?: GoogleCompleteRegistrationPayload
+): Promise<GoogleLoginResult> {
   try {
-    const res = await api.post("/auth/google", { idToken });
+    const res = await api.post("/auth/google", { idToken, ...registrationData });
     return res.data.data as GoogleLoginResult;
   } catch (err) {
     throw toApiError(err);

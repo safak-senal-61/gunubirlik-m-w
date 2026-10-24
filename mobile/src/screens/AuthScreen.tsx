@@ -4,6 +4,7 @@ import {
   Modal,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -24,7 +25,7 @@ import { BriefcaseIcon, UsersIcon } from "@/components/icons";
 
 const LOGO = require("../../assets/logo-wordmark.png");
 
-type Mode = "login" | "register" | "twofactor" | "forgot" | "reset" | "verify";
+type Mode = "login" | "register" | "twofactor" | "forgot" | "reset" | "verify" | "google_onboarding";
 
 type Country = {
   code: string;
@@ -108,6 +109,13 @@ export default function AuthScreen({
   const [verifyEmailAddr, setVerifyEmailAddr] = useState("");
   const [verifyCode, setVerifyCode] = useState("");
   const [resending, setResending] = useState(false);
+  const [googlePendingToken, setGooglePendingToken] = useState<string | null>(null);
+  const [googleProfile, setGoogleProfile] = useState<{
+    email: string;
+    fullName: string;
+    avatarUrl?: string;
+  } | null>(null);
+  const [acceptedContracts, setAcceptedContracts] = useState(false);
 
   const submitLogin = async () => {
     setLoading(true);
@@ -285,7 +293,28 @@ export default function AuthScreen({
     try {
       const res = await getIdTokenFromGoogle();
       if (!res?.idToken) return;
-      await loginWithGoogle(res.idToken);
+      const authRes = await loginWithGoogle(res.idToken);
+      if (authRes?.requiresRegistration) {
+        // Yeni Google kullanıcısı: Henüz veritabanında kaydı yok!
+        // Web sitesindeki gibi kullanıcı işveren mi işçi mi ve kritik bilgiler alınmadan kayıt tamamlanamaz.
+        setGooglePendingToken(res.idToken);
+        const profile = authRes.googleProfile || {
+          email: res.email || "",
+          fullName: res.fullName || "",
+        };
+        setGoogleProfile(profile);
+        if (profile.fullName) {
+          setFullName(profile.fullName);
+        }
+        if (profile.email) {
+          setEmail(profile.email);
+        }
+        setRole("WORKER");
+        setAcceptedContracts(false);
+        setError(null);
+        setMode("google_onboarding");
+        return;
+      }
       onDone();
     } catch (err) {
       if (err instanceof Error && err.message.includes("iptal")) {
@@ -295,6 +324,67 @@ export default function AuthScreen({
       }
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const submitGoogleOnboarding = async () => {
+    setError(null);
+    if (!googlePendingToken) return;
+
+    if (!role) {
+      setError("Lütfen İş Arayan (İşçi) veya İşveren (İşletme) rolünü seçiniz.");
+      return;
+    }
+
+    if (!fullName.trim() || fullName.trim().length < 2) {
+      setError("Lütfen ad ve soyadınızı eksiksiz giriniz.");
+      return;
+    }
+
+    const rawDigits = phoneDigits.replace(/\D/g, "");
+    if (!rawDigits || rawDigits.length < country.digits) {
+      setError(`Lütfen geçerli bir telefon numarası giriniz (${country.placeholder}).`);
+      return;
+    }
+    const formattedPhone = `+${country.dial}${rawDigits}`;
+
+    if (role === "EMPLOYER" && !companyName.trim()) {
+      setError("İşveren kaydı için işletme veya şirket unvanı zorunludur.");
+      return;
+    }
+
+    if (!city.trim()) {
+      setError("Lütfen bulunduğunuz şehri giriniz.");
+      return;
+    }
+
+    if (!district.trim()) {
+      setError("Lütfen bulunduğunuz ilçeyi giriniz.");
+      return;
+    }
+
+    if (!acceptedContracts) {
+      setError("Kayıt olabilmek için sözleşmeleri ve KVKK metnini onaylamalısınız.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await loginWithGoogle(googlePendingToken, {
+        completeRegistration: true,
+        role,
+        fullName: fullName.trim(),
+        phone: formattedPhone,
+        city: city.trim(),
+        district: district.trim(),
+        companyName: role === "EMPLOYER" ? companyName.trim() : undefined,
+        acceptedContracts: true,
+      });
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Kayıt tamamlanamadı.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -309,7 +399,9 @@ export default function AuthScreen({
             ? "Şifre Sıfırlama"
             : mode === "verify"
               ? "E-posta Aktivasyonu"
-              : "Yeni Şifre Belirle";
+              : mode === "google_onboarding"
+                ? "Kaydı Tamamlayın"
+                : "Yeni Şifre Belirle";
 
   return (
     <KeyboardAvoidingView
@@ -323,7 +415,9 @@ export default function AuthScreen({
         <View style={styles.hero}>
           <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
           <Text style={styles.tagline}>
-            {mode === "register"
+            {mode === "google_onboarding"
+              ? "Google ile kaydı tamamlamak için bilgilerinizi doldurun."
+              : mode === "register"
               ? "Bugün iş, bugün kazanç."
               : "Konum bazlı günlük iş platformu"}
           </Text>
@@ -525,6 +619,16 @@ export default function AuthScreen({
 
                   <PrimaryButton label="İleri →" onPress={handleNextStep} />
 
+                  <View style={styles.googleContainer}>
+                    <Divider text="veya" />
+                    <GoogleButton
+                      loading={googleLoading}
+                      onPress={() => {
+                        void submitGoogle();
+                      }}
+                    />
+                  </View>
+
                   <View style={styles.switchModeContainer}>
                     <SwitchMode
                       text="Zaten bir hesabınız var mı?"
@@ -648,6 +752,130 @@ export default function AuthScreen({
                 <Text style={styles.link}>← Girişe Dön</Text>
               </Pressable>
             </>
+          )}
+
+          {mode === "google_onboarding" && (
+            <View style={styles.stepContent}>
+              {/* Google Profil Özeti */}
+              <View style={styles.googleProfileCard}>
+                {googleProfile?.avatarUrl ? (
+                  <Image source={{ uri: googleProfile.avatarUrl }} style={styles.googleAvatar} />
+                ) : (
+                  <View style={styles.googleAvatarFallback}>
+                    <Text style={styles.googleAvatarText}>
+                      {(googleProfile?.fullName || fullName || "G")[0]?.toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <View style={styles.googleBadgeRow}>
+                    <Text style={styles.googleBadgeText}>✓ Google ile Doğrulandı</Text>
+                  </View>
+                  <Text style={styles.googleProfileName} numberOfLines={1}>
+                    {googleProfile?.fullName || fullName || "Google Kullanıcısı"}
+                  </Text>
+                  <Text style={styles.googleProfileEmail} numberOfLines={1}>
+                    {googleProfile?.email || email}
+                  </Text>
+                </View>
+              </View>
+
+              {/* 1. Zorunlu Hesap Türü (Rol) */}
+              <Text style={styles.sectionLabel}>Hesap Türünüzü Seçiniz *</Text>
+              <View style={styles.roleRow}>
+                <RoleCard
+                  active={role === "WORKER"}
+                  iconNode={<BriefcaseIcon size={22} color={role === "WORKER" ? "#0D6847" : "#5C615E"} />}
+                  label="İş Arayan / İşçi"
+                  hint="Günlük iş ilanlarına başvurun"
+                  onPress={() => setRole("WORKER")}
+                />
+                <RoleCard
+                  active={role === "EMPLOYER"}
+                  iconNode={<UsersIcon size={22} color={role === "EMPLOYER" ? "#0D6847" : "#5C615E"} />}
+                  label="İşveren / İşletme"
+                  hint="İlan açın, hızlı eleman bulun"
+                  onPress={() => setRole("EMPLOYER")}
+                />
+              </View>
+
+              {/* 2. Ad Soyad */}
+              <Field
+                label="Ad Soyad *"
+                value={fullName}
+                onChangeText={setFullName}
+                placeholder="Adınız ve soyadınız"
+              />
+
+              {/* 3. Telefon Numarası */}
+              <PhoneField
+                country={country}
+                digits={phoneDigits}
+                onCountry={(c) => {
+                  setCountry(c);
+                  setPhoneDigits((d) => d.slice(0, c.digits));
+                }}
+                onDigits={setPhoneDigits}
+              />
+
+              {/* 4. İşveren ise Şirket / İşletme Adı */}
+              {role === "EMPLOYER" && (
+                <Field
+                  label="Şirket / İşletme Unvanı *"
+                  value={companyName}
+                  onChangeText={setCompanyName}
+                  placeholder="Örn. Yılmaz İnşaat Ltd. Şti."
+                />
+              )}
+
+              {/* 5. Konum */}
+              <View style={styles.row}>
+                <View style={styles.half}>
+                  <Field label="Şehir *" value={city} onChangeText={setCity} placeholder="İstanbul" />
+                </View>
+                <View style={styles.half}>
+                  <Field label="İlçe *" value={district} onChangeText={setDistrict} placeholder="Kadıköy" />
+                </View>
+              </View>
+
+              {/* 6. Sözleşmeler & KVKK Onayı */}
+              <Pressable
+                style={styles.contractRow}
+                onPress={() => setAcceptedContracts(!acceptedContracts)}
+              >
+                <View style={[styles.checkbox, acceptedContracts && styles.checkboxActive]}>
+                  {acceptedContracts && <Text style={styles.checkboxCheck}>✓</Text>}
+                </View>
+                <Text style={styles.contractText}>
+                  <Text
+                    style={[styles.linkBold, { fontSize: 11.5, textDecorationLine: "underline" }]}
+                    onPress={() => Linking.openURL("https://gunubirlik.qrders.com.tr/sozlesmeler")}
+                  >
+                    Kullanıcı Sözleşmesi, Gizlilik Politikası, Mesafeli Satış ve KVKK Metni
+                  </Text>
+                  'ni okudum, onaylıyorum. *
+                </Text>
+              </Pressable>
+
+              {error ? <Banner tone="error" text={error} /> : null}
+
+              <PrimaryButton
+                label="Kaydı Tamamla ve Başla"
+                onPress={submitGoogleOnboarding}
+                loading={loading}
+              />
+
+              <Pressable
+                onPress={() => {
+                  setMode("login");
+                  setGooglePendingToken(null);
+                  setError(null);
+                }}
+                style={styles.linkBtn}
+              >
+                <Text style={styles.link}>← Vazgeç ve Giriş Ekranına Dön</Text>
+              </Pressable>
+            </View>
           )}
 
           {mode === "forgot" && (
@@ -1153,6 +1381,48 @@ const styles = StyleSheet.create({
   linkBtn: { paddingVertical: 10, alignItems: "center" },
   link: { color: C.primary, fontSize: 13, fontWeight: "700", textAlign: "center" },
   linkBold: { color: C.primary, fontWeight: "800" },
+  googleProfileCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#EBF5F0",
+    borderWidth: 1,
+    borderColor: "#B8E2D1",
+    marginBottom: 16,
+  },
+  googleAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#D1EBE1" },
+  googleAvatarFallback: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: "#0D6847", alignItems: "center", justifyContent: "center",
+  },
+  googleAvatarText: { color: "#FFFFFF", fontWeight: "700", fontSize: 18 },
+  googleBadgeRow: { flexDirection: "row", alignItems: "center", marginBottom: 2 },
+  googleBadgeText: { fontSize: 11, fontWeight: "700", color: "#0D6847", textTransform: "uppercase", letterSpacing: 0.3 },
+  googleProfileName: { fontSize: 14, fontWeight: "700", color: "#141615" },
+  googleProfileEmail: { fontSize: 12, color: "#5C615E" },
+  contractRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    marginTop: 4,
+    marginBottom: 16,
+    paddingHorizontal: 2,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "#8C928E",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+    backgroundColor: "#FFFFFF",
+  },
+  checkboxActive: { backgroundColor: "#0D6847", borderColor: "#0D6847" },
+  checkboxCheck: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" },
+  contractText: { flex: 1, fontSize: 11.5, color: "#5C615E", lineHeight: 16 },
   switchText: { textAlign: "center", color: C.muted, fontSize: 13 },
   roleRow: { flexDirection: "row", gap: 10, marginBottom: 16 },
   roleCard: { flex: 1, borderWidth: 1, borderColor: C.border, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 8, alignItems: "center", gap: 3, backgroundColor: "#FFFFFF" },
