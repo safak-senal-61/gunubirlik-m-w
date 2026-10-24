@@ -67,6 +67,7 @@ import {
   BellIcon,
   FileTextIcon,
   InfoIcon,
+  TrashIcon,
 } from "@/components/icons";
 
 type SettingsTab = "account" | "wallet" | "security" | "notifications" | "policies" | "about";
@@ -244,7 +245,7 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
     <>
       {/* Modern profil kartı: renkli üst blok + yuvarlak avatar + cam hissi istatistikler */}
       <View style={styles.profileCard}>
-        <View style={styles.profileGlow} pointerEvents="none" />
+        
         <View style={styles.profileTop}>
           <Pressable
             onPress={async () => {
@@ -282,7 +283,7 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
               </View>
             )}
             <View style={styles.avatarBadge}>
-              <Text style={styles.avatarBadgeText}>📷</Text>
+              <Text style={styles.avatarBadgeText}>Düzenle</Text>
             </View>
           </Pressable>
 
@@ -292,7 +293,7 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
             </View>
             <View style={styles.profileChipRow}>
               <View style={styles.profileChip}>
-                <Text style={styles.profileChipText}>{isEmployer ? "🏢 İşveren" : "🔨 İşçi"}</Text>
+                <Text style={styles.profileChipText}>{isEmployer ? "İşveren" : "İş Arayan"}</Text>
               </View>
               {user.isVerified && (
                 <View style={[styles.profileChip, styles.profileChipOk]}>
@@ -301,20 +302,20 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
               )}
             </View>
             {isEmployer && user.companyName ? (
-              <Text style={styles.profileCompany} numberOfLines={1}>🏢 {user.companyName}</Text>
+              <Text style={styles.profileCompany} numberOfLines={1}>{user.companyName}</Text>
             ) : null}
           </View>
         </View>
 
         <View style={styles.profileInfoRow}>
-          <InfoPill icon="✉️" text={user.email} />
-          {user.phone ? <InfoPill icon="📞" text={user.phone} /> : null}
-          {user.city || user.district ? <InfoPill icon="📍" text={`${user.district ?? ""}, ${user.city ?? ""}`.trim()} /> : null}
+          <InfoPill text={user.email} />
+          {user.phone ? <InfoPill text={user.phone} /> : null}
+          {user.city || user.district ? <InfoPill text={`${user.district ?? ""}, ${user.city ?? ""}`.trim()} /> : null}
         </View>
 
         <View style={styles.profileStats}>
           <View style={styles.profileStat}>
-            <Text style={styles.profileStatValue}>⭐ {user.ratingAvg.toFixed(1)}</Text>
+            <Text style={styles.profileStatValue}>{user.ratingAvg.toFixed(1)} ★</Text>
             <Text style={styles.profileStatLabel}>{user.ratingCount} değerlendirme</Text>
           </View>
           <View style={styles.profileStatDivider} />
@@ -349,10 +350,10 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
   );
 }
 
-function InfoPill({ icon, text }: { icon: string; text: string }) {
+function InfoPill({ icon, text }: { icon?: string; text: string }) {
   return (
     <View style={styles.infoPill}>
-      <Text style={styles.infoPillIcon}>{icon}</Text>
+      {icon ? <Text style={styles.infoPillIcon}>{icon}</Text> : null}
       <Text style={styles.infoPillText} numberOfLines={1}>{text}</Text>
     </View>
   );
@@ -450,14 +451,14 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
                 contentContainerStyle={{ gap: 14, paddingBottom: 32 }}
               >
                 <View style={styles.formSectionCard}>
-                  <Text style={styles.sectionLabel}>👤 Kişisel Bilgiler</Text>
+                  <Text style={styles.sectionLabel}>Kişisel Bilgiler</Text>
                   <Field label="Ad Soyad" value={fullName} onChangeText={setFullName} placeholder="Adınız Soyadınız" />
                   <Field label="Telefon" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="0532 000 00 00" />
                   {isEmployer && <Field label="Şirket adı" value={companyName} onChangeText={setCompanyName} placeholder="Şirket Ünvanı" />}
                 </View>
 
                 <View style={styles.formSectionCard}>
-                  <Text style={styles.sectionLabel}>📍 Konum & Adres</Text>
+                  <Text style={styles.sectionLabel}>Konum ve Adres</Text>
                   <View style={styles.row}>
                     <View style={styles.half}><Field label="İl" value={city} onChangeText={setCity} placeholder="İstanbul" /></View>
                     <View style={styles.half}><Field label="İlçe" value={district} onChangeText={setDistrict} placeholder="Kadıköy" /></View>
@@ -466,7 +467,7 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
 
                 {!isEmployer && (
                   <View style={styles.formSectionCard}>
-                    <Text style={styles.sectionLabel}>🔨 İşçi Profili & Ücret</Text>
+                    <Text style={styles.sectionLabel}>İşçi Profili ve Ücret Beklentisi</Text>
                     <Field label="Beceriler (virgülle ayır)" value={skills} onChangeText={setSkills} placeholder="Garsonluk, Kurye, Temizlik..." />
                     <View style={styles.row}>
                       <View style={styles.half}><Field label="Deneyim (yıl)" value={exp} onChangeText={(v) => setExp(v.replace(/\D/g, ""))} keyboardType="number-pad" placeholder="2" /></View>
@@ -477,11 +478,11 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
                 )}
 
                 <View style={styles.formSectionCard}>
-                  <Text style={styles.sectionLabel}>📝 Hakkımda</Text>
+                  <Text style={styles.sectionLabel}>Hakkımda</Text>
                   <Field label="Kendini kısaca tanıt" value={bio} onChangeText={setBio} multiline placeholder="Deneyimlerinden ve çalışma prensiplerinden kısaca bahset..." />
                 </View>
 
-                {error ? <Text style={styles.error}>⚠️ {error}</Text> : null}
+                {error ? <Text style={styles.error}>{error}</Text> : null}
 
                 <View style={[styles.row, { marginTop: 4 }]}>
                   <View style={styles.half}><PrimaryButton label="Vazgeç" variant="ghost" onPress={() => setOpen(false)} /></View>
@@ -525,9 +526,9 @@ function WorkerStatsSection({ refreshKey }: { refreshKey: number }) {
   return (
     <>
       <View style={styles.statRow}>
-        <GradientStat emoji="✅" label="Tamamlanan" value={String(completed.length)} color="#059669" bg={C.emeraldBg} />
-        <GradientStat emoji="💰" label="Toplam kazanç" value={`${earned.toLocaleString("tr-TR")} ₺`} color="#4f46e5" bg={C.primarySoft} />
-        <GradientStat emoji="📥" label="Başvuru" value={String(apps.length)} color="#b45309" bg={C.amberBg} />
+        <StatCard label="Tamamlanan" value={String(completed.length)} />
+        <StatCard label="Toplam Kazanç" value={`${earned.toLocaleString("tr-TR")} ₺`} />
+        <StatCard label="Başvurular" value={String(apps.length)} />
       </View>
 
       <RatingSummarySection />
@@ -553,7 +554,7 @@ function WorkerStatsSection({ refreshKey }: { refreshKey: number }) {
             {completed.length > 5 && (
               <PrimaryButton label={showAll ? "Daha az göster" : `Tümünü göster (${completed.length})`} variant="ghost" onPress={() => setShowAll(!showAll)} />
             )}
-            <Text style={styles.miniNote}>💡 Tamamlanan işlerden sonra karşı taraftan puan beklemeyi unutma.</Text>
+            <Text style={styles.miniNote}>Tamamlanan işlerden sonra karşı taraftan puan beklemeyi unutmayın.</Text>
           </>
         )}
         <PrimaryButton label="Yenile" variant="ghost" onPress={async () => { await load(); await refreshUser(); }} />
@@ -626,7 +627,7 @@ function RatingSummarySection() {
         <SectionTitle>Puan Özetim</SectionTitle>
         {data.recentCount30d ? (
           <View style={styles.trendChip}>
-            <Text style={styles.trendText}>🔥 Son 30 gün: +{data.recentCount30d}</Text>
+            <Text style={styles.trendText}>Son 30 gün: +{data.recentCount30d}</Text>
           </View>
         ) : null}
       </View>
@@ -715,9 +716,9 @@ function MyReviewsSection() {
 /* ================= HESAP: doğrulama & rozet ================= */
 
 const VERIF_TYPES: { type: VerificationType; icon: string; label: string; hint: string }[] = [
-  { type: "IDENTITY", icon: "🪪", label: "Kimlik", hint: "TC kimlik / pasaport foto" },
-  { type: "COMPANY", icon: "🏢", label: "Şirket", hint: "Ticari sicil / faaliyet belgesi" },
-  { type: "TAX", icon: "🧾", label: "Vergi", hint: "Vergi levhası" },
+  { type: "IDENTITY", icon: "KML", label: "Kimlik", hint: "T.C. kimlik veya pasaport belgesi" },
+  { type: "COMPANY", icon: "ŞRK", label: "Şirket", hint: "Ticari sicil gazetesi veya faaliyet belgesi" },
+  { type: "TAX", icon: "VRG", label: "Vergi", hint: "Güncel vergi levhası" },
 ];
 
 function VerificationSection() {
@@ -797,7 +798,7 @@ function VerificationSection() {
           <Text style={styles.verifiedTitle}>Hesabın doğrulanmış</Text>
           <Text style={styles.verifiedSub}>Mavi rozet profilinde ve ilanlarında görünüyor.</Text>
         </View>
-        <Text style={styles.verifiedEmoji}>🛡️</Text>
+        
       </View>
     );
   }
@@ -825,7 +826,7 @@ function VerificationSection() {
       <Card style={{ gap: 10 }}>
         <View style={styles.ratingHeadRow}>
           <SectionTitle>Doğrulama & Rozetler</SectionTitle>
-          <Text style={styles.verifiedMiniIcon}>🛡️</Text>
+          
         </View>
         {rejected ? (
           <Text style={styles.rejectNote}>
@@ -836,7 +837,7 @@ function VerificationSection() {
             Kimlik, şirket veya vergi belgeni yükle; hesabın mavi ✓ rozet kazanır ve ilanların anında yayımlanır.
           </Text>
         )}
-        <PrimaryButton label="🛡️ Doğrulama talebi oluştur" onPress={() => setSheetOpen(true)} />
+        <PrimaryButton label="Doğrulama Talebi Oluştur" onPress={() => setSheetOpen(true)} />
       </Card>
 
       <Modal visible={sheetOpen} transparent animationType="slide" onRequestClose={() => setSheetOpen(false)}>
@@ -878,14 +879,14 @@ function VerificationSection() {
                       <Image source={{ uri: docUri }} style={styles.docPreview} resizeMode="cover" />
                     ) : (
                       <View style={styles.docPickEmpty}>
-                        <Text style={{ fontSize: 26 }}>📎</Text>
+                        <Text style={{ fontSize: 13, fontWeight: "700", color: C.primary }}>Belge Yüklendi</Text>
                         <Text style={styles.docPickText}>Belge fotoğrafı seç</Text>
                         <Text style={styles.docPickHint}>Galeriden yükle (JPG/PNG)</Text>
                       </View>
                     )}
                   </Pressable>
                   {docUri ? (
-                    <PrimaryButton label="📷 Belgeyi değiştir" variant="ghost" onPress={pickDocument} />
+                    <PrimaryButton label="Belgeyi Değiştir" variant="ghost" onPress={pickDocument} />
                   ) : null}
 
                   <Field label="Not (opsiyonel)" value={note} onChangeText={setNote} multiline placeholder="Belgeyle ilgili açıklama" />
@@ -924,12 +925,12 @@ function SecurityTab({ user }: { user: ApiUser }) {
     <>
       <View style={styles.secHero}>
         <View style={styles.secHeroBlob} pointerEvents="none" />
-        <Text style={styles.secHeroIcon}>🔒</Text>
+        
         <Text style={styles.secHeroTitle}>Güvenlik merkezi</Text>
         <Text style={styles.secHeroSub}>
           {user.twoFactorEnabled && user.emailVerified
-            ? "Hesabın en güçlü korumada. Harika! ✨"
-            : "Hesabını güçlendir: e-postanı doğrula, 2FA'yı aç."}
+            ? "Hesabınız üst düzey güvenlik standartlarıyla korunmaktadır."
+            : "Hesabınızı güçlendirmek için e-postanızı doğrulayın ve iki adımlı doğrulamayı açın."}
         </Text>
       </View>
       {!user.emailVerified && <EmailVerificationSection email={user.email} onVerified={refreshUser} />}
@@ -949,12 +950,12 @@ function AccountSecuritySection({ user }: { user: ApiUser }) {
   }, []);
 
   const rows: { icon: string; label: string; value: string; danger?: boolean }[] = [
-    { icon: "📧", label: "E-posta doğrulanmış", value: (secInfo?.emailVerified ?? user.emailVerified) ? "Evet ✓" : "Hayır" },
-    { icon: "🔐", label: "İki faktörlü koruma", value: (secInfo?.twoFactorEnabled ?? user.twoFactorEnabled) ? "Açık ✓" : "Kapalı" },
-    { icon: "🌐", label: "Giriş yöntemi", value: user.provider === "GOOGLE" ? "Google hesabı" : "E-posta + şifre" },
-    ...(secInfo?.activeSessions ? [{ icon: "💻", label: "Aktif oturum", value: `${secInfo.activeSessions} oturum` }] : []),
-    { icon: "⚠️", label: "Uyarı sayısı", value: String(user.warningCount ?? 0), danger: (user.warningCount ?? 0) > 0 },
-    { icon: "🚩", label: "Rapor sayısı", value: String(user.flagCount ?? 0), danger: (user.flagCount ?? 0) > 0 },
+    { icon: "EP", label: "E-posta doğrulanmış", value: (secInfo?.emailVerified ?? user.emailVerified) ? "Evet ✓" : "Hayır" },
+    { icon: "2F", label: "İki faktörlü koruma", value: (secInfo?.twoFactorEnabled ?? user.twoFactorEnabled) ? "Açık ✓" : "Kapalı" },
+    { icon: "GR", label: "Giriş yöntemi", value: user.provider === "GOOGLE" ? "Google hesabı" : "E-posta + şifre" },
+    ...(secInfo?.activeSessions ? [{ icon: "OT", label: "Aktif oturum", value: `${secInfo.activeSessions} oturum` }] : []),
+    { icon: "UY", label: "Uyarı sayısı", value: String(user.warningCount ?? 0), danger: (user.warningCount ?? 0) > 0 },
+    { icon: "RP", label: "Rapor sayısı", value: String(user.flagCount ?? 0), danger: (user.flagCount ?? 0) > 0 },
   ];
 
   return (
@@ -973,12 +974,12 @@ function AccountSecuritySection({ user }: { user: ApiUser }) {
         <View style={styles.banBox}>
           <Text style={styles.banText}>
             {user.isPermanentlyBanned
-              ? "🚫 Hesabın kalıcı olarak askıya alınmış. Destekle iletişime geç."
-              : `⏸️ Hesabın ${user.suspendedUntil ? new Date(user.suspendedUntil).toLocaleDateString("tr-TR") : "belirsiz"} tarihine kadar askıda.`}
+              ? "Hesabınız askıya alınmıştır. Lütfen destek ekibiyle iletişime geçiniz."
+              : `Hesabınız ${user.suspendedUntil ? new Date(user.suspendedUntil).toLocaleDateString("tr-TR") : "belirsiz"} tarihine kadar askıya alınmıştır.`}
           </Text>
         </View>
       ) : (
-        <Text style={styles.miniNote}>✅ Hesabın aktif ve good standing'de. Kurallara uymaya devam et!</Text>
+        <Text style={styles.miniNote}>Hesabınız aktif ve güvenli durumdadır.</Text>
       )}
     </Card>
   );
@@ -1026,7 +1027,7 @@ function TwoFactorSection({ enabled, onChanged }: { enabled: boolean; onChanged:
         enabled ? (
           <PrimaryButton label="2FA'yı kapat" variant="outline" onPress={() => setOpen(true)} />
         ) : (
-          <PrimaryButton label="🔐 2FA'yı etkinleştir" onPress={start} />
+          <PrimaryButton label="2FA'yı Etkinleştir" onPress={start} />
         )
       )}
 
@@ -1106,7 +1107,7 @@ function PasswordSection({ provider }: { provider?: string }) {
     <View style={styles.pwCard}>
       <View style={styles.pwHead}>
         <View style={[styles.pwIconBox, isGoogle && { backgroundColor: C.amberBg }]}>
-          <Text style={styles.pwIcon}>{isGoogle ? "🔑" : "🛡️"}</Text>
+          <LockIcon size={20} color={C.primary} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.pwTitle}>Şifre değiştir</Text>
@@ -1228,7 +1229,7 @@ function EmailVerificationSection({ email, onVerified }: { email: string; onVeri
 
   return (
     <Card style={{ gap: 10, borderColor: "#fdba74", borderWidth: 1.5 }}>
-      <SectionTitle>📧 E-postanı doğrula</SectionTitle>
+      <SectionTitle>E-posta Doğrulama</SectionTitle>
       <Text style={styles.desc}>
         {email} adresi henüz doğrulanmadı. E-posta değişikliği ve tam hesap güvenliği için doğrula.
       </Text>
@@ -1260,7 +1261,7 @@ function EmailVerificationSection({ email, onVerified }: { email: string; onVeri
               setVerifying(true); setError(null);
               try {
                 await verifyEmail(email, code);
-                Alert.alert("Tamam", "E-posta adresin doğrulandı! 🎉");
+                Alert.alert("Tamam", "E-posta adresiniz doğrulandı.");
                 await onVerified();
               } catch (err) {
                 setError(err instanceof Error ? err.message : "Doğrulama başarısız");
@@ -1396,7 +1397,7 @@ function AboutTab({ onLogout }: { onLogout: () => void }) {
   return (
     <>
       <Card style={{ alignItems: "center", gap: 8 }}>
-        <Text style={{ fontSize: 44 }}>💼</Text>
+        
         <Text style={{ fontSize: 20, fontWeight: "800", color: C.text }}>Günübirlik</Text>
         <Text style={styles.desc}>Günlük iş bulma ve işçi bulma platformu</Text>
         <Badge label="Mobil v1.4.0" color={C.primary} bg={C.primarySoft} />
@@ -1421,7 +1422,7 @@ function AboutTab({ onLogout }: { onLogout: () => void }) {
       <SupportTicketSection />
       <DeleteAccountSection />
 
-      <PrimaryButton label="🚪 Çıkış yap" variant="danger" onPress={onLogout} />
+      <PrimaryButton label="Oturumu Kapat" variant="danger" onPress={onLogout} />
     </>
   );
 }
@@ -1429,12 +1430,12 @@ function AboutTab({ onLogout }: { onLogout: () => void }) {
 /* ================= HAKKINDA: destek talepleri ================= */
 
 const TICKET_CATEGORIES: { value: SupportCategory; icon: string; label: string }[] = [
-  { value: "COMPLAINT", icon: "📣", label: "Şikayet" },
-  { value: "SUGGESTION", icon: "💡", label: "Öneri" },
-  { value: "BUG", icon: "🐞", label: "Hata bildirimi" },
-  { value: "ACCOUNT", icon: "👤", label: "Hesap" },
-  { value: "PAYMENT", icon: "💳", label: "Ödeme" },
-  { value: "OTHER", icon: "💬", label: "Diğer" },
+  { value: "COMPLAINT", icon: "ŞKY", label: "Şikayet" },
+  { value: "SUGGESTION", icon: "ÖNR", label: "Öneri" },
+  { value: "BUG", icon: "HTA", label: "Hata Bildirimi" },
+  { value: "ACCOUNT", icon: "HSP", label: "Hesap" },
+  { value: "PAYMENT", icon: "ÖDM", label: "Ödeme" },
+  { value: "OTHER", icon: "DĞR", label: "Diğer" },
 ];
 
 const TICKET_PRIORITIES: { value: SupportPriority; label: string; color: string; bg: string }[] = [
@@ -1510,7 +1511,7 @@ function SupportTicketSection() {
 
   return (
     <Card style={{ gap: 10 }}>
-      <SectionTitle>🎧 Destek Talebi</SectionTitle>
+      <SectionTitle>Destek Talebi</SectionTitle>
       <Text style={styles.desc}>
         Sorun, öneri veya ödeme itirazlarını yaz; admin ekibine bildirim gider.
       </Text>
@@ -1646,7 +1647,7 @@ function DeleteAccountSection() {
     const pending = status.status === "PENDING";
     return (
       <View style={[styles.verifiedBanner, pending ? styles.verifiedBannerPending : styles.deleteBannerDone]}>
-        <Text style={{ fontSize: 22 }}>{pending ? "⏳" : "🗑️"}</Text>
+        <TrashIcon size={20} color={pending ? C.amber : C.danger} />
         <View style={{ flex: 1 }}>
           <Text style={[styles.verifiedTitle, { color: C.amber }]}>
             {pending ? "Hesap silme talebin beklemede" : `Hesap silme talebi: ${status.status}`}
@@ -1662,7 +1663,7 @@ function DeleteAccountSection() {
   return (
     <>
       <Card style={{ gap: 10, borderColor: "#fecaca" }}>
-        <SectionTitle>🗑️ Hesap Silme</SectionTitle>
+        <SectionTitle>Hesap Silme</SectionTitle>
         <Text style={styles.desc}>
           Hesabını silmek istersen talep oluşturursun; admin onayladığında tüm verilerin
           kalıcı olarak kaldırılır.

@@ -1,7 +1,7 @@
 import React from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "@/hooks/use-auth";
-import { BellIcon, MapPinIcon } from "./icons";
+import { BellIcon } from "./icons";
 import { C } from "./ui";
 
 const LOGO = require("../../assets/logo-wordmark.png");
@@ -9,7 +9,6 @@ const LOGO = require("../../assets/logo-wordmark.png");
 interface AppHeaderProps {
   unreadCount?: number;
   onPressNotifications?: () => void;
-  onPressProfile?: () => void;
   title?: string;
   subtitle?: string;
 }
@@ -17,7 +16,6 @@ interface AppHeaderProps {
 export function AppHeader({
   unreadCount = 0,
   onPressNotifications,
-  onPressProfile,
   title,
   subtitle,
 }: AppHeaderProps) {
@@ -40,19 +38,23 @@ export function AppHeader({
             <View style={styles.roleBadge}>
               <View style={styles.roleDot} />
               <Text style={styles.roleText}>
-                {isEmployer ? "İŞVEREN" : "İŞ ARAYAN"}
+                {isEmployer ? "İşveren" : "İş Arayan"}
               </Text>
             </View>
           )}
 
           {onPressNotifications && (
             <Pressable
-              style={styles.iconButton}
+              style={({ pressed }) => [
+                styles.iconButton,
+                pressed && styles.iconButtonPressed,
+              ]}
               onPress={onPressNotifications}
               hitSlop={8}
               accessibilityLabel="Bildirimler"
+              accessibilityRole="button"
             >
-              <BellIcon size={20} color={C.text} />
+              <BellIcon size={18} color={C.text} strokeWidth={2} />
               {unreadCount > 0 && (
                 <View style={styles.badgeDot}>
                   {unreadCount > 9 ? (
@@ -79,40 +81,41 @@ export function AppHeader({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: C.card,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: C.border,
+    backgroundColor: C.bg, // Seamless integration with #F6F5F2
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E0D8",
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    minHeight: 38,
+    minHeight: 40,
   },
   brandBox: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "flex-start",
   },
   logoImage: {
     height: 30,
-    width: 140,
+    width: 132,
   },
   rightActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
   roleBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    backgroundColor: C.primarySoft,
+    gap: 6,
+    backgroundColor: "#EAF3EE",
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 999,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "#C5DDD0",
   },
@@ -120,24 +123,27 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: C.primary,
+    backgroundColor: "#0D6847",
   },
   roleText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: C.primary,
-    letterSpacing: 0.5,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0D6847",
+    letterSpacing: -0.2,
   },
   iconButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: C.bg,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: C.border,
+    borderWidth: 1,
+    borderColor: "#E2E0D8",
     position: "relative",
+  },
+  iconButtonPressed: {
+    backgroundColor: "#F0EFEA",
   },
   badgeDot: {
     position: "absolute",
@@ -146,7 +152,7 @@ const styles = StyleSheet.create({
     minWidth: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: C.danger,
+    backgroundColor: "#DC2626",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 3,
@@ -157,7 +163,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   titleRow: {
-    marginTop: 8,
+    marginTop: 6,
+    paddingBottom: 4,
   },
   headerTitle: {
     fontSize: 20,

@@ -33,6 +33,14 @@ import { useCachedList } from "@/hooks/use-cached-list";
 import AnimatedSplashScreen from "@/components/AnimatedSplashScreen";
 import { AnimatedTabBar } from "@/components/AnimatedTabBar";
 import { AppHeader } from "@/components/AppHeader";
+import {
+  useFonts,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from "@expo-google-fonts/plus-jakarta-sans";
 
 type Tab = "jobs" | "saved" | "applications" | "messages" | "notifications" | "profile";
 
@@ -79,16 +87,22 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, { error: Error
 }
 
 export default function App() {
-  // OneSignal SDK'yı içerik render edilmeden ÖNCE başlat (Expo Go'da native modül
-  // yoksa wrapper sessizce atlar, uygulama çökmez).
   initOneSignal();
+  const [fontsLoaded] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
+
   return (
     <AppErrorBoundary>
       <SafeAreaProvider style={styles.flex}>
         <StatusBar style="dark" />
         <MaintenanceGate>
           <AuthProvider>
-            <Root />
+            <Root fontsReady={fontsLoaded} />
           </AuthProvider>
         </MaintenanceGate>
       </SafeAreaProvider>
@@ -182,7 +196,7 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function Root() {
+function Root({ fontsReady }: { fontsReady: boolean }) {
   const { user, isLoading, isAuthenticated } = useAuth();
   const [splashFinished, setSplashFinished] = useState(false);
   const handleSplashFinish = useCallback(() => setSplashFinished(true), []);
@@ -204,7 +218,7 @@ function Root() {
       {/* Animasyonlu Marka Splash Ekranı */}
       {!splashFinished && (
         <AnimatedSplashScreen
-          isReady={!isLoading}
+          isReady={!isLoading && fontsReady}
           onFinish={handleSplashFinish}
           statusText={isLoading ? "Hesap doğrulanıyor…" : "Hoş geldiniz!"}
         />

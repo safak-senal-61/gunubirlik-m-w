@@ -141,13 +141,6 @@ export function AnimatedTabBar({
           ),
         },
         {
-          key: "notifications",
-          label: "Bildirim",
-          renderIcon: (active) => (
-            <BellIcon size={20} color={active ? C.primary : "#5C615E"} strokeWidth={active ? 2.2 : 1.8} />
-          ),
-        },
-        {
           key: "profile",
           label: "Hesap",
           renderIcon: (active) => (
@@ -182,13 +175,6 @@ export function AnimatedTabBar({
           label: "Mesajlar",
           renderIcon: (active) => (
             <MessageIcon size={20} color={active ? C.primary : "#5C615E"} strokeWidth={active ? 2.2 : 1.8} />
-          ),
-        },
-        {
-          key: "notifications",
-          label: "Bildirim",
-          renderIcon: (active) => (
-            <BellIcon size={20} color={active ? C.primary : "#5C615E"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
