@@ -60,16 +60,52 @@ import { formatDate } from "@/lib/format";
 import { useAuth } from "@/hooks/use-auth";
 import WalletScreen from "@/screens/WalletScreen";
 import NotificationSettingsScreen from "@/screens/NotificationSettingsScreen";
+import {
+  UserIcon,
+  WalletIcon,
+  LockIcon,
+  BellIcon,
+  FileTextIcon,
+  InfoIcon,
+} from "@/components/icons";
 
 type SettingsTab = "account" | "wallet" | "security" | "notifications" | "policies" | "about";
 
-const TABS: { key: SettingsTab; icon: string; label: string }[] = [
-  { key: "account", icon: "👤", label: "Hesap" },
-  { key: "wallet", icon: "👛", label: "Cüzdan" },
-  { key: "security", icon: "🔒", label: "Güvenlik" },
-  { key: "notifications", icon: "🔔", label: "Bildirim" },
-  { key: "policies", icon: "📜", label: "Politikalar" },
-  { key: "about", icon: "ℹ️", label: "Hakkında" },
+const TABS: {
+  key: SettingsTab;
+  icon: (active: boolean) => React.ReactNode;
+  label: string;
+}[] = [
+  {
+    key: "account",
+    icon: (a) => <UserIcon size={16} color={a ? C.primary : C.muted} />,
+    label: "Hesap",
+  },
+  {
+    key: "wallet",
+    icon: (a) => <WalletIcon size={16} color={a ? C.primary : C.muted} />,
+    label: "Cüzdan",
+  },
+  {
+    key: "security",
+    icon: (a) => <LockIcon size={16} color={a ? C.primary : C.muted} />,
+    label: "Güvenlik",
+  },
+  {
+    key: "notifications",
+    icon: (a) => <BellIcon size={16} color={a ? C.primary : C.muted} />,
+    label: "Bildirim",
+  },
+  {
+    key: "policies",
+    icon: (a) => <FileTextIcon size={16} color={a ? C.primary : C.muted} />,
+    label: "Politikalar",
+  },
+  {
+    key: "about",
+    icon: (a) => <InfoIcon size={16} color={a ? C.primary : C.muted} />,
+    label: "Hakkında",
+  },
 ];
 
 export default function ProfileScreen({
@@ -118,7 +154,7 @@ export default function ProfileScreen({
     <View style={styles.flex}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabStrip} contentContainerStyle={styles.tabStripInner}>
         {TABS.map((t) => (
-          <SettingsTabButton key={t.key} icon={t.icon} label={t.label} active={tab === t.key} onPress={() => setTab(t.key)} />
+          <SettingsTabButton key={t.key} icon={t.icon(tab === t.key)} label={t.label} active={tab === t.key} onPress={() => setTab(t.key)} />
         ))}
       </ScrollView>
 
@@ -154,7 +190,7 @@ function SettingsTabButton({
   active,
   onPress,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   active: boolean;
   onPress: () => void;
@@ -176,7 +212,7 @@ function SettingsTabButton({
 
   const pillBg = activeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["rgba(79,70,229,0)", C.primarySoft],
+    outputRange: ["rgba(13,104,71,0)", C.primarySoft],
   });
   const labelColor = activeAnim.interpolate({
     inputRange: [0, 1],
@@ -191,7 +227,7 @@ function SettingsTabButton({
       style={styles.tabBtn}
     >
       <Animated.View style={[styles.tabPill, { backgroundColor: pillBg, transform: [{ scale }] }]}>
-        <Text style={[styles.tabIcon, active && styles.tabIconActive]}>{icon}</Text>
+        <View style={styles.tabIconBox}>{icon}</View>
         <Animated.Text style={[styles.tabLabel, { color: labelColor }, active && styles.tabLabelActive]}>{label}</Animated.Text>
       </Animated.View>
     </Pressable>
@@ -1706,6 +1742,7 @@ const styles = StyleSheet.create({
   tabStripInner: { flexDirection: "row", gap: 2, paddingHorizontal: 8, paddingVertical: 8 },
   tabBtn: { alignItems: "center", justifyContent: "center" },
   tabPill: { alignItems: "center", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 14, gap: 2 },
+  tabIconBox: { alignItems: "center", justifyContent: "center" },
   tabIcon: { fontSize: 18, opacity: 0.6 },
   tabIconActive: { opacity: 1 },
   tabLabel: { fontSize: 11, fontWeight: "700", color: C.muted },

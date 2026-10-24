@@ -32,6 +32,7 @@ import { BookmarkIcon, QrScanIcon } from "@/components/icons";
 import { useCachedList } from "@/hooks/use-cached-list";
 import AnimatedSplashScreen from "@/components/AnimatedSplashScreen";
 import { AnimatedTabBar } from "@/components/AnimatedTabBar";
+import { AppHeader } from "@/components/AppHeader";
 
 type Tab = "jobs" | "saved" | "applications" | "messages" | "notifications" | "profile";
 
@@ -403,6 +404,12 @@ function MainTabs() {
 
   return (
     <View style={styles.flex}>
+      {!isInsideChat && (
+        <AppHeader
+          unreadCount={unread}
+          onPressNotifications={() => handleTabPress("notifications")}
+        />
+      )}
       <View style={styles.content}>
         {tab === "jobs" &&
           (isEmployer ? (

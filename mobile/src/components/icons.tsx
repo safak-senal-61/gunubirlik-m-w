@@ -326,6 +326,59 @@ export function TrashIcon({ size = 18, color = "#DC2626", strokeWidth = 2 }: Ico
   );
 }
 
+export function LockIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </Svg>
+  );
+}
+
+export function FileTextIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <Path d="M14 2v4a2 2 0 0 0 2 2h4" />
+      <Line x1="10" x2="14" y1="13" y2="13" />
+      <Line x1="10" x2="14" y1="17" y2="17" />
+    </Svg>
+  );
+}
+
+export function ShieldIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+    </Svg>
+  );
+}
+
+export function BuildingIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Rect width="16" height="20" x="4" y="2" rx="2" ry="2" />
+      <Path d="M9 22v-4h6v4" />
+      <Path d="M8 6h.01" />
+      <Path d="M16 6h.01" />
+      <Path d="M8 10h.01" />
+      <Path d="M16 10h.01" />
+      <Path d="M8 14h.01" />
+      <Path d="M16 14h.01" />
+    </Svg>
+  );
+}
+
+export function HelpCircleIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Circle cx="12" cy="12" r="10" />
+      <Path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <Line x1="12" x2="12.01" y1="17" y2="17" />
+    </Svg>
+  );
+}
+
 export function getCategoryIconComponent(cat: string, size = 20, color = "#0D6847") {
   switch (cat) {
     case "INSAAT":

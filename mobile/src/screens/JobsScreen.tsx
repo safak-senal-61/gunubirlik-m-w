@@ -46,6 +46,17 @@ import {
 const RADIUS_OPTIONS = [1, 3, 5, 10, 25];
 const PAGE_SIZE = 20;
 
+export const CATEGORY_CODES: Record<string, string> = {
+  INSAAT: "İNŞ",
+  RESTAURANT: "RST",
+  TEMIZLIK: "TMZ",
+  NAKLIYE: "NAK",
+  TARIM: "TRM",
+  TEKNIK: "TKN",
+  SAGLIK: "SĞL",
+  DIGER: "GNL",
+};
+
 export default function JobsScreen({
   userCoords,
   onOpenJob,
@@ -203,8 +214,8 @@ export default function JobsScreen({
       onRefresh={refreshJobs}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.h1}>Bugünün işleri</Text>
-          <Text style={styles.sub}>Yakınındaki günlük işleri bul, hemen başvur. ↓ Aşağı çekerek yenile.</Text>
+          <Text style={styles.h1}>Günlük İş İlanları</Text>
+          <Text style={styles.sub}>Konumuna göre sıralanan acil ve günübirlik işler</Text>
 
           {/* Adres + GPS */}
           <View style={styles.locRow}>
@@ -237,9 +248,12 @@ export default function JobsScreen({
                         setPage(1);
                       }}
                     >
-                      <Text style={styles.suggestText} numberOfLines={1}>
-                        📍 {s.displayName.split(",").slice(0, 3).join(", ")}
-                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <MapPinIcon size={14} color={C.primary} />
+                        <Text style={styles.suggestText} numberOfLines={1}>
+                          {s.displayName.split(",").slice(0, 3).join(", ")}
+                        </Text>
+                      </View>
                     </Pressable>
                   ))}
                 </View>
@@ -249,7 +263,10 @@ export default function JobsScreen({
               {locating ? (
                 <ActivityIndicator size="small" color={C.primary} />
               ) : (
-                <Text style={styles.gpsText}>📍 GPS</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <MapPinIcon size={13} color={C.primary} />
+                  <Text style={styles.gpsText}>GPS</Text>
+                </View>
               )}
             </Pressable>
           </View>
@@ -258,9 +275,12 @@ export default function JobsScreen({
           {refCoords && (
             <>
               <View style={styles.filterRow}>
-                <Text style={styles.locLabel}>
-                  📍 {locLabel ?? "Konumum"} {locCoords ? "" : "(GPS)"}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 5, flex: 1 }}>
+                  <MapPinIcon size={14} color={C.primary} />
+                  <Text style={styles.locLabel} numberOfLines={1}>
+                    {locLabel ?? "Konumum"} {locCoords ? "" : "(GPS)"}
+                  </Text>
+                </View>
                 <Pressable
                   onPress={() => {
                     setLocCoords(null);
@@ -274,7 +294,12 @@ export default function JobsScreen({
                   <Text style={styles.clearText}>✕ Temizle</Text>
                 </Pressable>
               </View>
-              {locDetail ? <Text style={styles.locDetail}>🗺️ {locDetail}</Text> : null}
+              {locDetail ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: -4 }}>
+                  <MapPinIcon size={12} color={C.muted} />
+                  <Text style={styles.locDetail}>{locDetail}</Text>
+                </View>
+              ) : null}
               <View style={styles.filterRow}>
                 <Text style={styles.filterLabel}>Yarıçap:</Text>
                 <Chip active={radiusKm == null} label="Tümü" onPress={() => setRadiusKm(null)} />
@@ -359,7 +384,7 @@ export default function JobsScreen({
       ListEmptyComponent={
         !loading ? (
           <EmptyState
-            emoji="💼"
+            icon={<BriefcaseIcon size={28} color={C.primary} />}
             title="İlan bulunamadı"
             subtitle={
               radiusKm != null
@@ -466,7 +491,12 @@ export function JobCard({
             {getCategoryIconComponent(job.category, 22, C.primary)}
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.jobTitle} numberOfLines={1}>{job.title}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={[styles.jobTitle, { flexShrink: 1 }]} numberOfLines={1}>{job.title}</Text>
+              <View style={styles.catCodeBadge}>
+                <Text style={styles.catCodeText}>{CATEGORY_CODES[job.category] ?? "GNL"}</Text>
+              </View>
+            </View>
             <View style={styles.employerRow}>
               <Text style={styles.jobEmployer} numberOfLines={1}>
                 {job.employer.companyName ?? job.employer.fullName}
@@ -620,7 +650,9 @@ const styles = StyleSheet.create({
   metaText: { fontSize: 12, fontWeight: "500", color: "#656D67" },
   jobFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#ECEAE4" },
   wageBox: { backgroundColor: "#EAF3EE", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
-  wage: { fontSize: 14, fontWeight: "800", color: "#0D6847" },
+  catCodeBadge: { backgroundColor: "#F0EFEA", paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 4, borderWidth: 1, borderColor: "#E2E0D8" },
+  catCodeText: { fontSize: 9, fontWeight: "700", color: "#424845", letterSpacing: 0.5 },
+  wage: { fontSize: 14, fontWeight: "800", color: "#0D6847", fontVariant: ["tabular-nums"] },
   detailButton: { flexDirection: "row", alignItems: "center", gap: 2 },
   detailLink: { fontSize: 12, fontWeight: "700", color: "#0D6847" },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 8 },

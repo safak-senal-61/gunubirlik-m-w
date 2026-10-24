@@ -15,15 +15,35 @@ import {
 } from "@/lib/api";
 import type { ApiNotification } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
+import {
+  BellIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ApplicationsIcon,
+  MessageIcon,
+  ClockIcon,
+  StarIcon,
+  TrashIcon,
+} from "@/components/icons";
 
-const TYPE_ICONS: Record<string, string> = {
-  APPLICATION_ACCEPTED: "✅",
-  APPLICATION_REJECTED: "❌",
-  NEW_APPLICATION: "📥",
-  NEW_MESSAGE: "💬",
-  JOB_REMINDER: "⏰",
-  RATING_RECEIVED: "⭐",
-};
+function getNotificationIcon(type: string) {
+  switch (type) {
+    case "APPLICATION_ACCEPTED":
+      return <CheckCircleIcon size={20} color={C.primary} />;
+    case "APPLICATION_REJECTED":
+      return <XCircleIcon size={20} color={C.danger} />;
+    case "NEW_APPLICATION":
+      return <ApplicationsIcon size={20} color={C.primary} />;
+    case "NEW_MESSAGE":
+      return <MessageIcon size={20} color={C.primary} />;
+    case "JOB_REMINDER":
+      return <ClockIcon size={20} color={C.amber} />;
+    case "RATING_RECEIVED":
+      return <StarIcon size={20} color={C.amber} />;
+    default:
+      return <BellIcon size={20} color={C.primary} />;
+  }
+}
 
 export default function NotificationsScreen({
   refreshKey,
@@ -129,7 +149,9 @@ export default function NotificationsScreen({
           onPress={onOpenNotificationSettings}
           style={({ pressed }) => [styles.permBanner, pressed && { opacity: 0.85 }]}
         >
-          <Text style={styles.permBannerIcon}>🔔</Text>
+          <View style={styles.permIconBox}>
+            <BellIcon size={18} color={C.primary} />
+          </View>
           <View style={styles.permBannerTextWrap}>
             <Text style={styles.permBannerTitle}>Bildirimler kapalı, lütfen açın</Text>
             <Text style={styles.permBannerSub}>Dokun → Bildirim Ayarları</Text>
@@ -156,7 +178,11 @@ export default function NotificationsScreen({
         {loading ? (
           <Loading />
         ) : items.length === 0 ? (
-          <EmptyState emoji="🔔" title="Bildirim yok" subtitle="Başvuru durumu, yeni mesaj ve iş hatırlatmaları burada görünür." />
+          <EmptyState
+            icon={<BellIcon size={32} color={C.muted} />}
+            title="Bildirim yok"
+            subtitle="Başvuru durumu, yeni mesaj ve iş hatırlatmaları burada görünür."
+          />
         ) : (
           items.map((n) => (
             <Card key={n.id} style={[styles.item, !n.isRead && styles.itemUnread]}>
@@ -173,7 +199,9 @@ export default function NotificationsScreen({
                   if (jobId && onOpenJob) onOpenJob(jobId);
                 }}
               >
-                <Text style={styles.icon}>{TYPE_ICONS[n.type] ?? "🔔"}</Text>
+                <View style={styles.iconBox}>
+                  {getNotificationIcon(n.type)}
+                </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.titleRow}>
                     <Text style={styles.title}>{n.title}</Text>
@@ -182,8 +210,8 @@ export default function NotificationsScreen({
                   <Text style={styles.bodyText}>{n.body}</Text>
                   <Text style={styles.time}>{timeAgo(n.createdAt)}</Text>
                 </View>
-                <Pressable onPress={() => remove(n.id)} hitSlop={8}>
-                  <Text style={styles.delete}>🗑</Text>
+                <Pressable onPress={() => remove(n.id)} hitSlop={8} style={styles.deleteHit}>
+                  <TrashIcon size={16} color={C.muted} />
                 </Pressable>
               </Pressable>
             </Card>
@@ -212,15 +240,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#fdba74",
   },
-  permBannerIcon: { fontSize: 20 },
+  permIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#ffedd5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   permBannerTextWrap: { flex: 1, gap: 1 },
   permBannerTitle: { fontSize: 14, fontWeight: "800", color: "#9a3412" },
   permBannerSub: { fontSize: 12, color: "#c2410c" },
   permBannerChevron: { fontSize: 20, color: "#f97316", fontWeight: "800" },
   item: { padding: 12 },
-  itemUnread: { borderColor: C.primary, backgroundColor: "#f5f6ff" },
+  itemUnread: { borderColor: C.primary, backgroundColor: C.primarySoft },
   itemBody: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
-  icon: { fontSize: 20 },
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: C.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteHit: {
+    padding: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   title: { fontSize: 14, fontWeight: "800", color: C.text, flexShrink: 1 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#e11d48" },

@@ -22,7 +22,7 @@ import {
 import { getIdTokenFromGoogle } from "@/lib/google-auth";
 import { BriefcaseIcon, UsersIcon } from "@/components/icons";
 
-const LOGO = require("../../assets/app-icon.png");
+const LOGO = require("../../assets/logo-wordmark.png");
 
 type Mode = "login" | "register" | "twofactor" | "forgot" | "reset" | "verify";
 
@@ -315,14 +315,11 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.hero}>
-          <View style={styles.logoBox}>
-            <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
-          </View>
-          <Text style={styles.logoText}>Günübirlik</Text>
+          <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
           <Text style={styles.tagline}>
             {mode === "register"
-              ? "Güvenilir günlük iş ve istihdam platformu"
-              : "Hızlı, şeffaf ve güvenli günübirlik çalışma"}
+              ? "Bugün iş, bugün kazanç."
+              : "Konum bazlı günlük iş platformu"}
           </Text>
         </View>
 
@@ -894,19 +891,9 @@ function RoleCard(props: { active: boolean; iconNode: React.ReactNode; label: st
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: C.bg },
   scroll: { flexGrow: 1, padding: 20, paddingTop: 28, paddingBottom: 40, backgroundColor: C.bg },
-  hero: { alignItems: "center", marginBottom: 22, gap: 6 },
-  logoBox: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    backgroundColor: C.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  logoImage: { width: 64, height: 64, borderRadius: 16 },
-  logoText: { fontSize: 26, fontWeight: "900", color: C.text, letterSpacing: -0.5 },
-  tagline: { fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 19, maxWidth: 300, paddingHorizontal: 10 },
+  hero: { alignItems: "center", marginBottom: 20, gap: 8 },
+  logoImage: { width: 180, height: 42 },
+  tagline: { fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 18, maxWidth: 300, paddingHorizontal: 10 },
   card: {
     backgroundColor: C.card,
     borderRadius: 20,
