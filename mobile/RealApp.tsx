@@ -33,6 +33,7 @@ import { useCachedList } from "@/hooks/use-cached-list";
 import AnimatedSplashScreen from "@/components/AnimatedSplashScreen";
 import { AnimatedTabBar } from "@/components/AnimatedTabBar";
 import { AppHeader } from "@/components/AppHeader";
+import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
 import {
   useFonts,
   PlusJakartaSans_400Regular,
@@ -565,21 +566,14 @@ function SavedScreen({ onOpenJob, refreshKey }: { onOpenJob: (job: ApiJob) => vo
 
   return (
     <View style={styles.savedScreenContainer}>
-      <ScrollView
+      <BrandRefreshScrollView
         style={styles.flex}
         contentContainerStyle={styles.savedWrap}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={refreshSaved}
-            tintColor={C.primary}
-            colors={[C.primary]}
-            progressBackgroundColor="#ffffff"
-          />
-        }
+        refreshing={refreshing}
+        onRefresh={refreshSaved}
       >
         <Text style={styles.h1}>Kaydedilenler</Text>
-        <Text style={styles.sub}>Daha sonra başvurmak için kaydettiğin ilanlar. ↓ Aşağı çekerek yenile.</Text>
+        <Text style={styles.sub}>Daha sonra başvurmak için kaydettiğin ilanlar.</Text>
         {loading ? (
           <ActivityIndicator style={{ marginTop: 30 }} color={C.primary} />
         ) : jobs.length === 0 ? (
@@ -593,7 +587,7 @@ function SavedScreen({ onOpenJob, refreshKey }: { onOpenJob: (job: ApiJob) => vo
             <JobCardInline key={job.id} job={job} onOpen={() => onOpenJob(job)} onUnsave={reload} />
           ))
         )}
-      </ScrollView>
+      </BrandRefreshScrollView>
     </View>
   );
 }

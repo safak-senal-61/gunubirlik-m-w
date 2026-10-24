@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
 import { Card, C, EmptyState, Loading } from "@/components/ui";
 import { useCachedList } from "@/hooks/use-cached-list";
 import {
@@ -160,20 +161,13 @@ export default function NotificationsScreen({
         </Pressable>
       )}
 
-      <ScrollView
+      <BrandRefreshScrollView
         contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={async () => {
-              await refreshNotifs();
-              onChanged?.();
-            }}
-            tintColor={C.primary}
-            colors={[C.primary]}
-            progressBackgroundColor="#fff"
-          />
-        }
+        refreshing={refreshing}
+        onRefresh={async () => {
+          await refreshNotifs();
+          onChanged?.();
+        }}
       >
         {loading ? (
           <Loading />
@@ -217,7 +211,7 @@ export default function NotificationsScreen({
             </Card>
           ))
         )}
-      </ScrollView>
+      </BrandRefreshScrollView>
     </View>
   );
 }

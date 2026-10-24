@@ -9,12 +9,12 @@ import {
   Easing,
   Linking,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
 import { Card, C, PrimaryButton, SectionTitle } from "@/components/ui";
 import {
   fetchNotificationSettingsCached,
@@ -220,17 +220,10 @@ export default function NotificationSettingsScreen() {
     : 0;
 
   return (
-    <ScrollView
+    <BrandRefreshScrollView
       contentContainerStyle={styles.wrap}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => load(true)}
-          tintColor={C.primary}
-          colors={[C.primary]}
-          progressBackgroundColor="#fff"
-        />
-      }
+      refreshing={refreshing}
+      onRefresh={() => load(true)}
     >
       {/* ---------- Durum başlığı ---------- */}
       <View style={styles.hero}>
@@ -422,7 +415,7 @@ export default function NotificationSettingsScreen() {
           </Text>
         </View>
       </Card>
-    </ScrollView>
+    </BrandRefreshScrollView>
   );
 }
 
