@@ -543,10 +543,9 @@ export function MessagesScreen({
     });
   }, [allJobs, jobSearchQuery, jobCategoryFilter]);
 
-  // Seçilen İlanı Sohbete Gönder
+  // Seçilen İlanı Sohbete Gönder (Güvenli format: Regex/URL filtresini tetiklemez)
   const handleShareSelectedJob = (job: ApiJob) => {
     setShareJobModalOpen(false);
-    const jobLink = `https://gunubirlik.qrders.com.tr/jobs/${job.id}`;
     const payload = `[JOB_CARD]${JSON.stringify({
       id: job.id,
       title: job.title,
@@ -554,7 +553,6 @@ export function MessagesScreen({
       wageType: job.wageType,
       city: job.city,
       district: job.district,
-      link: jobLink,
     })}`;
 
     handleSendText(payload);
