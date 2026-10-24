@@ -79,7 +79,13 @@ const C = {
   success: "#0D6847",
 };
 
-export default function AuthScreen({ onDone }: { onDone: () => void }) {
+export default function AuthScreen({
+  onDone,
+  onBrowseGuest,
+}: {
+  onDone: () => void;
+  onBrowseGuest?: () => void;
+}) {
   const { login, register, loginWithGoogle } = useAuth();
   const [mode, setMode] = useState<Mode>("login");
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -400,6 +406,21 @@ export default function AuthScreen({ onDone }: { onDone: () => void }) {
                   }}
                 />
               </View>
+
+              {onBrowseGuest && (
+                <Pressable
+                  onPress={onBrowseGuest}
+                  style={({ pressed }) => [
+                    styles.guestBrowseBtn,
+                    pressed && styles.pressed,
+                  ]}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.guestBrowseText}>
+                    Giriş Yapmadan İlanlara Göz At →
+                  </Text>
+                </Pressable>
+              )}
             </>
           )}
 
@@ -962,6 +983,21 @@ const styles = StyleSheet.create({
   switchModeContainer: {
     marginTop: 14,
     marginBottom: 4,
+  },
+  guestBrowseBtn: {
+    marginTop: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: C.primarySoft,
+    borderWidth: 1,
+    borderColor: "#C5DDD0",
+    alignItems: "center",
+  },
+  guestBrowseText: {
+    color: C.primary,
+    fontWeight: "700",
+    fontSize: 13,
   },
   wizardCard: {
     backgroundColor: "#F6F5F2",

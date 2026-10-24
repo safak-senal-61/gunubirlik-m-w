@@ -198,20 +198,26 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
 
 function Root({ fontsReady }: { fontsReady: boolean }) {
   const { user, isLoading, isAuthenticated } = useAuth();
+  const [guestBrowsing, setGuestBrowsing] = useState(false);
   const [splashFinished, setSplashFinished] = useState(false);
   const handleSplashFinish = useCallback(() => setSplashFinished(true), []);
 
+  const showAuth = (!isAuthenticated || !user) && !guestBrowsing;
+
   return (
     <View style={styles.flex}>
-      {!isAuthenticated || !user ? (
+      {showAuth ? (
         <SafeAreaView style={styles.flex} edges={["top", "bottom"]}>
           <StatusBar style="dark" />
-          <AuthScreen onDone={() => { /* user state değişince Root yeniden render olur */ }} />
+          <AuthScreen
+            onDone={() => setGuestBrowsing(false)}
+            onBrowseGuest={() => setGuestBrowsing(true)}
+          />
         </SafeAreaView>
       ) : (
         <SafeAreaView style={styles.flex} edges={["top", "bottom"]}>
           <StatusBar style="dark" />
-          <MainTabs />
+          <MainTabs onRequestLogin={() => setGuestBrowsing(false)} />
         </SafeAreaView>
       )}
 
@@ -227,7 +233,7 @@ function Root({ fontsReady }: { fontsReady: boolean }) {
   );
 }
 
-function MainTabs() {
+function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
   const { user } = useAuth();
   const isEmployer = user?.role === "EMPLOYER";
   const [tab, setTab] = useState<Tab>(isEmployer ? "jobs" : "jobs");
@@ -463,17 +469,31 @@ function MainTabs() {
             }}
           />
         )}
-        {tab === "profile" && (
-          <ProfileScreen
-            refreshKey={refreshKey}
-            openTab={profileOpenTab}
-            openSub={profileSub}
-            onOpenTabHandled={() => {
-              setProfileOpenTab(null);
-              setProfileSub(null);
-            }}
-          />
-        )}
+        {tab === "profile" &&
+          (user ? (
+            <ProfileScreen
+              refreshKey={refreshKey}
+              openTab={profileOpenTab}
+              openSub={profileSub}
+              onOpenTabHandled={() => {
+                setProfileOpenTab(null);
+                setProfileSub(null);
+              }}
+            />
+          ) : (
+            <View style={{ flex: 1, padding: 24, justifyContent: "center", alignItems: "center", gap: 12 }}>
+              <Text style={{ fontSize: 20, fontWeight: "800", color: C.text, textAlign: "center" }}>
+                Hesabınıza Giriş Yapın
+              </Text>
+              <Text style={{ fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 18, maxWidth: 280 }}>
+                Başvurularınızı yönetmek, ilan vermek ve mesajlaşmak için lütfen giriş yapın.
+              </Text>
+              <PrimaryButton
+                label="Giriş Yap / Kayıt Ol"
+                onPress={() => onRequestLogin?.()}
+              />
+            </View>
+          ))}
       </View>
       {!isInsideChat && (
         <AnimatedTabBar
