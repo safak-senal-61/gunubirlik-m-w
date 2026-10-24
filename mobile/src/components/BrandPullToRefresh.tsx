@@ -1,90 +1,76 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Dimensions,
   FlatList,
   Platform,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
   type FlatListProps,
+  type GestureResponderEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type ScrollViewProps,
 } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";
-import { C } from "@/components/ui";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const TRIGGER_DISTANCE = 70;
+const TRIGGER_DISTANCE = 65;
 
-// İkonik Kompakt Rota Eğrisi (64x20 viewBox)
-const COMPACT_ROUTE = "M 6 15 C 20 6, 32 18, 44 8 S 56 12, 60 6";
-const COMPACT_ROUTE_LENGTH = 66;
+// Kompakt & İkonik Rota Eğrisi (54x16 viewBox)
+const COMPACT_ROUTE = "M 5 12 C 16 4, 26 14, 36 6 S 46 10, 50 4";
+const COMPACT_ROUTE_LENGTH = 54;
 
-/**
- * t (0..1) boyunca hareketli konum pininin koordinatları
- */
 function getCompactPinCoordinates(t: number) {
   const clamped = Math.max(0, Math.min(1, t));
-  const cx = 6 + 54 * clamped;
-  const cy = 15 - 9 * clamped - Math.sin(clamped * Math.PI * 3) * 4;
+  const cx = 5 + 45 * clamped;
+  const cy = 12 - 8 * clamped - Math.sin(clamped * Math.PI * 3) * 3;
   return { cx, cy };
 }
 
 interface RoutePullIndicatorProps {
-  progress: number; // 0 to 1
+  progress: number;
   refreshing: boolean;
 }
 
 /**
- * İkonik Rota & Geriye Sarma (Rewind) Pull-to-Refresh Kapsülü
- * - Dairesel (circular) hiçbir spinner barındırmaz.
- * - Çekerken rotayı geriye sarar (Rewind: 100% -> 0%).
- * - Bırakılınca ileri sararak (Forward) 60 FPS hızla rotayı günceller.
- * - Kompakt, modern Dynamic-Island / HUD tarzı ikonik hap tasarımı.
+ * Ultra-Sleek & İkonik Rota Geriye Sarma (Rewind) Kapsülü
+ * - Dairesel (circular) hiçbir spinner ve halka içermez.
+ * - Çekerken rotayı geriye sarar (1.0 -> 0.0).
+ * - Bırakılınca 60 FPS hızla rotayı ileri günceller.
+ * - Sadece 34px yüksekliğinde, Dynamic-Island tarzı lüks kapsül.
  */
 export function RoutePullIndicator({ progress, refreshing }: RoutePullIndicatorProps) {
   const [animProgress, setAnimProgress] = useState(0);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
   const prevRefreshingRef = useRef(refreshing);
 
-  // Yenileme esnasında ileri saran (0 -> 1) animasyon döngüsü
   useEffect(() => {
     let animFrameId: number;
     let startTime = 0;
-    const duration = 1200; // ms per cycle
+    const duration = 1100;
 
     if (refreshing) {
       setShowSuccess(false);
-      setIsClosing(false);
       const animate = (timestamp: number) => {
         if (!startTime) startTime = timestamp;
         const elapsed = timestamp - startTime;
         const p = (elapsed % duration) / duration;
         const easeT = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-
         setAnimProgress(easeT);
         animFrameId = requestAnimationFrame(animate);
       };
       animFrameId = requestAnimationFrame(animate);
     } else {
-      // Yenileme tamamlandığında başarı durumu
       if (prevRefreshingRef.current) {
         setShowSuccess(true);
         setAnimProgress(1);
         const timer = setTimeout(() => {
           setShowSuccess(false);
-          setIsClosing(true);
-          const closeTimer = setTimeout(() => {
-            setIsClosing(false);
-            setAnimProgress(0);
-          }, 250);
-          return () => clearTimeout(closeTimer);
-        }, 750);
+          setAnimProgress(0);
+        }, 700);
         return () => clearTimeout(timer);
       }
     }
@@ -97,12 +83,10 @@ export function RoutePullIndicator({ progress, refreshing }: RoutePullIndicatorP
   }, [refreshing]);
 
   const p = Math.max(0, Math.min(1, progress));
-  const isVisible = refreshing || p > 0.05 || showSuccess || isClosing;
+  const isVisible = refreshing || p > 0.05 || showSuccess;
   if (!isVisible) return null;
 
-  // ÇEKERKEN GERİYE SARMA (Rewind):
-  // Kullanıcı aşağı çektikçe rota sondan başa doğru (1.0 -> 0.0) geriye sarılır!
-  // Refresh başladığında ise baştan sona (0.0 -> 1.0) ileri akar.
+  // Çekerken Geriye Sarma: Rota hedeften başa geriye sarılır
   const activeT = refreshing
     ? animProgress
     : showSuccess
@@ -112,24 +96,19 @@ export function RoutePullIndicator({ progress, refreshing }: RoutePullIndicatorP
   const { cx: pinX, cy: pinY } = getCompactPinCoordinates(activeT);
   const dashOffset = COMPACT_ROUTE_LENGTH * (1 - activeT);
 
-  // Kapsül animasyon değerleri (küçük, zarif ve ikonik)
-  const pillScale = refreshing ? 1 : showSuccess ? 1 : Math.min(1, 0.8 + p * 0.2);
-  const pillOpacity = refreshing ? 1 : showSuccess ? 1 : isClosing ? 0 : Math.min(1, p * 1.5);
-  const translateY = refreshing ? 6 : showSuccess ? 6 : isClosing ? -35 : -24 + p * 30;
+  // Kapsül animasyon değerleri
+  const pillScale = refreshing ? 1 : showSuccess ? 1 : Math.min(1, 0.85 + p * 0.15);
+  const pillOpacity = refreshing ? 1 : showSuccess ? 1 : Math.min(1, p * 1.6);
 
-  // Durum yazısı ve ikon
   let statusIcon = "⏪";
-  let statusText = `Geri sarılıyor %${Math.round(p * 100)}`;
+  let statusText = p >= 1 ? "Bırakın!" : `Geri Sar: %${Math.round(p * 100)}`;
 
   if (refreshing) {
     statusIcon = "⚡";
-    statusText = "Yenileniyor…";
+    statusText = "Güncelleniyor…";
   } else if (showSuccess) {
     statusIcon = "✓";
     statusText = "Güncellendi!";
-  } else if (p >= 1) {
-    statusIcon = "⚡";
-    statusText = "Bırakın!";
   }
 
   return (
@@ -138,31 +117,28 @@ export function RoutePullIndicator({ progress, refreshing }: RoutePullIndicatorP
         styles.iconicPill,
         {
           opacity: pillOpacity,
-          transform: [{ translateY }, { scale: pillScale }],
+          transform: [{ scale: pillScale }],
           borderColor: showSuccess
             ? "#22c55e"
             : refreshing
             ? "#19d9f2"
             : p >= 1
             ? "#38bdf8"
-            : "#1e3a4f",
+            : "rgba(25, 217, 242, 0.35)",
         },
       ]}
       pointerEvents="none"
     >
-      {/* Sol Kısım: İkonik Geriye/İleriye Saran Mini Rota SVG */}
+      {/* Mini Rota İzi */}
       <View style={styles.routeContainer}>
-        <Svg viewBox="0 0 64 20" style={styles.svgRoute}>
-          {/* Rota Arka Plan İzi */}
+        <Svg viewBox="0 0 54 16" style={styles.svgRoute}>
           <Path
             d={COMPACT_ROUTE}
-            stroke="#0e3247"
-            strokeWidth="2.5"
+            stroke="#0d2b3e"
+            strokeWidth="2.2"
             strokeLinecap="round"
             fill="none"
           />
-
-          {/* Dinamik Saran Cyan Rota Çizgisi */}
           <Path
             d={COMPACT_ROUTE}
             stroke={showSuccess ? "#22c55e" : "#19d9f2"}
@@ -172,18 +148,12 @@ export function RoutePullIndicator({ progress, refreshing }: RoutePullIndicatorP
             strokeDasharray={COMPACT_ROUTE_LENGTH}
             strokeDashoffset={dashOffset}
           />
-
-          {/* Başlangıç Noktası (Kullanıcı) */}
-          <Circle cx="6" cy="15" r="2.2" fill="#38bdf8" />
-
-          {/* Hedef Noktası (Saha / İlan) */}
-          <Circle cx="60" cy="6" r="2.2" fill={showSuccess ? "#22c55e" : "#19d9f2"} />
-
-          {/* Rota Üzerinde Saran Hareketli Pin */}
+          <Circle cx="5" cy="12" r="2" fill="#38bdf8" />
+          <Circle cx="50" cy="4" r="2" fill={showSuccess ? "#22c55e" : "#19d9f2"} />
           <Circle
             cx={pinX}
             cy={pinY}
-            r="3.2"
+            r="2.8"
             fill={showSuccess ? "#22c55e" : "#20e5f4"}
             stroke="#ffffff"
             strokeWidth="1"
@@ -191,10 +161,9 @@ export function RoutePullIndicator({ progress, refreshing }: RoutePullIndicatorP
         </Svg>
       </View>
 
-      {/* Dikey İnce Ayırıcı */}
       <View style={styles.divider} />
 
-      {/* Sağ Kısım: İkonik Durum ve Metin */}
+      {/* Durum İkon & Metin */}
       <View style={styles.statusSection}>
         <Text style={styles.statusIcon}>{statusIcon}</Text>
         <Text
@@ -212,14 +181,13 @@ export function RoutePullIndicator({ progress, refreshing }: RoutePullIndicatorP
   );
 }
 
-// Geriye dönük uyumluluk için alias
 export const BrandPullIndicator = RoutePullIndicator;
 
 /**
  * BrandRefreshScrollView:
- * - Aşağı çekerken rotayı geriye sarar (Rewind).
- * - Bırakıldığında rotayı ileri günceller.
- * - Android ve iOS'taki yerel circular spinner'ı tamamen gizler (-1000 offset).
+ * - Native Android SwipeRefreshLayout (ve onun beyaz circular balonu) tamamen kaldırılmıştır.
+ * - Çekerken FlatList/ScrollView aşağı doğru kayarak yer açar.
+ * - Ekranın üstünde 34px yüksekliğinde şık ve ikonik rota kapsülü oynar.
  */
 export function BrandRefreshScrollView({
   refreshing,
@@ -234,55 +202,129 @@ export function BrandRefreshScrollView({
   onRefresh: () => void;
 }) {
   const [dragProgress, setDragProgress] = useState(0);
+  const pullAnim = useRef(new Animated.Value(0)).current;
+  const scrollYRef = useRef(0);
+  const touchStartYRef = useRef<number | null>(null);
+  const isPullingRef = useRef(false);
+
+  useEffect(() => {
+    if (refreshing) {
+      Animated.spring(pullAnim, {
+        toValue: 44,
+        tension: 80,
+        friction: 9,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(pullAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+      setDragProgress(0);
+    }
+  }, [refreshing, pullAnim]);
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
+    scrollYRef.current = y;
     if (y < 0) {
+      // iOS overscroll desteği
       const p = Math.min(1, Math.abs(y) / TRIGGER_DISTANCE);
       setDragProgress(p);
-    } else if (dragProgress > 0) {
-      setDragProgress(0);
+      pullAnim.setValue(Math.min(44, Math.abs(y) * 0.6));
     }
     onScroll?.(e);
   };
 
+  const handleScrollEndDrag = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = e.nativeEvent.contentOffset.y;
+    if (y < -TRIGGER_DISTANCE && !refreshing) {
+      onRefresh();
+    }
+  };
+
+  const handleTouchStart = (e: GestureResponderEvent) => {
+    if (scrollYRef.current <= 2) {
+      touchStartYRef.current = e.nativeEvent.pageY;
+    } else {
+      touchStartYRef.current = null;
+    }
+  };
+
+  const handleTouchMove = (e: GestureResponderEvent) => {
+    if (touchStartYRef.current === null || refreshing) return;
+    const currentY = e.nativeEvent.pageY;
+    const diff = currentY - touchStartYRef.current;
+
+    if (diff > 0 && scrollYRef.current <= 2) {
+      isPullingRef.current = true;
+      const distance = Math.min(80, diff * 0.45);
+      const p = Math.min(1, distance / TRIGGER_DISTANCE);
+      setDragProgress(p);
+      pullAnim.setValue(distance * 0.65);
+    } else if (isPullingRef.current && diff <= 0) {
+      isPullingRef.current = false;
+      setDragProgress(0);
+      pullAnim.setValue(0);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (isPullingRef.current) {
+      isPullingRef.current = false;
+      if (dragProgress >= 0.9 && !refreshing) {
+        onRefresh();
+      } else if (!refreshing) {
+        Animated.spring(pullAnim, {
+          toValue: 0,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }).start();
+        setDragProgress(0);
+      }
+    }
+    touchStartYRef.current = null;
+  };
+
   return (
-    <View style={[styles.flex, style]}>
-      {/* Ekranın en üstünde kompakt ikonik geriye saran kapsül */}
+    <View
+      style={[styles.flex, style]}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+    >
+      {/* Üstte sabit ikonik rota kapsülü */}
       <View style={styles.headerAnchor} pointerEvents="none">
-        <RoutePullIndicator
-          progress={dragProgress}
-          refreshing={refreshing}
-        />
+        <RoutePullIndicator progress={dragProgress} refreshing={refreshing} />
       </View>
 
-      <ScrollView
-        {...rest}
-        style={styles.flex}
-        contentContainerStyle={contentContainerStyle}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            // Circular spinner'ı hem iOS hem Android'de 1000px ekran dışına iterek tamamen yok ediyoruz!
-            tintColor="transparent"
-            colors={["transparent"]}
-            progressBackgroundColor="transparent"
-            progressViewOffset={-1000}
-          />
-        }
+      <Animated.View
+        style={[styles.flex, { transform: [{ translateY: pullAnim }] }]}
       >
-        {children}
-      </ScrollView>
+        <ScrollView
+          {...rest}
+          style={styles.flex}
+          contentContainerStyle={contentContainerStyle}
+          onScroll={handleScroll}
+          onScrollEndDrag={handleScrollEndDrag}
+          scrollEventThrottle={16}
+          bounces={true}
+          overScrollMode="never"
+        >
+          {children}
+        </ScrollView>
+      </Animated.View>
     </View>
   );
 }
 
 /**
  * BrandRefreshFlatList:
- * - FlatList için İkonik Rota Geri Sarma Pull-to-Refresh bileşeni.
+ * - FlatList için İkonik Rota Geriye Sarma Pull-to-Refresh bileşeni.
+ * - Circular spinner sıfırlanmıştır.
  */
 export function BrandRefreshFlatList<T>({
   refreshing,
@@ -295,42 +337,117 @@ export function BrandRefreshFlatList<T>({
   onRefresh: () => void;
 }) {
   const [dragProgress, setDragProgress] = useState(0);
+  const pullAnim = useRef(new Animated.Value(0)).current;
+  const scrollYRef = useRef(0);
+  const touchStartYRef = useRef<number | null>(null);
+  const isPullingRef = useRef(false);
+
+  useEffect(() => {
+    if (refreshing) {
+      Animated.spring(pullAnim, {
+        toValue: 44,
+        tension: 80,
+        friction: 9,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(pullAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+      setDragProgress(0);
+    }
+  }, [refreshing, pullAnim]);
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
+    scrollYRef.current = y;
     if (y < 0) {
       const p = Math.min(1, Math.abs(y) / TRIGGER_DISTANCE);
       setDragProgress(p);
-    } else if (dragProgress > 0) {
-      setDragProgress(0);
+      pullAnim.setValue(Math.min(44, Math.abs(y) * 0.6));
     }
     onScroll?.(e);
   };
 
+  const handleScrollEndDrag = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = e.nativeEvent.contentOffset.y;
+    if (y < -TRIGGER_DISTANCE && !refreshing) {
+      onRefresh();
+    }
+  };
+
+  const handleTouchStart = (e: GestureResponderEvent) => {
+    if (scrollYRef.current <= 2) {
+      touchStartYRef.current = e.nativeEvent.pageY;
+    } else {
+      touchStartYRef.current = null;
+    }
+  };
+
+  const handleTouchMove = (e: GestureResponderEvent) => {
+    if (touchStartYRef.current === null || refreshing) return;
+    const currentY = e.nativeEvent.pageY;
+    const diff = currentY - touchStartYRef.current;
+
+    if (diff > 0 && scrollYRef.current <= 2) {
+      isPullingRef.current = true;
+      const distance = Math.min(80, diff * 0.45);
+      const p = Math.min(1, distance / TRIGGER_DISTANCE);
+      setDragProgress(p);
+      pullAnim.setValue(distance * 0.65);
+    } else if (isPullingRef.current && diff <= 0) {
+      isPullingRef.current = false;
+      setDragProgress(0);
+      pullAnim.setValue(0);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (isPullingRef.current) {
+      isPullingRef.current = false;
+      if (dragProgress >= 0.9 && !refreshing) {
+        onRefresh();
+      } else if (!refreshing) {
+        Animated.spring(pullAnim, {
+          toValue: 0,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }).start();
+        setDragProgress(0);
+      }
+    }
+    touchStartYRef.current = null;
+  };
+
   return (
-    <View style={[styles.flex, style]}>
+    <View
+      style={[styles.flex, style]}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+    >
       <View style={styles.headerAnchor} pointerEvents="none">
-        <RoutePullIndicator
-          progress={dragProgress}
-          refreshing={refreshing}
-        />
+        <RoutePullIndicator progress={dragProgress} refreshing={refreshing} />
       </View>
-      <FlatList<T>
-        {...rest}
-        style={styles.flex}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="transparent"
-            colors={["transparent"]}
-            progressBackgroundColor="transparent"
-            progressViewOffset={-1000}
-          />
-        }
-      />
+
+      <Animated.View
+        style={[styles.flex, { transform: [{ translateY: pullAnim }] }]}
+      >
+        <FlatList<T>
+          {...rest}
+          style={styles.flex}
+          onScroll={handleScroll}
+          onScrollEndDrag={handleScrollEndDrag}
+          scrollEventThrottle={16}
+          bounces={true}
+          overScrollMode="never"
+        >
+        </FlatList>
+      </Animated.View>
     </View>
   );
 }
@@ -348,46 +465,45 @@ const styles = StyleSheet.create({
   iconicPill: {
     flexDirection: "row",
     alignItems: "center",
-    height: 40,
+    height: 34,
     paddingHorizontal: 12,
-    backgroundColor: "#071c2b",
-    borderRadius: 20,
+    backgroundColor: "rgba(8, 26, 41, 0.96)",
+    borderRadius: 17,
     borderWidth: 1.2,
-    borderColor: "#17445a",
-    shadowColor: "#030c14",
+    shadowColor: "#020910",
     shadowOpacity: 0.45,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
     elevation: 8,
   },
   routeContainer: {
-    width: 64,
-    height: 20,
+    width: 54,
+    height: 16,
     justifyContent: "center",
   },
   svgRoute: {
-    width: 64,
-    height: 20,
+    width: 54,
+    height: 16,
   },
   divider: {
     width: 1,
-    height: 16,
-    backgroundColor: "#163a4f",
-    marginHorizontal: 9,
+    height: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.14)",
+    marginHorizontal: 8,
   },
   statusSection: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
   },
   statusIcon: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#38bdf8",
   },
   statusLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#d8eef7",
+    color: "#dbeafe",
     letterSpacing: -0.2,
   },
 });
