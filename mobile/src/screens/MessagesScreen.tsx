@@ -11,10 +11,10 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Animated,
-  Linking,
+  Modal,
   Alert,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import {
   fetchConversations,
   fetchMessages,
@@ -31,11 +31,11 @@ import {
   VerifiedCheckIcon,
   SearchIcon,
   DoubleCheckIcon,
-  PhoneIcon,
-  PaperclipIcon,
-  MapPinIcon,
   BriefcaseIcon,
-  ClockIcon,
+  CheckIcon,
+  XIcon,
+  EditIcon,
+  TrashIcon,
 } from '../components/icons';
 
 interface MessagesScreenProps {
@@ -47,13 +47,10 @@ interface MessagesScreenProps {
   refreshKey?: number;
 }
 
-const QUICK_ACTIONS = [
-  { label: '📍 Konum Gönder', text: 'İşin yapılacağı tam konumu paylaşabilir misiniz?' },
-  { label: '👍 İşi Onaylıyorum', text: 'Şartlar benim için uygundur, işi onaylıyorum.' },
-  { label: '⏰ Başlangıç Saati?', text: 'İşe tam olarak saat kaçta başlanacak?' },
-  { label: '💵 Ücret Detayı', text: 'Günlük yevmiye ve ödeme detaylarını teyit edebilir miyiz?' },
-  { label: '📞 İletişim Numarası', text: 'Görüşmek için telefon numaranızı alabilir miyim?' },
-];
+// In-Memory Önbellek: Sekme değişimlerinde tam ekran "Yükleniyor..." spinner'ı çıkmaz!
+let cachedConversations: ApiConversation[] = [];
+let cachedUserId: string | null = null;
+const cachedMessagesMap = new Map<string, (ApiMessage & { replyTo?: any; isEdited?: boolean })[]>();
 
 export function MessagesScreen({
   initialConversationId,
@@ -64,16 +61,28 @@ export function MessagesScreen({
   refreshKey,
 }: MessagesScreenProps) {
   const targetId = openConversationId || initialConversationId;
-  const [conversations, setConversations] = useState<ApiConversation[]>([]);
+
+  // Başlangıçta önbellek doluysa anında göster
+  const [conversations, setConversations] = useState<ApiConversation[]>(cachedConversations);
   const [selected, setSelected] = useState<ApiConversation | null>(null);
-  const [messages, setMessages] = useState<(ApiMessage & { tempId?: string })[]>([]);
+  const [messages, setMessages] = useState<(ApiMessage & { tempId?: string; replyTo?: any; isEdited?: boolean })[]>([]);
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState<'all' | 'jobs' | 'unread'>('all');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(cachedConversations.length === 0);
   const [sending, setSending] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(cachedUserId);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
+
+  // Mesaj Yanıtlama & Düzenleme Durumları
+  const [replyingMessage, setReplyingMessage] = useState<ApiMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState<ApiMessage | null>(null);
+
+  // Mesaj Aksiyon Menüsü Modalı (Uzun Basış)
+  const [actionMessage, setActionMessage] = useState<ApiMessage | null>(null);
+
+  // İlan Paylaşımı Modalı
+  const [shareJobModalOpen, setShareJobModalOpen] = useState(false);
 
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flatListRef = useRef<FlatList>(null);
@@ -83,6 +92,17 @@ export function MessagesScreen({
       setSelected(conv);
       onSelectConversation?.(conv ? conv.id : null);
       onActiveThreadChange?.(conv !== null);
+      setReplyingMessage(null);
+      setEditingMessage(null);
+
+      // Konuşma seçildiği an önbellekten mesajları 0 ms'de yükle
+      if (conv) {
+        const cached = cachedMessagesMap.get(conv.id);
+        if (cached && cached.length > 0) {
+          setMessages(cached);
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 50);
+        }
+      }
     },
     [onSelectConversation, onActiveThreadChange]
   );
@@ -93,11 +113,15 @@ export function MessagesScreen({
 
   const loadUserAndConversations = async () => {
     try {
-      const user = await fetchMe();
-      if (user) {
-        setCurrentUserId(user.id);
+      if (!cachedUserId) {
+        const user = await fetchMe();
+        if (user) {
+          cachedUserId = user.id;
+          setCurrentUserId(user.id);
+        }
       }
       const data = await fetchConversations();
+      cachedConversations = data;
       setConversations(data);
 
       if (targetId) {
@@ -114,6 +138,7 @@ export function MessagesScreen({
     }
   };
 
+  // Aktif Konuşma Mesajlarını Getir & Gerçek Zamanlı Dinle
   useEffect(() => {
     if (!selected) {
       setMessages([]);
@@ -121,19 +146,49 @@ export function MessagesScreen({
       return;
     }
 
-    loadMessages(selected.id);
+    const convId = selected.id;
 
+    // Arka planda sunucudan taze mesajları çek
+    const loadFresh = async () => {
+      try {
+        const fresh = await fetchMessages(convId);
+        cachedMessagesMap.set(convId, fresh);
+        setMessages(fresh);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadFresh();
+
+    // 2.5 sn'lik akıllı yedek polling (WebSocket gecikmelerini önler)
+    const pollInterval = setInterval(async () => {
+      try {
+        const fresh = await fetchMessages(convId);
+        if (fresh.length !== (cachedMessagesMap.get(convId)?.length ?? 0)) {
+          cachedMessagesMap.set(convId, fresh);
+          setMessages(fresh);
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+        }
+      } catch {}
+    }, 2500);
+
+    // Supabase Realtime WebSocket aboneliği
     const unsubscribe = subscribeToConversation(
-      selected.id,
+      convId,
       (newMsg: any) => {
         setMessages((prev) => {
           const exists = prev.some((m) => m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId));
+          let updated;
           if (exists) {
-            return prev.map((m) => (m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId) ? newMsg : m));
+            updated = prev.map((m) => (m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId) ? newMsg : m));
+          } else {
+            updated = [...prev, newMsg];
           }
-          return [...prev, newMsg];
+          cachedMessagesMap.set(convId, updated);
+          return updated;
         });
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
       },
       (typingList: TypingUser[]) => {
         setTypingUsers(typingList.filter((u: TypingUser) => u.userId !== currentUserId));
@@ -141,19 +196,10 @@ export function MessagesScreen({
     );
 
     return () => {
+      clearInterval(pollInterval);
       unsubscribe();
     };
   }, [selected?.id, currentUserId]);
-
-  const loadMessages = async (convId: string) => {
-    try {
-      const data = await fetchMessages(convId);
-      setMessages(data);
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 150);
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   const handleTextChange = (text: string) => {
     setInputText(text);
@@ -173,7 +219,8 @@ export function MessagesScreen({
     }, 2000);
   };
 
-  const handleSendText = async (textToSend: string) => {
+  // Mesaj Gönderme / Düzenleme
+  const handleSendText = async (textToSend: string, metadata?: any) => {
     if (!textToSend.trim() || !selected || sending) return;
 
     const content = textToSend.trim();
@@ -185,19 +232,47 @@ export function MessagesScreen({
     }
     sendTypingStatus(selected.id, false).catch(() => {});
 
-    // Optimistic message
+    // DÜZENLEME MODUNDAYSA
+    if (editingMessage) {
+      const editTargetId = editingMessage.id;
+      setMessages((prev) =>
+        prev.map((m) => (m.id === editTargetId ? { ...m, content, isEdited: true } : m))
+      );
+      setEditingMessage(null);
+      return;
+    }
+
+    // YENİ MESAJ: Hızlı İyimser Güncelleme
     const tempId = `temp-${Date.now()}`;
-    const optimisticMessage: ApiMessage & { tempId?: string } = {
+    const optimisticMessage: ApiMessage & { tempId?: string; replyTo?: any } = {
       id: tempId,
       tempId,
       conversationId: selected.id,
       senderId: currentUserId || 'me',
       content,
       createdAt: new Date().toISOString(),
+      ...(replyingMessage
+        ? {
+            replyTo: {
+              id: replyingMessage.id,
+              content: replyingMessage.content,
+              senderName:
+                replyingMessage.senderId === currentUserId
+                  ? 'Siz'
+                  : selected.participant?.fullName || 'Karşı Taraf',
+            },
+          }
+        : {}),
     };
 
-    setMessages((prev) => [...prev, optimisticMessage]);
-    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50);
+    setMessages((prev) => {
+      const updated = [...prev, optimisticMessage];
+      cachedMessagesMap.set(selected.id, updated);
+      return updated;
+    });
+
+    setReplyingMessage(null);
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 60);
 
     setSending(true);
     try {
@@ -206,9 +281,10 @@ export function MessagesScreen({
         recipientId: selected.participant?.id,
         content,
         type: 'TEXT',
+        metadata,
       });
       setMessages((prev) =>
-        prev.map((m) => (m.id === tempId || m.tempId === tempId ? { ...saved, tempId } : m))
+        prev.map((m) => (m.id === tempId || m.tempId === tempId ? { ...saved, tempId, replyTo: optimisticMessage.replyTo } : m))
       );
     } catch (e) {
       console.error('Send error:', e);
@@ -217,12 +293,46 @@ export function MessagesScreen({
     }
   };
 
-  const handleCall = (phone?: string) => {
-    if (!phone) {
-      Alert.alert('İletişim', 'Kullanıcının telefon numarası profilinde gizli veya henüz eklenmemiş.');
-      return;
-    }
-    Linking.openURL(`tel:${phone}`);
+  // Mesaj İşlemleri
+  const handleActionReply = (msg: ApiMessage) => {
+    setReplyingMessage(msg);
+    setEditingMessage(null);
+    setActionMessage(null);
+  };
+
+  const handleActionEdit = (msg: ApiMessage) => {
+    setEditingMessage(msg);
+    setInputText(msg.content);
+    setReplyingMessage(null);
+    setActionMessage(null);
+  };
+
+  const handleActionDelete = (msg: ApiMessage) => {
+    setActionMessage(null);
+    Alert.alert('Mesajı Sil', 'Bu mesajı konuşmadan silmek istediğinize emin misiniz?', [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Sil',
+        style: 'destructive',
+        onPress: () => {
+          setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+        },
+      },
+    ]);
+  };
+
+  const handleActionCopy = async (msg: ApiMessage) => {
+    setActionMessage(null);
+    await Clipboard.setStringAsync(msg.content);
+    Alert.alert('Kopyalandı', 'Mesaj panoya kopyalandı.');
+  };
+
+  // İlan Paylaşma
+  const handleShareJobLink = (jobTitle: string, jobId?: string) => {
+    setShareJobModalOpen(false);
+    const link = `https://gunubirlik.qrders.com.tr/jobs/${jobId ?? selected?.job?.id ?? 'detay'}`;
+    const shareText = `💼 [İş İlanı] ${jobTitle}\nİlan Detayları: ${link}`;
+    handleSendText(shareText);
   };
 
   const filteredConversations = useMemo(() => {
@@ -263,21 +373,20 @@ export function MessagesScreen({
     );
   };
 
-  if (loading) {
+  if (loading && conversations.length === 0) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#0D6847" />
-        <Text style={styles.loadingText}>Sohbetler yükleniyor…</Text>
+        <Text style={styles.loadingText}>Sohbetler hazırlanıyor…</Text>
       </View>
     );
   }
 
-  // --- CONVERSATION CHAT VIEW ---
+  // ================= CONVERSATION CHAT VIEW =================
   if (selected) {
     const displayName =
       selected.participant?.fullName || selected.participant?.companyName || selected.job?.title || 'Sohbet';
     const isVerified = (selected.participant as any)?.isVerified;
-    const phone = (selected.participant as any)?.phone;
     const jobTitle = selected.job?.title;
     const wageAmount = (selected.job as any)?.wageAmount;
 
@@ -285,9 +394,9 @@ export function MessagesScreen({
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.threadContainer}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 44 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
       >
-        {/* Modern Sleek Header */}
+        {/* Modern Sade Başlık — Telefon butonu yok, sadece kişi ve ilan */}
         <View style={styles.threadHeader}>
           <TouchableOpacity
             onPress={() => handleSelectConversation(null)}
@@ -298,7 +407,7 @@ export function MessagesScreen({
           </TouchableOpacity>
 
           <View style={styles.headerAvatarContainer}>
-            <Avatar name={displayName} size={40} />
+            <Avatar name={displayName} size={38} />
             <View style={styles.onlineBadge} />
           </View>
 
@@ -307,11 +416,11 @@ export function MessagesScreen({
               <Text style={styles.headerTitle} numberOfLines={1}>
                 {displayName}
               </Text>
-              {isVerified && <VerifiedCheckIcon size={15} color="#0D6847" />}
+              {isVerified && <VerifiedCheckIcon size={14} color="#0D6847" />}
             </View>
             {jobTitle && (
               <View style={styles.headerJobPill}>
-                <BriefcaseIcon size={11} color="#0D6847" />
+                <BriefcaseIcon size={10} color="#0D6847" />
                 <Text style={styles.headerJobText} numberOfLines={1}>
                   {jobTitle} {wageAmount ? `· ₺${wageAmount.toLocaleString('tr-TR')}` : ''}
                 </Text>
@@ -319,26 +428,27 @@ export function MessagesScreen({
             )}
           </View>
 
+          {/* İlan Paylaş Butonu */}
           <TouchableOpacity
-            onPress={() => handleCall(phone)}
-            style={styles.headerActionBtn}
+            onPress={() => setShareJobModalOpen(true)}
+            style={styles.headerShareJobBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <PhoneIcon size={18} color="#0D6847" strokeWidth={2} />
+            <BriefcaseIcon size={15} color="#0D6847" />
+            <Text style={styles.headerShareJobText}>İlan Paylaş</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Messages Feed */}
+        {/* Mesaj Akışı — paddingBottom: 28 ile son mesajın yarısı ASLA kesilmez */}
         <FlatList
           ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id || item.tempId || Math.random().toString()}
           contentContainerStyle={styles.messagesList}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           renderItem={({ item, index }) => {
             const isMe = item.senderId === currentUserId || item.senderId === 'me';
             const prevItem = index > 0 ? messages[index - 1] : null;
-
-            // Show date separator if day changed
             const isDifferentDay =
               !prevItem ||
               new Date(item.createdAt).toDateString() !== new Date(prevItem.createdAt).toDateString();
@@ -347,6 +457,8 @@ export function MessagesScreen({
               day: 'numeric',
               month: 'long',
             });
+
+            const isJobShare = item.content.includes('[İş İlanı]');
 
             return (
               <View>
@@ -359,12 +471,48 @@ export function MessagesScreen({
                     <View style={styles.dateLine} />
                   </View>
                 )}
-                <View style={[styles.messageRow, isMe ? styles.myRow : styles.otherRow]}>
+
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onLongPress={() => setActionMessage(item)}
+                  style={[styles.messageRow, isMe ? styles.myRow : styles.otherRow]}
+                >
                   <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
-                    <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>
-                      {item.content}
-                    </Text>
+                    {/* Alıntılanan / Yanıtlanan Mesaj Başlığı */}
+                    {item.replyTo && (
+                      <View style={[styles.quotedBubble, isMe ? styles.quotedBubbleMe : styles.quotedBubbleOther]}>
+                        <Text style={[styles.quotedSender, isMe && { color: '#A7F3D0' }]}>
+                          {item.replyTo.senderName}
+                        </Text>
+                        <Text style={[styles.quotedText, isMe && { color: 'rgba(255,255,255,0.85)' }]} numberOfLines={1}>
+                          {item.replyTo.content}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* İlan Paylaşım Kartı */}
+                    {isJobShare ? (
+                      <View style={styles.jobShareCard}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <BriefcaseIcon size={16} color={isMe ? '#FFFFFF' : '#0D6847'} />
+                          <Text style={[styles.jobShareTitle, isMe && { color: '#FFFFFF' }]}>Günübirlik İş İlanı</Text>
+                        </View>
+                        <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText, { marginTop: 4 }]}>
+                          {item.content}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>
+                        {item.content}
+                      </Text>
+                    )}
+
                     <View style={styles.messageMetaRow}>
+                      {item.isEdited && (
+                        <Text style={[styles.editedLabel, isMe ? styles.myTime : styles.otherTime]}>
+                          (düzenlendi)
+                        </Text>
+                      )}
                       <Text style={[styles.messageTime, isMe ? styles.myTime : styles.otherTime]}>
                         {new Date(item.createdAt).toLocaleTimeString([], {
                           hour: '2-digit',
@@ -374,43 +522,49 @@ export function MessagesScreen({
                       {isMe && <DoubleCheckIcon size={13} color="rgba(255,255,255,0.7)" strokeWidth={2} />}
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               </View>
             );
           }}
           ListFooterComponent={renderTypingIndicator}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         />
 
-        {/* Quick Suggestion Chips */}
-        <View style={styles.quickChipsWrapper}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickChipsScroll}
-          >
-            {QUICK_ACTIONS.map((action, i) => (
-              <TouchableOpacity
-                key={i}
-                style={styles.quickChip}
-                onPress={() => handleSendText(action.text)}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.quickChipText}>{action.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+        {/* Yanıtlama Çubuğu */}
+        {replyingMessage && (
+          <View style={styles.replyBar}>
+            <View style={styles.replyBarIndicator} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.replyBarSender}>
+                {replyingMessage.senderId === currentUserId ? 'Kendinize yanıt veriyorsunuz' : 'Yanıtlanan Mesaj'}
+              </Text>
+              <Text style={styles.replyBarText} numberOfLines={1}>
+                {replyingMessage.content}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setReplyingMessage(null)} hitSlop={8}>
+              <XIcon size={16} color="#717673" />
+            </TouchableOpacity>
+          </View>
+        )}
 
-        {/* Composer Bar */}
+        {/* Düzenleme Çubuğu */}
+        {editingMessage && (
+          <View style={[styles.replyBar, { backgroundColor: '#FEF3C7' }]}>
+            <View style={[styles.replyBarIndicator, { backgroundColor: '#D97706' }]} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.replyBarSender, { color: '#B45309' }]}>Mesajı Düzenliyorsunuz</Text>
+              <Text style={styles.replyBarText} numberOfLines={1}>
+                {editingMessage.content}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => { setEditingMessage(null); setInputText(''); }} hitSlop={8}>
+              <XIcon size={16} color="#B45309" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Sade Mesaj Giriş Çubuğu — Dosya/Telefon ikonu yok */}
         <View style={styles.inputContainer}>
-          <TouchableOpacity
-            style={styles.attachButton}
-            onPress={() => Alert.alert('Dosya Paylaşımı', 'Konum, görsel ve belge ekleme özelliği yakında aktifleşecek.')}
-          >
-            <PaperclipIcon size={19} color="#5C615E" strokeWidth={1.8} />
-          </TouchableOpacity>
-
           <TextInput
             style={styles.textInput}
             value={inputText}
@@ -436,14 +590,106 @@ export function MessagesScreen({
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Mesaj Aksiyon Modalı (Uzun Basıldığında) */}
+        <Modal
+          visible={!!actionMessage}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setActionMessage(null)}
+        >
+          <Pressable style={styles.actionModalOverlay} onPress={() => setActionMessage(null)}>
+            <View style={styles.actionModalContent}>
+              <Text style={styles.actionModalTitle} numberOfLines={1}>
+                {actionMessage?.content}
+              </Text>
+              <View style={styles.actionDivider} />
+
+              <TouchableOpacity
+                style={styles.actionItem}
+                onPress={() => actionMessage && handleActionReply(actionMessage)}
+              >
+                <Text style={styles.actionItemText}>↩️ Yanıtla</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionItem}
+                onPress={() => actionMessage && handleActionCopy(actionMessage)}
+              >
+                <Text style={styles.actionItemText}>📋 Kopyala</Text>
+              </TouchableOpacity>
+
+              {actionMessage?.senderId === currentUserId && (
+                <>
+                  <TouchableOpacity
+                    style={styles.actionItem}
+                    onPress={() => actionMessage && handleActionEdit(actionMessage)}
+                  >
+                    <Text style={styles.actionItemText}>✏️ Düzenle</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.actionItem}
+                    onPress={() => actionMessage && handleActionDelete(actionMessage)}
+                  >
+                    <Text style={[styles.actionItemText, { color: '#DC2626' }]}>🗑️ Mesajı Geri Çek / Sil</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </Pressable>
+        </Modal>
+
+        {/* İlan Paylaşma Modalı */}
+        <Modal
+          visible={shareJobModalOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShareJobModalOpen(false)}
+        >
+          <Pressable style={styles.actionModalOverlay} onPress={() => setShareJobModalOpen(false)}>
+            <View style={styles.shareJobModalSheet}>
+              <View style={styles.sheetHandle} />
+              <Text style={styles.shareJobTitle}>Sohbette İlan Paylaş</Text>
+              <Text style={styles.shareJobDesc}>
+                Karşı tarafa incelemesi için iş ilanının bağlantısını gönderin.
+              </Text>
+
+              {selected.job ? (
+                <TouchableOpacity
+                  style={styles.jobPickCard}
+                  onPress={() => handleShareJobLink(selected.job!.title, selected.job!.id)}
+                >
+                  <BriefcaseIcon size={20} color="#0D6847" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.jobPickTitle}>{selected.job.title}</Text>
+                    <Text style={styles.jobPickSubtitle}>Mevcut görüşülen ilan</Text>
+                  </View>
+                  <Text style={styles.jobPickSendBtn}>Paylaş</Text>
+                </TouchableOpacity>
+              ) : null}
+
+              <TouchableOpacity
+                style={styles.jobPickCard}
+                onPress={() => handleShareJobLink('Günübirlik Günlük İş İlanları')}
+              >
+                <SearchIcon size={20} color="#0D6847" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.jobPickTitle}>Tüm Günübirlik İlanları</Text>
+                  <Text style={styles.jobPickSubtitle}>gunubirlik.qrders.com.tr/jobs</Text>
+                </View>
+                <Text style={styles.jobPickSendBtn}>Paylaş</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Modal>
       </KeyboardAvoidingView>
     );
   }
 
-  // --- INBOX LIST VIEW ---
+  // ================= INBOX LIST VIEW =================
   return (
     <View style={styles.listContainer}>
-      {/* Search Header */}
       <View style={styles.inboxHeader}>
         <View style={styles.inboxTitleRow}>
           <Text style={styles.inboxTitle}>Mesajlar</Text>
@@ -452,7 +698,7 @@ export function MessagesScreen({
           </View>
         </View>
 
-        {/* Search Bar */}
+        {/* Arama Çubuğu */}
         <View style={styles.searchBar}>
           <SearchIcon size={16} color="#717673" />
           <TextInput
@@ -464,7 +710,7 @@ export function MessagesScreen({
           />
         </View>
 
-        {/* Filter Tabs */}
+        {/* Filtre Butonları */}
         <View style={styles.filterRow}>
           <Pressable
             style={[styles.filterChip, filterTab === 'all' && styles.filterChipActive]}
@@ -531,7 +777,7 @@ export function MessagesScreen({
               style={styles.conversationCard}
             >
               <View style={styles.cardAvatarContainer}>
-                <Avatar name={name} size={48} />
+                <Avatar name={name} size={46} />
                 <View style={styles.onlineDot} />
               </View>
 
@@ -679,7 +925,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 12,
     marginHorizontal: 12,
     marginVertical: 4,
@@ -687,11 +933,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EAE8E2',
     gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
   },
   cardAvatarContainer: {
     position: 'relative',
@@ -700,9 +941,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
     backgroundColor: '#10B981',
     borderWidth: 2,
     borderColor: '#FFFFFF',
@@ -880,20 +1121,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#0D6847',
   },
-  headerActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#EAF3EE',
+  headerShareJobBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#EAF3EE',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#C5DDD0',
+  },
+  headerShareJobText: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
+    color: '#0D6847',
   },
 
   messagesList: {
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 28, // Alt mesajın kesilmesini önleyen geniş boşluk
     gap: 8,
   },
   dateSeparator: {
@@ -939,22 +1188,12 @@ const styles = StyleSheet.create({
   myBubble: {
     backgroundColor: '#0D6847',
     borderBottomRightRadius: 4,
-    shadowColor: '#0D6847',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 2,
   },
   otherBubble: {
     backgroundColor: '#FFFFFF',
     borderBottomLeftRadius: 4,
     borderWidth: 1,
     borderColor: '#E8E6DF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
   },
   messageText: {
     fontSize: 14,
@@ -984,32 +1223,85 @@ const styles = StyleSheet.create({
   otherTime: {
     color: '#717673',
   },
+  editedLabel: {
+    fontSize: 9,
+    fontStyle: 'italic',
+  },
 
-  quickChipsWrapper: {
+  // Alıntılanan Mesaj
+  quotedBubble: {
+    borderLeftWidth: 3,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 6,
+  },
+  quotedBubbleMe: {
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    borderLeftColor: '#A7F3D0',
+  },
+  quotedBubbleOther: {
     backgroundColor: '#F6F5F2',
-    borderTopWidth: 1,
-    borderTopColor: '#EAE8E2',
-    paddingVertical: 6,
+    borderLeftColor: '#0D6847',
   },
-  quickChipsScroll: {
-    paddingHorizontal: 12,
-    gap: 6,
+  quotedSender: {
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
+    color: '#0D6847',
   },
-  quickChip: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E0D8',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  quickChipText: {
+  quotedText: {
     fontSize: 11,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
-    fontWeight: '600',
+    fontFamily: 'PlusJakartaSans_400Regular',
+    color: '#5C615E',
+    marginTop: 1,
+  },
+
+  // İlan Paylaşım Kartı
+  jobShareCard: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  jobShareTitle: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
     color: '#0D6847',
   },
 
+  // Yanıt / Düzenleme Barı
+  replyBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: '#EAF3EE',
+    borderTopWidth: 1,
+    borderTopColor: '#C5DDD0',
+    gap: 10,
+  },
+  replyBarIndicator: {
+    width: 3,
+    height: '100%',
+    backgroundColor: '#0D6847',
+    borderRadius: 2,
+  },
+  replyBarSender: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
+    color: '#0D6847',
+  },
+  replyBarText: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    color: '#5C615E',
+  },
+
+  // Input Container
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1019,14 +1311,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E8E6DF',
     gap: 8,
-  },
-  attachButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F6F5F2',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   textInput: {
     flex: 1,
@@ -1089,6 +1373,111 @@ const styles = StyleSheet.create({
   dot1: { opacity: 0.4 },
   dot2: { opacity: 0.7 },
   dot3: { opacity: 1 },
+
+  // Aksiyon Modalı (Uzun Basış)
+  actionModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  actionModalContent: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    gap: 10,
+  },
+  actionModalTitle: {
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    color: '#717673',
+    paddingHorizontal: 4,
+  },
+  actionDivider: {
+    height: 1,
+    backgroundColor: '#EAE8E2',
+  },
+  actionItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  actionItemText: {
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    color: '#141615',
+  },
+
+  // İlan Paylaş Modalı Sheet
+  shareJobModalSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 36,
+    gap: 12,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D1D5DB',
+    alignSelf: 'center',
+    marginBottom: 4,
+  },
+  shareJobTitle: {
+    fontSize: 17,
+    fontFamily: 'PlusJakartaSans_800ExtraBold',
+    fontWeight: '800',
+    color: '#141615',
+  },
+  shareJobDesc: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    color: '#5C615E',
+    lineHeight: 18,
+  },
+  jobPickCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F6F5F2',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+    borderRadius: 12,
+    padding: 14,
+    gap: 12,
+  },
+  jobPickTitle: {
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
+    color: '#141615',
+  },
+  jobPickSubtitle: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_400Regular',
+    color: '#717673',
+    marginTop: 2,
+  },
+  jobPickSendBtn: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
+    color: '#0D6847',
+    backgroundColor: '#EAF3EE',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#C5DDD0',
+  },
 });
 
 export default MessagesScreen;

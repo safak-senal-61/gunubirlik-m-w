@@ -1,8 +1,10 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "@/hooks/use-auth";
 import { BellIcon } from "./icons";
 import { C } from "./ui";
+
+const BRAND_LOGO = require("../../assets/brand-logo.png");
 
 interface AppHeaderProps {
   unreadCount?: number;
@@ -27,19 +29,20 @@ export function AppHeader({
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        {/* Brand Lockup — Aligned flush to the far left matching gunubirlik.qrders.com.tr */}
+        {/* Brand Lockup — Aligned flush to the far left with User's Official Logo */}
         <View style={styles.brandBox}>
-          <View style={styles.brandIcon}>
-            <Text style={styles.brandIconChar}>G</Text>
-          </View>
+          <Image
+            source={BRAND_LOGO}
+            style={styles.brandLogo}
+            resizeMode="contain"
+          />
           <Text style={styles.brandTitle}>Günübirlik</Text>
         </View>
 
-        {/* Right Actions: Refined Editorial Role Pill & Notification Button */}
+        {/* Right Actions: Clean Role Pill (No dot at the beginning) & Notification Bell */}
         <View style={styles.rightActions}>
           {user && (
             <View style={styles.roleBadge}>
-              <View style={styles.roleDot} />
               <Text style={styles.roleText}>{roleLabel}</Text>
             </View>
           )}
@@ -99,32 +102,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
-    gap: 8,
+    gap: 9,
     marginLeft: 0,
     paddingLeft: 0,
   },
-  brandIcon: {
-    width: 30,
-    height: 30,
+  brandLogo: {
+    width: 32,
+    height: 32,
     borderRadius: 8,
-    backgroundColor: "#0D6847",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#0D6847",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  brandIconChar: {
-    color: "#FFFFFF",
-    fontSize: 17,
-    fontFamily: "PlusJakartaSans_800ExtraBold",
-    fontWeight: "800",
-    lineHeight: 20,
   },
   brandTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontFamily: "PlusJakartaSans_800ExtraBold",
     fontWeight: "800",
     color: "#141615",
@@ -136,28 +124,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   roleBadge: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    justifyContent: "center",
     backgroundColor: "#EAF3EE",
-    paddingHorizontal: 8,
-    paddingVertical: 4.5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: "#C5DDD0",
   },
-  roleDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: "#0D6847",
-  },
   roleText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontFamily: "PlusJakartaSans_600SemiBold",
     fontWeight: "600",
     color: "#0D6847",
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   iconButton: {
     width: 34,

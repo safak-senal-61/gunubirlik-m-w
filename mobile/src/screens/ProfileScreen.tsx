@@ -77,6 +77,7 @@ import {
   ShieldCheckIcon,
   HourglassIcon,
   XIcon,
+  ExternalLinkIcon,
 } from "@/components/icons";
 
 type SettingsTab = "account" | "wallet" | "security" | "notifications" | "policies" | "about";
@@ -1303,94 +1304,164 @@ function NotificationsTab() {
 /* ================= POLİTİKALAR ================= */
 
 function PoliciesTab() {
-  const [openRule, setOpenRule] = useState<string | null>("moderation");
+  const [openRule, setOpenRule] = useState<string | null>("terms");
   const toggle = (k: string) => setOpenRule(openRule === k ? null : k);
+
+  const openOfficialWebsiteContracts = () => {
+    void Linking.openURL("https://gunubirlik.qrders.com.tr/sozlesmeler");
+  };
 
   return (
     <>
-      <Card style={{ gap: 10 }}>
-        <SectionTitle>Otomatik Moderasyon Sistemi</SectionTitle>
+      {/* Doğrudan Resmi Web Sitesi Bağlantısı */}
+      <Card style={{ gap: 8, backgroundColor: "#EAF3EE", borderColor: "#C5DDD0" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <FileTextIcon size={20} color="#0D6847" />
+          <Text style={{ fontSize: 15, fontFamily: "PlusJakartaSans_700Bold", color: "#0D6847" }}>
+            Resmi Sözleşmeler Merkezi
+          </Text>
+        </View>
         <Text style={styles.desc}>
-          Mesajlarda içerik otomatik olarak filtrelenir. Aşağıdaki ihlaller sistemce yakalanır ve yaptırım uygulanır:
+          Platformumuzdaki tüm yasal metinler, kullanım koşulları ve KVKK aydınlatma bildirimleri gunubirlik.qrders.com.tr/sozlesmeler adresinde eksiksiz yayımlanmaktadır.
         </Text>
-        {[
-          { label: "Küfür & hakaret (TR + EN, leetspeak dahil)", sev: "HIGH", color: C.rose, bg: C.roseBg },
-          { label: "Telefon numarası paylaşımı", sev: "LOW", color: C.amber, bg: C.amberBg },
-          { label: "E-posta adresi paylaşımı", sev: "LOW", color: C.amber, bg: C.amberBg },
-          { label: "URL / sosyal medya (wa.me, instagram, @handle)", sev: "LOW", color: C.amber, bg: C.amberBg },
-          { label: "IBAN paylaşımı", sev: "LOW", color: C.amber, bg: C.amberBg },
-          { label: "Açık adres (mahalle/cadde/sokak)", sev: "LOW", color: C.amber, bg: C.amberBg },
-          { label: "Tehdit içeren mesajlar (otomatik engelleme)", sev: "CRITICAL", color: C.rose, bg: C.roseBg },
-        ].map((r) => (
-          <View key={r.label} style={styles.ruleRow}>
-            <Text style={styles.ruleText}>{r.label}</Text>
-            <Badge label={r.sev} color={r.color} bg={r.bg} />
-          </View>
-        ))}
-        <View style={styles.divider} />
-        <Text style={styles.desc}>Otomatik yaptırım tablosu:</Text>
-        {[
-          { k: "5 LOW ihlali", v: "24 saat sessize alma" },
-          { k: "3 MEDIUM ihlali", v: "24 saat sessize alma" },
-          { k: "2 HIGH ihlali", v: "7 gün askıya alma" },
-          { k: "1 CRITICAL ihlali", v: "30 gün ban incelemesi" },
-          { k: "20+ toplam ihlal", v: "kalıcı ban incelemesi" },
-        ].map((r) => (
-          <View key={r.k} style={styles.ruleRow}>
-            <Text style={styles.ruleText}>{r.k}</Text>
-            <Text style={styles.ruleValue}>{r.v}</Text>
-          </View>
-        ))}
+        <PrimaryButton
+          label="Resmi Sözleşmeleri Web'de Aç ↗"
+          onPress={openOfficialWebsiteContracts}
+          variant="primary"
+        />
       </Card>
 
+      {/* 1. Kullanım Koşulları ve Üyelik Sözleşmesi */}
       <Card style={{ gap: 8 }}>
-        <Pressable onPress={() => toggle("payment")}>
+        <Pressable onPress={() => toggle("terms")}>
           <View style={styles.accHeader}>
-            <SectionTitle>Ödeme politikası</SectionTitle>
-            {openRule === "payment" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
+            <SectionTitle>Kullanım Koşulları & Üyelik Sözleşmesi</SectionTitle>
+            {openRule === "terms" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
           </View>
         </Pressable>
-        {openRule === "payment" && (
-          <Text style={styles.accBody}>
-            Ücretler iş ilanında belirtilen tutar üzerinden anlaşılır. İş tamamlandığında ödeme kaydı oluşur;
-            yönetim onayı sonrası işveren “ödendi”, işçi “aldım” onayı verir. Ödeme anlaşmazlığında iki tarafın
-            da QR kayıtları ve mesaj geçmişi delil olarak incelenir. Nakit ödemede “Ödemeyi Al” QR'ını karşılıklı
-            okutmak her iki taraf için kayıt oluşturur.
-          </Text>
+        {openRule === "terms" && (
+          <View style={{ gap: 6 }}>
+            <Text style={styles.accBody}>
+              <Text style={{ fontWeight: "700" }}>MADDE 1 — TARAFLAR VE AMAÇ:{"\n"}</Text>
+              İşbu sözleşme Günübirlik İş Bul platformu ile platforma üye olan Çalışan (İşçi) ve İşveren (İşletme) taraflar arasındaki hak ve yükümlülükleri düzenler.{"\n\n"}
+              <Text style={{ fontWeight: "700" }}>MADDE 2 — ÜYELİK VE ROL SEÇİMİ:{"\n"}</Text>
+              Platforma 18 yaşını doldurmuş gerçek ve tüzel kişiler üye olabilir. Kullanıcılar kayıt aşamasında İş Arayan veya İşveren rolünü seçer; her rol kendi yasal sorumluluklarına tabidir.{"\n\n"}
+              <Text style={{ fontWeight: "700" }}>MADDE 3 — ÇALIŞAN (İŞÇİ) YÜKÜMLÜLÜKLERİ:{"\n"}</Text>
+              Başvurusu kabul edilen işçi, kararlaştırılan gün ve saatte iş yerinde hazır bulunur. İşe başlama ve bitiş anında platformun güvenli QR kodunu karşılıklı okutarak hakediş kaydı oluşturur.{"\n\n"}
+              <Text style={{ fontWeight: "700" }}>MADDE 4 — İŞVEREN HAK VE YÜKÜMLÜLÜKLERİ:{"\n"}</Text>
+              İşveren, ilan detayında belirtilen günlük yevmiyeyi ve çalışma şartlarını tam olarak sağlamakla yükümlüdür. İş sağlığı ve güvenliği önlemleri işverenin sorumluluğundadır.{"\n\n"}
+              <Text style={{ fontWeight: "700" }}>MADDE 5 — PLATFORM DIŞI İŞLEM YASAĞI:{"\n"}</Text>
+              Kullanıcıların komisyon atlatmak amacıyla platform dışına iletişim yönlendirmesi veya sahte ilan açması sistem tarafından otomatik engellenir ve hesap kalıcı olarak askıya alınır.
+            </Text>
+          </View>
         )}
       </Card>
 
+      {/* 2. Gizlilik ve Google OAuth Politikası */}
       <Card style={{ gap: 8 }}>
-        <Pressable onPress={() => toggle("job")}>
+        <Pressable onPress={() => toggle("privacy")}>
           <View style={styles.accHeader}>
-            <SectionTitle>İlan onay politikası</SectionTitle>
-            {openRule === "job" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
+            <SectionTitle>Gizlilik & Google OAuth Politikası</SectionTitle>
+            {openRule === "privacy" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
           </View>
         </Pressable>
-        {openRule === "job" && (
-          <Text style={styles.accBody}>
-            Doğrulanmış işverenler ilanlarını anında yayımlar. Doğrulanmamış hesapların ilanları yönetim onayı
-            bekler (onaylanır veya reddedilir). Yanıltıcı ilanlar kaldırılır ve hesap uyarı alır.
-          </Text>
+        {openRule === "privacy" && (
+          <View style={{ gap: 6 }}>
+            <Text style={styles.accBody}>
+              <Text style={{ fontWeight: "700" }}>MADDE 1 — VERİ SORUMLUSU VE KAPSAM:{"\n"}</Text>
+              Günübirlik İş Bul, kullanıcıların gizliliğine en yüksek derecede önem verir. Toplanan veriler yalnızca iş eşleştirme, güvenli ödeme ve hesap doğrulama amacıyla işlenir.{"\n\n"}
+              <Text style={{ fontWeight: "700" }}>MADDE 2 — GOOGLE OAUTH 2.0 SINIRLI KULLANIMI:{"\n"}</Text>
+              Google hesabı ile giriş yapıldığında yalnızca ad, soyad ve e-posta verileri kimlik doğrulama için alınır. Google kullanıcı verileri asla reklam şirketlerine aktarılmaz veya satılmaz.{"\n\n"}
+              <Text style={{ fontWeight: "700" }}>MADDE 3 — VERİ GÜVENLİĞİ VE ŞİFRELEME:{"\n"}</Text>
+              Tüm veri trafiği 256-bit SSL şifreleme ve modern bulut güvenlik protokolleriyle korunur. Şifreler tuzlanmış hash algoritmasıyla saklanır.{"\n\n"}
+              <Text style={{ fontWeight: "700" }}>MADDE 4 — HESAP SİLME VE UNUTULMA HAKKI:{"\n"}</Text>
+              Kullanıcılar diledikleri zaman Ayarlar {">"} Güvenlik {">"} Hesabımı Sil adımı ile tüm kişisel verilerinin sistemden kalıcı olarak silinmesini talep edebilir.
+            </Text>
+          </View>
         )}
       </Card>
 
+      {/* 3. Mesafeli Satış ve Emanet (Escrow) Sözleşmesi */}
       <Card style={{ gap: 8 }}>
-        <Pressable onPress={() => toggle("conduct")}>
+        <Pressable onPress={() => toggle("escrow")}>
           <View style={styles.accHeader}>
-            <SectionTitle>Topluluk kuralları</SectionTitle>
-            {openRule === "conduct" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
+            <SectionTitle>Mesafeli Satış & Emanet (Escrow) Sözleşmesi</SectionTitle>
+            {openRule === "escrow" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
           </View>
         </Pressable>
-        {openRule === "conduct" && (
-          <Text style={styles.accBody}>
-            1) Karşılıklı saygı — hakaret, tehdit ve ayrımcılık yasaktır.{"\n"}
-            2) Dış kanala yönlendirme yasaktır (telefon/e-posta/WhatsApp/sosyal medya) — güvenliğin için tüm
-            konuşma platform içinde kalır.{"\n"}
-            3) Sahte ilan ve sahte başvurular kalıcı ban sebebidir.{"\n"}
-            4) İş sonrası karşılıklı puanlama zorunludur; adil puan ver.{"\n"}
-            5) Ödeme anlaşmazlıklarını platform üzerinden çöz; itiraz hakkın saklıdır.
-          </Text>
+        {openRule === "escrow" && (
+          <View style={{ gap: 6 }}>
+            <Text style={styles.accBody}>
+              <Text style={{ fontWeight: "700" }}>MADDE 1 — EMANET (ESCROW) HAVUZU İŞLEYİŞİ:{"\n"}</Text>
+              İşveren bir başvuruyu onayladığında günlük yevmiye tutarı güvenli emanet havuzuna aktarılır. İş günü sonunda QR kod okutulup iş tamamlandı onayı verildiğinde bakiye işçinin cüzdanına geçer.{"\n\n"}
+              <Text style={{ fontWeight: "700" }}>MADDE 2 — İPTAL VE CAYMA HAKKI:{"\n"}</Text>
+              İş başlangıç saatinden 12 saat öncesine kadar taraflar haklı gerekçeyle işi iptal edebilir. İş başlangıcından sonra keyfi iptallerde platform kuralları ve puanlama yaptırımı uygulanır.{"\n\n"}
+              <Text style={{ fontWeight: "700" }}>MADDE 3 — UYUŞMAZLIK VE HAKEM İNCELEMESİ:{"\n"}</Text>
+              Ödeme veya iş tamamlama anlaşmazlıklarında iki tarafın QR kayıtları, konum doğrulamaları ve sohbet geçmişi platform yönetimince delil olarak incelenir.
+            </Text>
+          </View>
+        )}
+      </Card>
+
+      {/* 4. 6698 Sayılı KVKK Aydınlatma Metni */}
+      <Card style={{ gap: 8 }}>
+        <Pressable onPress={() => toggle("kvkk")}>
+          <View style={styles.accHeader}>
+            <SectionTitle>6698 Sayılı KVKK Aydınlatma Metni</SectionTitle>
+            {openRule === "kvkk" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
+          </View>
+        </Pressable>
+        {openRule === "kvkk" && (
+          <View style={{ gap: 6 }}>
+            <Text style={styles.accBody}>
+              <Text style={{ fontWeight: "700" }}>VERİ İŞLEME HUKUKİ SEBEPLERİ:{"\n"}</Text>
+              Kişisel verileriniz 6698 sayılı KVKK Madde 5 ve 6 kapsamında; sözleşmenin kurulması, yasal yükümlülüklerin ifası ve meşru menfaatler doğrultusunda işlenmektedir.{"\n\n"}
+              <Text style={{ fontWeight: "700" }}>HAKLARINIZ (MADDE 11):{"\n"}</Text>
+              Kişisel verilerinizin işlenip işlenmediğini öğrenme, yanlış verilerin düzeltilmesini isteme, silinmesini talep etme ve kanuna aykırı işlem sebebiyle zararın giderilmesini talep etme hakkına sahipsiniz. İletişim: destek@gunubirlik.qrders.com.tr
+            </Text>
+          </View>
+        )}
+      </Card>
+
+      {/* Otomatik Moderasyon ve İhlal Yaptırım Tablosu */}
+      <Card style={{ gap: 10 }}>
+        <Pressable onPress={() => toggle("moderation")}>
+          <View style={styles.accHeader}>
+            <SectionTitle>Otomatik Moderasyon & İhlal Tablosu</SectionTitle>
+            {openRule === "moderation" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
+          </View>
+        </Pressable>
+        {openRule === "moderation" && (
+          <View style={{ gap: 8 }}>
+            <Text style={styles.desc}>
+              Mesajlarda içerik otomatik olarak taranır. İhlaller sistemce yakalanır ve puanınıza yansıtılır:
+            </Text>
+            {[
+              { label: "Küfür & hakaret içeren ifadeler", sev: "HIGH", color: C.rose, bg: C.roseBg },
+              { label: "Telefon numarası paylaşımı", sev: "LOW", color: C.amber, bg: C.amberBg },
+              { label: "E-posta veya harici link paylaşımı", sev: "LOW", color: C.amber, bg: C.amberBg },
+              { label: "IBAN ve banka hesap paylaşımı", sev: "LOW", color: C.amber, bg: C.amberBg },
+              { label: "Tehdit içeren mesajlar (otomatik engelleme)", sev: "CRITICAL", color: C.rose, bg: C.roseBg },
+            ].map((r) => (
+              <View key={r.label} style={styles.ruleRow}>
+                <Text style={styles.ruleText}>{r.label}</Text>
+                <Badge label={r.sev} color={r.color} bg={r.bg} />
+              </View>
+            ))}
+            <View style={styles.divider} />
+            <Text style={styles.desc}>Yaptırım kademeleri:</Text>
+            {[
+              { k: "5 Düşük İhlal", v: "24 saat sessize alma" },
+              { k: "3 Orta İhlal", v: "24 saat sessize alma" },
+              { k: "2 Yüksek İhlal", v: "7 gün askıya alma" },
+              { k: "1 Kritik İhlal", v: "Kalıcı ban incelemesi" },
+            ].map((r) => (
+              <View key={r.k} style={styles.ruleRow}>
+                <Text style={styles.ruleText}>{r.k}</Text>
+                <Text style={styles.ruleValue}>{r.v}</Text>
+              </View>
+            ))}
+          </View>
         )}
       </Card>
     </>

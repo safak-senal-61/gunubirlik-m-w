@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -26,9 +26,9 @@ export default function AnimatedSplashScreen({
 }: AnimatedSplashScreenProps) {
   const containerOpacity = useRef(new Animated.Value(1)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
-  const logoScale = useRef(new Animated.Value(0.92)).current;
-  const glowScale = useRef(new Animated.Value(0.9)).current;
-  const glowOpacity = useRef(new Animated.Value(0.2)).current;
+  const logoScale = useRef(new Animated.Value(0.88)).current;
+  const glowScale = useRef(new Animated.Value(0.95)).current;
+  const glowOpacity = useRef(new Animated.Value(0.25)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
   const shimmerTranslate = useRef(new Animated.Value(-120)).current;
@@ -43,58 +43,58 @@ export default function AnimatedSplashScreen({
     Animated.parallel([
       Animated.timing(logoOpacity, {
         toValue: 1,
-        duration: 650,
+        duration: 550,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.spring(logoScale, {
         toValue: 1,
-        friction: 7,
-        tension: 40,
+        friction: 6,
+        tension: 50,
         useNativeDriver: true,
       }),
       Animated.timing(textOpacity, {
         toValue: 1,
-        duration: 700,
-        delay: 250,
+        duration: 600,
+        delay: 200,
         easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }),
       Animated.timing(progressAnim, {
         toValue: 1,
-        duration: 1200,
+        duration: 1000,
         easing: Easing.bezier(0.25, 0.1, 0.25, 1),
         useNativeDriver: false,
       }),
     ]).start();
 
-    // 2. Forest Emerald / Mint Nefes Alan Aura
+    // 2. Işıma / Glow Döngüsü
     const glowLoop = Animated.loop(
       Animated.sequence([
         Animated.parallel([
           Animated.timing(glowScale, {
-            toValue: 1.12,
-            duration: 1600,
+            toValue: 1.15,
+            duration: 1500,
             easing: Easing.inOut(Easing.sin),
             useNativeDriver: true,
           }),
           Animated.timing(glowOpacity, {
-            toValue: 0.5,
-            duration: 1600,
+            toValue: 0.55,
+            duration: 1500,
             easing: Easing.inOut(Easing.sin),
             useNativeDriver: true,
           }),
         ]),
         Animated.parallel([
           Animated.timing(glowScale, {
-            toValue: 0.88,
-            duration: 1600,
+            toValue: 0.95,
+            duration: 1500,
             easing: Easing.inOut(Easing.sin),
             useNativeDriver: true,
           }),
           Animated.timing(glowOpacity, {
-            toValue: 0.2,
-            duration: 1600,
+            toValue: 0.25,
+            duration: 1500,
             easing: Easing.inOut(Easing.sin),
             useNativeDriver: true,
           }),
@@ -107,22 +107,22 @@ export default function AnimatedSplashScreen({
     const shimmerLoop = Animated.loop(
       Animated.timing(shimmerTranslate, {
         toValue: 140,
-        duration: 1100,
+        duration: 1000,
         easing: Easing.linear,
         useNativeDriver: true,
       })
     );
     shimmerLoop.start();
 
-    // Minimum 1.1 sn deneyim
+    // Minimum 0.8 sn deneyim
     const minTimer = setTimeout(() => {
       setMinimumTimePassed(true);
-    }, 1100);
+    }, 800);
 
-    // Emniyet Zamanlayıcısı: 3.5 sn sonra ağ gecikse bile kesinlikle aç
+    // Emniyet Zamanlayıcısı: 2.5 sn sonra kesinlikle aç
     const safetyTimer = setTimeout(() => {
       setMinimumTimePassed(true);
-    }, 3500);
+    }, 2500);
 
     return () => {
       clearTimeout(minTimer);
@@ -138,23 +138,20 @@ export default function AnimatedSplashScreen({
       const exitTimer = setTimeout(() => {
         Animated.timing(containerOpacity, {
           toValue: 0,
-          duration: 380,
+          duration: 320,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }).start(() => {
           setHidden(true);
           onFinishRef.current?.();
         });
-      }, isReady ? 0 : 1500);
+      }, isReady ? 0 : 1200);
 
       return () => clearTimeout(exitTimer);
     }
   }, [minimumTimePassed, isReady]);
 
   if (hidden) return null;
-
-  const logoWidth = Math.min(SCREEN_WIDTH * 0.74, 300);
-  const logoHeight = logoWidth * (275 / 1024);
 
   return (
     <Animated.View
@@ -168,38 +165,28 @@ export default function AnimatedSplashScreen({
     >
       <StatusBar style="light" />
 
-      {/* Arka Plan Ambient Zümrüt & Nane Işıkları (Web Kimliği) */}
+      {/* Arka Plan Ambient Glow */}
       <View style={styles.ambientContainer} pointerEvents="none">
         <Animated.View
           style={[
             styles.glowBlob,
-            styles.glowEmerald,
+            styles.glowPrimary,
             {
               transform: [{ scale: glowScale }],
               opacity: glowOpacity,
             },
           ]}
         />
-        <Animated.View
-          style={[
-            styles.glowBlob,
-            styles.glowMint,
-            {
-              transform: [{ scale: glowScale }],
-              opacity: Animated.multiply(glowOpacity, 0.75),
-            },
-          ]}
-        />
       </View>
 
-      {/* Merkez Logo ve Animasyon Alanı */}
+      {/* Merkez Logo ve Marka */}
       <View style={styles.centerBox}>
         <Animated.View
           style={[
             styles.logoAura,
             {
-              width: logoWidth * 1.2,
-              height: logoHeight * 2.2,
+              width: 140,
+              height: 140,
               opacity: glowOpacity,
               transform: [{ scale: glowScale }],
             },
@@ -217,19 +204,18 @@ export default function AnimatedSplashScreen({
         >
           <Image
             source={BRAND_LOGO}
-            style={{ width: logoWidth, height: logoHeight }}
+            style={styles.logoImage}
             resizeMode="contain"
           />
         </Animated.View>
 
-        {/* Architectural Slogan & Alt Başlık */}
-        <Animated.View style={[styles.taglineBox, { opacity: textOpacity }]}>
-          <Text style={styles.taglineText}>SAHA İLETİŞİM & GÜNLÜK İŞ HATTI</Text>
-          <View style={styles.dotSeparator} />
-          <Text style={styles.subTagline}>Hızlı · Güvenli · Doğrudan İletişim</Text>
+        {/* Marka Adı ve Slogan */}
+        <Animated.View style={[styles.brandHeaderBox, { opacity: textOpacity }]}>
+          <Text style={styles.brandTitleText}>Günübirlik</Text>
+          <Text style={styles.brandSubText}>Konum Bazlı Günlük İş Platformu</Text>
         </Animated.View>
 
-        {/* Zümrüt İlerleme Göstergesi */}
+        {/* İlerleme Çubuğu */}
         <Animated.View style={[styles.progressSection, { opacity: textOpacity }]}>
           <View style={styles.progressTrack}>
             <Animated.View
@@ -256,15 +242,6 @@ export default function AnimatedSplashScreen({
           <Text style={styles.statusText}>{statusText}</Text>
         </Animated.View>
       </View>
-
-      {/* Alt Rozet */}
-      <View style={styles.footer}>
-        <View style={styles.secureBadge}>
-          <View style={styles.secureBadgeDot} />
-          <Text style={styles.secureBadgeText}>CANLI SAHA BAĞLANTISI</Text>
-        </View>
-        <Text style={styles.versionText}>Günübirlik v1.4.3</Text>
-      </View>
     </Animated.View>
   );
 }
@@ -272,7 +249,7 @@ export default function AnimatedSplashScreen({
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: "#0C0E0D",
+    backgroundColor: "#0B0E0D",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 99999,
@@ -283,21 +260,14 @@ const styles = StyleSheet.create({
   },
   glowBlob: {
     position: "absolute",
-    width: SCREEN_WIDTH * 0.9,
-    height: SCREEN_WIDTH * 0.9,
-    borderRadius: (SCREEN_WIDTH * 0.9) / 2,
+    width: SCREEN_WIDTH * 0.85,
+    height: SCREEN_WIDTH * 0.85,
+    borderRadius: (SCREEN_WIDTH * 0.85) / 2,
   },
-  glowEmerald: {
+  glowPrimary: {
     backgroundColor: "#0D6847",
-    top: SCREEN_HEIGHT * 0.22,
-    left: SCREEN_WIDTH * 0.05,
-    opacity: 0.35,
-  },
-  glowMint: {
-    backgroundColor: "#5CD6A5",
-    bottom: SCREEN_HEIGHT * 0.25,
-    right: SCREEN_WIDTH * 0.05,
-    opacity: 0.15,
+    top: SCREEN_HEIGHT * 0.28,
+    left: SCREEN_WIDTH * 0.08,
   },
   centerBox: {
     alignItems: "center",
@@ -306,52 +276,56 @@ const styles = StyleSheet.create({
   },
   logoAura: {
     position: "absolute",
-    borderRadius: 999,
-    backgroundColor: "rgba(13, 104, 71, 0.28)",
+    borderRadius: 70,
+    backgroundColor: "rgba(13, 104, 71, 0.35)",
   },
   logoWrapper: {
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#0D6847",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  taglineBox: {
-    marginTop: 22,
+  logoImage: {
+    width: 104,
+    height: 104,
+    borderRadius: 24,
+  },
+  brandHeaderBox: {
+    marginTop: 20,
     alignItems: "center",
-    gap: 6,
+    gap: 4,
   },
-  taglineText: {
-    fontSize: 11,
-    fontWeight: "900",
-    color: "#5CD6A5",
-    letterSpacing: 2.2,
-    textTransform: "uppercase",
+  brandTitleText: {
+    fontSize: 26,
+    fontFamily: "PlusJakartaSans_800ExtraBold",
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: -0.5,
   },
-  dotSeparator: {
-    width: 24,
-    height: 1.5,
-    backgroundColor: "rgba(226, 224, 216, 0.25)",
-    marginVertical: 2,
-  },
-  subTagline: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#949B97",
-    letterSpacing: 0.4,
+  brandSubText: {
+    fontSize: 13,
+    fontFamily: "PlusJakartaSans_500Medium",
+    color: "rgba(255, 255, 255, 0.7)",
   },
   progressSection: {
-    marginTop: 36,
+    marginTop: 28,
     alignItems: "center",
     gap: 10,
+    width: 180,
   },
   progressTrack: {
-    width: 140,
-    height: 3.5,
-    borderRadius: 2,
+    width: 160,
+    height: 3,
     backgroundColor: "rgba(255, 255, 255, 0.12)",
+    borderRadius: 2,
     overflow: "hidden",
   },
   progressBar: {
     height: "100%",
-    backgroundColor: "#0D6847",
+    backgroundColor: "#10B981",
     borderRadius: 2,
     position: "relative",
     overflow: "hidden",
@@ -360,48 +334,13 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     bottom: 0,
-    width: 50,
-    backgroundColor: "rgba(92, 214, 165, 0.55)",
-    transform: [{ skewX: "-25deg" }],
+    width: 40,
+    backgroundColor: "rgba(255, 255, 255, 0.6)",
   },
   statusText: {
-    fontSize: 11,
-    color: "#949B97",
-    fontWeight: "500",
-    letterSpacing: 0.3,
-  },
-  footer: {
-    position: "absolute",
-    bottom: 36,
-    alignItems: "center",
-    gap: 6,
-  },
-  secureBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  secureBadgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#5CD6A5",
-  },
-  secureBadgeText: {
-    fontSize: 10,
-    color: "#D8D5CC",
-    fontWeight: "700",
-    letterSpacing: 0.6,
-  },
-  versionText: {
-    fontSize: 10,
-    color: "#5C615E",
-    fontWeight: "500",
+    fontSize: 12,
+    fontFamily: "PlusJakartaSans_500Medium",
+    color: "rgba(255, 255, 255, 0.55)",
+    letterSpacing: 0.2,
   },
 });

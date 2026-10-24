@@ -7,7 +7,6 @@ import {
   MessageIcon,
   UserIcon,
 } from "./icons";
-import { C } from "./ui";
 
 export type TabKey = "jobs" | "saved" | "applications" | "messages" | "notifications" | "profile";
 
@@ -36,20 +35,10 @@ function TabButton({
   badgeCount?: number;
 }) {
   const pressScale = useRef(new Animated.Value(1)).current;
-  const activeAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.spring(activeAnim, {
-      toValue: isActive ? 1 : 0,
-      friction: 7,
-      tension: 90,
-      useNativeDriver: true,
-    }).start();
-  }, [isActive, activeAnim]);
 
   const handlePressIn = () => {
     Animated.spring(pressScale, {
-      toValue: 0.88,
+      toValue: 0.9,
       speed: 60,
       bounciness: 0,
       useNativeDriver: true,
@@ -65,16 +54,6 @@ function TabButton({
     }).start();
   };
 
-  const iconScale = activeAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.12],
-  });
-
-  const iconTranslateY = activeAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -2],
-  });
-
   return (
     <Pressable
       style={styles.tabButton}
@@ -85,26 +64,8 @@ function TabButton({
       accessibilityState={{ selected: isActive }}
     >
       <Animated.View style={[styles.tabContent, { transform: [{ scale: pressScale }] }]}>
-        {/* Animated Active Soft Pill Background */}
-        <Animated.View
-          style={[
-            styles.activePill,
-            {
-              opacity: activeAnim,
-              transform: [{ scale: activeAnim }],
-            },
-          ]}
-        />
-
-        {/* Animated Icon with Spring Bounce */}
-        <Animated.View
-          style={[
-            styles.iconContainer,
-            {
-              transform: [{ scale: iconScale }, { translateY: iconTranslateY }],
-            },
-          ]}
-        >
+        {/* Sadece İkon ve İsim — Etrafında KARE ÇİZGİ VEYA KUTU YOK */}
+        <View style={styles.iconContainer}>
           {item.renderIcon(isActive)}
 
           {badgeCount && badgeCount > 0 ? (
@@ -114,9 +75,8 @@ function TabButton({
               </Text>
             </View>
           ) : null}
-        </Animated.View>
+        </View>
 
-        {/* Tab Label */}
         <Text
           style={[
             styles.tabLabel,
@@ -126,17 +86,6 @@ function TabButton({
         >
           {item.label}
         </Text>
-
-        {/* Active Dot Indicator */}
-        <Animated.View
-          style={[
-            styles.activeDot,
-            {
-              opacity: activeAnim,
-              transform: [{ scale: activeAnim }],
-            },
-          ]}
-        />
       </Animated.View>
     </Pressable>
   );
@@ -154,28 +103,28 @@ export function AnimatedTabBar({
           key: "jobs",
           label: "Panel",
           renderIcon: (active) => (
-            <BriefcaseIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
+            <BriefcaseIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "applications",
           label: "Başvurular",
           renderIcon: (active) => (
-            <ApplicationsIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
+            <ApplicationsIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "messages",
           label: "Mesajlar",
           renderIcon: (active) => (
-            <MessageIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
+            <MessageIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "profile",
           label: "Hesap",
           renderIcon: (active) => (
-            <UserIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
+            <UserIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
       ]
@@ -184,35 +133,35 @@ export function AnimatedTabBar({
           key: "jobs",
           label: "İşler",
           renderIcon: (active) => (
-            <BriefcaseIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
+            <BriefcaseIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "saved",
           label: "Kayıtlı",
           renderIcon: (active) => (
-            <BookmarkIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
+            <BookmarkIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "applications",
           label: "Başvurular",
           renderIcon: (active) => (
-            <ApplicationsIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
+            <ApplicationsIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "messages",
           label: "Mesajlar",
           renderIcon: (active) => (
-            <MessageIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
+            <MessageIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "profile",
           label: "Hesap",
           renderIcon: (active) => (
-            <UserIcon size={20} color={active ? "#0D6847" : "#717673"} strokeWidth={active ? 2.2 : 1.8} />
+            <UserIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
       ];
@@ -237,46 +186,26 @@ const styles = StyleSheet.create({
   tabBarContainer: {
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
-    borderTopColor: "#E8E6DF",
-    paddingTop: 5,
-    paddingBottom: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 10,
+    borderTopColor: "#EAE8E2",
+    paddingTop: 6,
+    paddingBottom: 8,
   },
   tabBarInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
   },
   tabButton: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 2,
   },
   tabContent: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    position: "relative",
-    minWidth: 54,
-  },
-  activePill: {
-    position: "absolute",
-    top: 0,
-    left: 2,
-    right: 2,
-    bottom: 2,
-    backgroundColor: "#EAF3EE",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#C5DDD0",
+    paddingVertical: 2,
+    paddingHorizontal: 4,
   },
   iconContainer: {
     position: "relative",
@@ -284,7 +213,7 @@ const styles = StyleSheet.create({
     height: 24,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 2,
+    marginBottom: 3,
   },
   tabLabel: {
     fontSize: 10.5,
@@ -296,16 +225,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   tabLabelInactive: {
-    color: "#717673",
+    color: "#8C928E",
     fontFamily: "PlusJakartaSans_500Medium",
     fontWeight: "500",
-  },
-  activeDot: {
-    width: 3.5,
-    height: 3.5,
-    borderRadius: 2,
-    backgroundColor: "#0D6847",
-    marginTop: 2,
   },
   badge: {
     position: "absolute",
