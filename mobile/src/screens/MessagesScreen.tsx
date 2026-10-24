@@ -13,7 +13,9 @@ import {
   Pressable,
   Modal,
   Alert,
+  Linking,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import {
   fetchConversations,
@@ -21,9 +23,10 @@ import {
   sendMessage,
   fetchMe,
   sendTypingStatus,
+  fetchJobs,
 } from '../lib/api';
-import type { ApiConversation, ApiMessage } from '../lib/types';
-import { subscribeToConversation, TypingUser } from '../lib/socket';
+import type { ApiConversation, ApiMessage, ApiJob } from '../lib/types';
+import { subscribeToConversation, sendRealtimeMessage, TypingUser } from '../lib/socket';
 import { Avatar } from '../components/ui';
 import {
   ArrowLeftIcon,
@@ -36,7 +39,11 @@ import {
   XIcon,
   EditIcon,
   TrashIcon,
+  MapPinIcon,
+  ExternalLinkIcon,
+  ClockIcon,
 } from '../components/icons';
+import { elasticSearchJobs } from '../lib/elasticJobSearch';
 
 interface MessagesScreenProps {
   initialConversationId?: string | null;
@@ -47,10 +54,71 @@ interface MessagesScreenProps {
   refreshKey?: number;
 }
 
-// In-Memory Önbellek: Sekme değişimlerinde tam ekran "Yükleniyor..." spinner'ı çıkmaz!
-let cachedConversations: ApiConversation[] = [];
-let cachedUserId: string | null = null;
-const cachedMessagesMap = new Map<string, (ApiMessage & { replyTo?: any; isEdited?: boolean })[]>();
+// In-Memory Global Önbellek: Sekmeler ve konuşmalar arası geçişte 0 ms anında açılış
+let inMemoryConversations: ApiConversation[] = [];
+let inMemoryUserId: string | null = null;
+let inMemoryAllJobsCache: ApiJob[] = [];
+const inMemoryMessagesMap = new Map<string, (ApiMessage & { tempId?: string; replyTo?: any; isEdited?: boolean })[]>();
+
+// ================= YARDIMCI: İLAN KARTI AYRIŞTIRICI =================
+interface ParsedJobCard {
+  id?: string;
+  title: string;
+  wage?: number | string;
+  wageType?: string;
+  city?: string;
+  district?: string;
+  link: string;
+}
+
+function parseJobCard(content: string): ParsedJobCard | null {
+  if (!content) return null;
+
+  // Format 1: [JOB_CARD]{...}
+  if (content.startsWith('[JOB_CARD]')) {
+    try {
+      const json = JSON.parse(content.replace('[JOB_CARD]', ''));
+      return {
+        id: json.id,
+        title: json.title || 'Günübirlik İş İlanı',
+        wage: json.wage || json.wageAmount,
+        wageType: json.wageType,
+        city: json.city,
+        district: json.district,
+        link:
+          json.link ||
+          (json.id
+            ? `https://gunubirlik.qrders.com.tr/jobs/${json.id}`
+            : 'https://gunubirlik.qrders.com.tr'),
+      };
+    } catch {}
+  }
+
+  // Format 2: Mevcut veritabanındaki veya paylaşılan metin formatları
+  // Örn: "💼 [İş İlanı] ..." veya "gunubirlik.qrders.com.tr/jobs/..."
+  if (content.includes('[İş İlanı]') || content.includes('/jobs/')) {
+    const idMatch = content.match(/jobs\/([a-zA-Z0-9_-]+)/);
+    const linkMatch = content.match(/(https?:\/\/[^\s]+)/);
+
+    let title = 'Günübirlik Günlük İş İlanı';
+    const titleMatch = content.match(/\[İş İlanı\]\s*([^\n\r]+)/i);
+    if (titleMatch && titleMatch[1]) {
+      title = titleMatch[1].replace(/İlan Detayları:.*$/, '').trim();
+    }
+
+    return {
+      id: idMatch ? idMatch[1] : undefined,
+      title: title || 'Günübirlik Günlük İş İlanı',
+      link: linkMatch
+        ? linkMatch[0].replace(/\.$/, '')
+        : idMatch
+        ? `https://gunubirlik.qrders.com.tr/jobs/${idMatch[1]}`
+        : 'https://gunubirlik.qrders.com.tr',
+    };
+  }
+
+  return null;
+}
 
 export function MessagesScreen({
   initialConversationId,
@@ -62,16 +130,16 @@ export function MessagesScreen({
 }: MessagesScreenProps) {
   const targetId = openConversationId || initialConversationId;
 
-  // Başlangıçta önbellek doluysa anında göster
-  const [conversations, setConversations] = useState<ApiConversation[]>(cachedConversations);
+  // Ana State'ler
+  const [conversations, setConversations] = useState<ApiConversation[]>(inMemoryConversations);
   const [selected, setSelected] = useState<ApiConversation | null>(null);
   const [messages, setMessages] = useState<(ApiMessage & { tempId?: string; replyTo?: any; isEdited?: boolean })[]>([]);
+  const [threadLoading, setThreadLoading] = useState(false);
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTab, setFilterTab] = useState<'all' | 'jobs' | 'unread'>('all');
-  const [loading, setLoading] = useState(cachedConversations.length === 0);
-  const [sending, setSending] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(cachedUserId);
+  const [loading, setLoading] = useState(inMemoryConversations.length === 0);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(inMemoryUserId);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
 
   // Mesaj Yanıtlama & Düzenleme Durumları
@@ -81,53 +149,140 @@ export function MessagesScreen({
   // Mesaj Aksiyon Menüsü Modalı (Uzun Basış)
   const [actionMessage, setActionMessage] = useState<ApiMessage | null>(null);
 
-  // İlan Paylaşımı Modalı
+  // Elastic Search İlan Paylaşım Modalı State'leri
   const [shareJobModalOpen, setShareJobModalOpen] = useState(false);
+  const [jobSearchQuery, setJobSearchQuery] = useState('');
+  const [jobCategoryFilter, setJobCategoryFilter] = useState('all');
+  const [allJobs, setAllJobs] = useState<ApiJob[]>(inMemoryAllJobsCache);
+  const [searchingJobs, setSearchingJobs] = useState(false);
 
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Scroll Yönetimi
   const flatListRef = useRef<FlatList>(null);
+  const [hasScrolledInitial, setHasScrolledInitial] = useState(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Güçlü, Çok Kademeli En Alta Kaydırma Fonksiyonu (Yarım görünmeyi ve gecikmeyi engeller)
+  const scrollToBottom = useCallback((animated = true) => {
+    if (!flatListRef.current) return;
+    requestAnimationFrame(() => {
+      try {
+        flatListRef.current?.scrollToEnd({ animated });
+      } catch {}
+    });
+    // Android ölçüm gecikmesi için kademeli kesin iniş
+    setTimeout(() => {
+      try {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      } catch {}
+    }, 50);
+    setTimeout(() => {
+      try {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      } catch {}
+    }, 160);
+    setTimeout(() => {
+      try {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      } catch {}
+    }, 320);
+  }, []);
+
+  // Konuşma Seçimi (0 ms Anında Açılış)
   const handleSelectConversation = useCallback(
-    (conv: ApiConversation | null) => {
+    async (conv: ApiConversation | null) => {
       setSelected(conv);
       onSelectConversation?.(conv ? conv.id : null);
       onActiveThreadChange?.(conv !== null);
       setReplyingMessage(null);
       setEditingMessage(null);
+      setHasScrolledInitial(false);
 
-      // Konuşma seçildiği an önbellekten mesajları 0 ms'de yükle
-      if (conv) {
-        const cached = cachedMessagesMap.get(conv.id);
-        if (cached && cached.length > 0) {
-          setMessages(cached);
-          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 50);
-        }
+      if (!conv) {
+        setMessages([]);
+        return;
       }
+
+      // 1. Adım: Hafıza önbelleğinden anında yükle (0 ms)
+      const memCached = inMemoryMessagesMap.get(conv.id);
+      if (memCached && memCached.length > 0) {
+        setMessages(memCached);
+        setThreadLoading(false);
+        scrollToBottom(false);
+        return;
+      }
+
+      // 2. Adım: Disk önbelleğinden oku (Asla beyaz boş ekran kalmasın!)
+      try {
+        const diskRaw = await AsyncStorage.getItem(`gb_chat_msgs_${conv.id}`);
+        if (diskRaw) {
+          const diskMsgs = JSON.parse(diskRaw);
+          if (Array.isArray(diskMsgs) && diskMsgs.length > 0) {
+            inMemoryMessagesMap.set(conv.id, diskMsgs);
+            setMessages(diskMsgs);
+            setThreadLoading(false);
+            scrollToBottom(false);
+            return;
+          }
+        }
+      } catch {}
+
+      // Önbellek tamamen boşsa yükleniyor durumuna geç
+      setThreadLoading(true);
     },
-    [onSelectConversation, onActiveThreadChange]
+    [onSelectConversation, onActiveThreadChange, scrollToBottom]
   );
 
   useEffect(() => {
     loadUserAndConversations();
   }, [refreshKey, targetId]);
 
+  // Kullanıcı ve Konuşmaları Yükle + Disk Önbelleğini Toplu Olarak RAM'e Çek (MultiGet)
   const loadUserAndConversations = async () => {
     try {
-      if (!cachedUserId) {
+      if (!inMemoryUserId) {
         const user = await fetchMe();
         if (user) {
-          cachedUserId = user.id;
+          inMemoryUserId = user.id;
           setCurrentUserId(user.id);
         }
       }
       const data = await fetchConversations();
-      cachedConversations = data;
+      inMemoryConversations = data;
       setConversations(data);
+
+      // Tüm konuşmaların geçmiş mesajlarını RAM'e tek seferde önceden yükle
+      if (Array.isArray(data) && data.length > 0) {
+        try {
+          const keys = data.map((c: ApiConversation) => `gb_chat_msgs_${c.id}`);
+          const pairs = await AsyncStorage.multiGet(keys);
+          for (const [key, val] of pairs) {
+            if (val) {
+              const convId = key.replace('gb_chat_msgs_', '');
+              try {
+                const parsed = JSON.parse(val);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  inMemoryMessagesMap.set(convId, parsed);
+                }
+              } catch {}
+            }
+          }
+        } catch {}
+      }
+
+      // Arka planda tüm ilanları önbelleğe al (Elastic Search için)
+      if (inMemoryAllJobsCache.length === 0) {
+        void fetchJobs({ pageSize: 50 }).then((res) => {
+          if (res?.items) {
+            inMemoryAllJobsCache = res.items;
+            setAllJobs(res.items);
+          }
+        }).catch(() => {});
+      }
 
       if (targetId) {
         const target = data.find((c: ApiConversation) => c.id === targetId);
         if (target) {
-          handleSelectConversation(target);
+          void handleSelectConversation(target);
           onOpenConversationHandled?.();
         }
       }
@@ -138,7 +293,7 @@ export function MessagesScreen({
     }
   };
 
-  // Aktif Konuşma Mesajlarını Getir & Gerçek Zamanlı Dinle
+  // Aktif Konuşma Mesajlarını Arka Planda Güncelle & WebSocket Dinle
   useEffect(() => {
     if (!selected) {
       setMessages([]);
@@ -147,31 +302,44 @@ export function MessagesScreen({
     }
 
     const convId = selected.id;
+    let cancelled = false;
 
-    // Arka planda sunucudan taze mesajları çek
+    // Arka planda sunucudan en güncel mesajları çek (Yarış durumunu engelle)
     const loadFresh = async () => {
       try {
         const fresh = await fetchMessages(convId);
-        cachedMessagesMap.set(convId, fresh);
-        setMessages(fresh);
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+        if (cancelled) return;
+
+        setMessages((prev) => {
+          // Henüz sunucuya ulaşmamış geçici mesajları koru! (Asla ekrandan silinmesin)
+          const pending = prev.filter(
+            (m) =>
+              m.tempId &&
+              !fresh.some(
+                (f) =>
+                  f.id === m.id ||
+                  f.id === m.tempId ||
+                  (f.content === m.content &&
+                    Math.abs(new Date(f.createdAt).getTime() - new Date(m.createdAt).getTime()) < 15000)
+              )
+          );
+          const merged = [...fresh, ...pending];
+          inMemoryMessagesMap.set(convId, merged);
+          void AsyncStorage.setItem(`gb_chat_msgs_${convId}`, JSON.stringify(merged));
+          return merged;
+        });
+        setThreadLoading(false);
       } catch (err) {
         console.error(err);
+        setThreadLoading(false);
       }
     };
-    loadFresh();
+    void loadFresh();
 
-    // 2.5 sn'lik akıllı yedek polling (WebSocket gecikmelerini önler)
-    const pollInterval = setInterval(async () => {
-      try {
-        const fresh = await fetchMessages(convId);
-        if (fresh.length !== (cachedMessagesMap.get(convId)?.length ?? 0)) {
-          cachedMessagesMap.set(convId, fresh);
-          setMessages(fresh);
-          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
-        }
-      } catch {}
-    }, 2500);
+    // 8 saniyede bir sakin arka plan yedek yenileme
+    const pollInterval = setInterval(() => {
+      if (!cancelled) void loadFresh();
+    }, 8000);
 
     // Supabase Realtime WebSocket aboneliği
     const unsubscribe = subscribeToConversation(
@@ -181,14 +349,17 @@ export function MessagesScreen({
           const exists = prev.some((m) => m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId));
           let updated;
           if (exists) {
-            updated = prev.map((m) => (m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId) ? newMsg : m));
+            updated = prev.map((m) =>
+              m.id === newMsg.id || (m.tempId && m.tempId === newMsg.tempId) ? newMsg : m
+            );
           } else {
             updated = [...prev, newMsg];
           }
-          cachedMessagesMap.set(convId, updated);
+          inMemoryMessagesMap.set(convId, updated);
+          void AsyncStorage.setItem(`gb_chat_msgs_${convId}`, JSON.stringify(updated));
           return updated;
         });
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+        scrollToBottom(true);
       },
       (typingList: TypingUser[]) => {
         setTypingUsers(typingList.filter((u: TypingUser) => u.userId !== currentUserId));
@@ -196,11 +367,13 @@ export function MessagesScreen({
     );
 
     return () => {
+      cancelled = true;
       clearInterval(pollInterval);
       unsubscribe();
     };
-  }, [selected?.id, currentUserId]);
+  }, [selected?.id, currentUserId, scrollToBottom]);
 
+  // Yazıyor Durumu Tetikleyici
   const handleTextChange = (text: string) => {
     setInputText(text);
     if (!selected) return;
@@ -219,9 +392,9 @@ export function MessagesScreen({
     }, 2000);
   };
 
-  // Mesaj Gönderme / Düzenleme
-  const handleSendText = async (textToSend: string, metadata?: any) => {
-    if (!textToSend.trim() || !selected || sending) return;
+  // Anında Mesaj Gönderme (0 ms Beklemesiz, Anında Ekrana Basan, Kesintisiz Akış)
+  const handleSendText = (textToSend: string, metadata?: any) => {
+    if (!textToSend.trim() || !selected) return;
 
     const content = textToSend.trim();
     setInputText('');
@@ -242,8 +415,8 @@ export function MessagesScreen({
       return;
     }
 
-    // YENİ MESAJ: Hızlı İyimser Güncelleme
-    const tempId = `temp-${Date.now()}`;
+    // YENİ MESAJ: 0 ms Anında Ekrana Ekleme
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const optimisticMessage: ApiMessage & { tempId?: string; replyTo?: any } = {
       id: tempId,
       tempId,
@@ -265,35 +438,49 @@ export function MessagesScreen({
         : {}),
     };
 
+    // 1. Ekranı 0 ms anında güncelle
     setMessages((prev) => {
       const updated = [...prev, optimisticMessage];
-      cachedMessagesMap.set(selected.id, updated);
+      inMemoryMessagesMap.set(selected.id, updated);
+      void AsyncStorage.setItem(`gb_chat_msgs_${selected.id}`, JSON.stringify(updated));
       return updated;
     });
 
     setReplyingMessage(null);
-    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 60);
+    scrollToBottom(true);
 
-    setSending(true);
+    // 2. Supabase WebSocket üzerinden anında karşı tarafa fırlat
     try {
-      const saved = await sendMessage({
-        conversationId: selected.id,
-        recipientId: selected.participant?.id,
-        content,
-        type: 'TEXT',
-        metadata,
+      sendRealtimeMessage(selected.id, optimisticMessage);
+    } catch {}
+
+    // 3. Arka Planda API'ye Gönder
+    sendMessage({
+      conversationId: selected.id,
+      recipientId: selected.participant?.id,
+      ...(selected.job ? { jobId: selected.job.id } : {}),
+      content,
+      type: 'TEXT',
+      metadata,
+    })
+      .then((saved) => {
+        setMessages((prev) => {
+          const updated = prev.map((m) =>
+            m.id === tempId || m.tempId === tempId
+              ? { ...saved, tempId, replyTo: optimisticMessage.replyTo }
+              : m
+          );
+          inMemoryMessagesMap.set(selected.id, updated);
+          void AsyncStorage.setItem(`gb_chat_msgs_${selected.id}`, JSON.stringify(updated));
+          return updated;
+        });
+      })
+      .catch((err) => {
+        console.error('Send error:', err);
       });
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId || m.tempId === tempId ? { ...saved, tempId, replyTo: optimisticMessage.replyTo } : m))
-      );
-    } catch (e) {
-      console.error('Send error:', e);
-    } finally {
-      setSending(false);
-    }
   };
 
-  // Mesaj İşlemleri
+  // Mesaj Aksiyonları
   const handleActionReply = (msg: ApiMessage) => {
     setReplyingMessage(msg);
     setEditingMessage(null);
@@ -309,7 +496,7 @@ export function MessagesScreen({
 
   const handleActionDelete = (msg: ApiMessage) => {
     setActionMessage(null);
-    Alert.alert('Mesajı Sil', 'Bu mesajı konuşmadan silmek istediğinize emin misiniz?', [
+    Alert.alert('Mesajı Sil', 'Bu mesajı silmek istediğinize emin misiniz?', [
       { text: 'Vazgeç', style: 'cancel' },
       {
         text: 'Sil',
@@ -327,14 +514,53 @@ export function MessagesScreen({
     Alert.alert('Kopyalandı', 'Mesaj panoya kopyalandı.');
   };
 
-  // İlan Paylaşma
-  const handleShareJobLink = (jobTitle: string, jobId?: string) => {
-    setShareJobModalOpen(false);
-    const link = `https://gunubirlik.qrders.com.tr/jobs/${jobId ?? selected?.job?.id ?? 'detay'}`;
-    const shareText = `💼 [İş İlanı] ${jobTitle}\nİlan Detayları: ${link}`;
-    handleSendText(shareText);
+  // ================= ELASTIC SEARCH İLAN ARAMA MANTIĞI =================
+  const handleOpenShareJobModal = async () => {
+    setShareJobModalOpen(true);
+    setJobSearchQuery('');
+    setJobCategoryFilter('all');
+
+    if (allJobs.length === 0) {
+      setSearchingJobs(true);
+      try {
+        const res = await fetchJobs({ pageSize: 50 });
+        if (res?.items) {
+          inMemoryAllJobsCache = res.items;
+          setAllJobs(res.items);
+        }
+      } catch {
+      } finally {
+        setSearchingJobs(false);
+      }
+    }
   };
 
+  // İlanları Elastic Search motorundan anında geçir (0 ms filtrelenmiş sonuçlar)
+  const filteredElasticJobs = useMemo(() => {
+    return elasticSearchJobs(allJobs, {
+      query: jobSearchQuery,
+      category: jobCategoryFilter,
+    });
+  }, [allJobs, jobSearchQuery, jobCategoryFilter]);
+
+  // Seçilen İlanı Sohbete Gönder
+  const handleShareSelectedJob = (job: ApiJob) => {
+    setShareJobModalOpen(false);
+    const jobLink = `https://gunubirlik.qrders.com.tr/jobs/${job.id}`;
+    const payload = `[JOB_CARD]${JSON.stringify({
+      id: job.id,
+      title: job.title,
+      wage: job.wageAmount,
+      wageType: job.wageType,
+      city: job.city,
+      district: job.district,
+      link: jobLink,
+    })}`;
+
+    handleSendText(payload);
+  };
+
+  // Konuşmalar Listesi Arama Filtresi
   const filteredConversations = useMemo(() => {
     return conversations.filter((c) => {
       const name = c.participant?.fullName || c.participant?.companyName || c.job?.title || '';
@@ -345,12 +571,8 @@ export function MessagesScreen({
 
       if (!matchesSearch) return false;
 
-      if (filterTab === 'jobs') {
-        return !!c.job;
-      }
-      if (filterTab === 'unread') {
-        return (c.unreadCount ?? 0) > 0;
-      }
+      if (filterTab === 'jobs') return !!c.job;
+      if (filterTab === 'unread') return (c.unreadCount ?? 0) > 0;
       return true;
     });
   }, [conversations, searchQuery, filterTab]);
@@ -373,6 +595,7 @@ export function MessagesScreen({
     );
   };
 
+  // Yükleme durumu
   if (loading && conversations.length === 0) {
     return (
       <View style={styles.centered}>
@@ -382,7 +605,7 @@ export function MessagesScreen({
     );
   }
 
-  // ================= CONVERSATION CHAT VIEW =================
+  // ================= 1. AKTİF SOHBET EKRANI (THREAD VIEW) =================
   if (selected) {
     const displayName =
       selected.participant?.fullName || selected.participant?.companyName || selected.job?.title || 'Sohbet';
@@ -391,12 +614,8 @@ export function MessagesScreen({
     const wageAmount = (selected.job as any)?.wageAmount;
 
     return (
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.threadContainer}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
-      >
-        {/* Modern Sade Başlık — Telefon butonu yok, sadece kişi ve ilan */}
+      <View style={styles.threadContainer}>
+        {/* Üst Başlık Çubuğu */}
         <View style={styles.threadHeader}>
           <TouchableOpacity
             onPress={() => handleSelectConversation(null)}
@@ -428,170 +647,242 @@ export function MessagesScreen({
             )}
           </View>
 
-          {/* İlan Paylaş Butonu */}
+          {/* İlan Paylaş Butonu (Elastic Search Modalı Açar) */}
           <TouchableOpacity
-            onPress={() => setShareJobModalOpen(true)}
+            onPress={handleOpenShareJobModal}
             style={styles.headerShareJobBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <BriefcaseIcon size={15} color="#0D6847" />
+            <BriefcaseIcon size={14} color="#0D6847" />
             <Text style={styles.headerShareJobText}>İlan Paylaş</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Mesaj Akışı — paddingBottom: 28 ile son mesajın yarısı ASLA kesilmez */}
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item.id || item.tempId || Math.random().toString()}
-          contentContainerStyle={styles.messagesList}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          renderItem={({ item, index }) => {
-            const isMe = item.senderId === currentUserId || item.senderId === 'me';
-            const prevItem = index > 0 ? messages[index - 1] : null;
-            const isDifferentDay =
-              !prevItem ||
-              new Date(item.createdAt).toDateString() !== new Date(prevItem.createdAt).toDateString();
+        {/* Mesaj Akışı — Klavye ve Kaydırma Uyumlu */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+        >
+          {threadLoading && messages.length === 0 ? (
+            <View style={styles.threadLoadingContainer}>
+              <ActivityIndicator size="small" color="#0D6847" />
+              <Text style={styles.threadLoadingText}>Mesajlar yükleniyor…</Text>
+            </View>
+          ) : null}
 
-            const dateStr = new Date(item.createdAt).toLocaleDateString('tr-TR', {
-              day: 'numeric',
-              month: 'long',
-            });
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item.id || item.tempId || Math.random().toString()}
+            contentContainerStyle={styles.messagesList}
+            initialNumToRender={100}
+            maxToRenderPerBatch={100}
+            windowSize={31}
+            onLayout={() => {
+              scrollToBottom(false);
+            }}
+            onContentSizeChange={() => {
+              if (!hasScrolledInitial) {
+                scrollToBottom(false);
+                setHasScrolledInitial(true);
+              } else {
+                scrollToBottom(true);
+              }
+            }}
+            renderItem={({ item, index }) => {
+              const isMe = item.senderId === currentUserId || item.senderId === 'me';
+              const isPending = !!item.tempId && item.id.startsWith('temp_');
+              const prevItem = index > 0 ? messages[index - 1] : null;
+              const isDifferentDay =
+                !prevItem ||
+                new Date(item.createdAt).toDateString() !== new Date(prevItem.createdAt).toDateString();
 
-            const isJobShare = item.content.includes('[İş İlanı]');
+              const dateStr = new Date(item.createdAt).toLocaleDateString('tr-TR', {
+                day: 'numeric',
+                month: 'long',
+              });
 
-            return (
-              <View>
-                {isDifferentDay && (
-                  <View style={styles.dateSeparator}>
-                    <View style={styles.dateLine} />
-                    <View style={styles.datePill}>
-                      <Text style={styles.dateText}>{dateStr}</Text>
-                    </View>
-                    <View style={styles.dateLine} />
-                  </View>
-                )}
+              // İlan Paylaşım Kartı Formatı Kontrolü (Gelişmiş Çoklu Format Ayrıştırıcı)
+              const parsedJob = parseJobCard(item.content);
 
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onLongPress={() => setActionMessage(item)}
-                  style={[styles.messageRow, isMe ? styles.myRow : styles.otherRow]}
-                >
-                  <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
-                    {/* Alıntılanan / Yanıtlanan Mesaj Başlığı */}
-                    {item.replyTo && (
-                      <View style={[styles.quotedBubble, isMe ? styles.quotedBubbleMe : styles.quotedBubbleOther]}>
-                        <Text style={[styles.quotedSender, isMe && { color: '#A7F3D0' }]}>
-                          {item.replyTo.senderName}
-                        </Text>
-                        <Text style={[styles.quotedText, isMe && { color: 'rgba(255,255,255,0.85)' }]} numberOfLines={1}>
-                          {item.replyTo.content}
-                        </Text>
+              return (
+                <View>
+                  {isDifferentDay && (
+                    <View style={styles.dateSeparator}>
+                      <View style={styles.dateLine} />
+                      <View style={styles.datePill}>
+                        <Text style={styles.dateText}>{dateStr}</Text>
                       </View>
-                    )}
+                      <View style={styles.dateLine} />
+                    </View>
+                  )}
 
-                    {/* İlan Paylaşım Kartı */}
-                    {isJobShare ? (
-                      <View style={styles.jobShareCard}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <BriefcaseIcon size={16} color={isMe ? '#FFFFFF' : '#0D6847'} />
-                          <Text style={[styles.jobShareTitle, isMe && { color: '#FFFFFF' }]}>Günübirlik İş İlanı</Text>
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onLongPress={() => setActionMessage(item)}
+                    style={[styles.messageRow, isMe ? styles.myRow : styles.otherRow]}
+                  >
+                    <View
+                      style={[
+                        styles.messageBubble,
+                        isMe ? styles.myBubble : styles.otherBubble,
+                        parsedJob ? styles.jobCardWrapperBubble : null,
+                      ]}
+                    >
+                      {/* Alıntılanan / Yanıtlanan Mesaj */}
+                      {item.replyTo && (
+                        <View
+                          style={[
+                            styles.quotedBubble,
+                            isMe ? styles.quotedBubbleMe : styles.quotedBubbleOther,
+                          ]}
+                        >
+                          <Text style={[styles.quotedSender, isMe && { color: '#A7F3D0' }]}>
+                            {item.replyTo.senderName}
+                          </Text>
+                          <Text
+                            style={[styles.quotedText, isMe && { color: 'rgba(255,255,255,0.85)' }]}
+                            numberOfLines={1}
+                          >
+                            {item.replyTo.content}
+                          </Text>
                         </View>
-                        <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText, { marginTop: 4 }]}>
+                      )}
+
+                      {/* İnteraktif Zengin İlan Kartı */}
+                      {parsedJob ? (
+                        <View style={styles.jobShareWidget}>
+                          <View style={styles.jobShareWidgetHeader}>
+                            <BriefcaseIcon size={14} color="#0D6847" />
+                            <Text style={styles.jobShareWidgetBadge}>Günübirlik İş İlanı</Text>
+                          </View>
+                          <Text style={styles.jobShareWidgetTitle}>{parsedJob.title}</Text>
+                          <View style={styles.jobShareWidgetMetaRow}>
+                            {parsedJob.wage ? (
+                              <Text style={styles.jobShareWidgetWage}>₺{parsedJob.wage} / gün</Text>
+                            ) : null}
+                            {(parsedJob.district || parsedJob.city) && (
+                              <Text style={styles.jobShareWidgetLoc}>
+                                📍 {parsedJob.district ?? ''} {parsedJob.city ?? ''}
+                              </Text>
+                            )}
+                          </View>
+                          <TouchableOpacity
+                            style={styles.jobShareWidgetBtn}
+                            onPress={() => void Linking.openURL(parsedJob.link)}
+                          >
+                            <Text style={styles.jobShareWidgetBtnText}>İlanı İncele & Başvur</Text>
+                            <ExternalLinkIcon size={13} color="#FFFFFF" />
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>
                           {item.content}
                         </Text>
-                      </View>
-                    ) : (
-                      <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>
-                        {item.content}
-                      </Text>
-                    )}
-
-                    <View style={styles.messageMetaRow}>
-                      {item.isEdited && (
-                        <Text style={[styles.editedLabel, isMe ? styles.myTime : styles.otherTime]}>
-                          (düzenlendi)
-                        </Text>
                       )}
-                      <Text style={[styles.messageTime, isMe ? styles.myTime : styles.otherTime]}>
-                        {new Date(item.createdAt).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </Text>
-                      {isMe && <DoubleCheckIcon size={13} color="rgba(255,255,255,0.7)" strokeWidth={2} />}
+
+                      {/* Zaman & İletildi Durumu */}
+                      <View style={styles.messageMetaRow}>
+                        {item.isEdited && (
+                          <Text style={[styles.editedLabel, isMe ? styles.myTime : styles.otherTime]}>
+                            (düzenlendi)
+                          </Text>
+                        )}
+                        <Text style={[styles.messageTime, isMe ? styles.myTime : styles.otherTime]}>
+                          {new Date(item.createdAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </Text>
+                        {isMe && (
+                          isPending ? (
+                            <ClockIcon size={11} color="rgba(255,255,255,0.6)" strokeWidth={2} />
+                          ) : (
+                            <DoubleCheckIcon size={13} color="rgba(255,255,255,0.8)" strokeWidth={2} />
+                          )
+                        )}
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </View>
+              );
+            }}
+            ListFooterComponent={
+              <View>
+                {renderTypingIndicator()}
+                {/* Alt Mesajın Kesilmesini Kesin Olarak Engelleyen Güvenlik Boşluğu */}
+                <View style={{ height: 32 }} />
               </View>
-            );
-          }}
-          ListFooterComponent={renderTypingIndicator}
-        />
-
-        {/* Yanıtlama Çubuğu */}
-        {replyingMessage && (
-          <View style={styles.replyBar}>
-            <View style={styles.replyBarIndicator} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.replyBarSender}>
-                {replyingMessage.senderId === currentUserId ? 'Kendinize yanıt veriyorsunuz' : 'Yanıtlanan Mesaj'}
-              </Text>
-              <Text style={styles.replyBarText} numberOfLines={1}>
-                {replyingMessage.content}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={() => setReplyingMessage(null)} hitSlop={8}>
-              <XIcon size={16} color="#717673" />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Düzenleme Çubuğu */}
-        {editingMessage && (
-          <View style={[styles.replyBar, { backgroundColor: '#FEF3C7' }]}>
-            <View style={[styles.replyBarIndicator, { backgroundColor: '#D97706' }]} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.replyBarSender, { color: '#B45309' }]}>Mesajı Düzenliyorsunuz</Text>
-              <Text style={styles.replyBarText} numberOfLines={1}>
-                {editingMessage.content}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={() => { setEditingMessage(null); setInputText(''); }} hitSlop={8}>
-              <XIcon size={16} color="#B45309" />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Sade Mesaj Giriş Çubuğu — Dosya/Telefon ikonu yok */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.textInput}
-            value={inputText}
-            onChangeText={handleTextChange}
-            placeholder="Mesajınızı yazın…"
-            placeholderTextColor="#8C928E"
-            multiline
-            maxLength={1000}
+            }
           />
 
-          <TouchableOpacity
-            onPress={() => handleSendText(inputText)}
-            disabled={!inputText.trim() || sending}
-            style={[
-              styles.sendButton,
-              inputText.trim() ? styles.sendButtonActive : styles.sendButtonDisabled,
-            ]}
-          >
-            {sending ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <SendIcon size={16} color="#FFFFFF" strokeWidth={2.2} />
-            )}
-          </TouchableOpacity>
-        </View>
+          {/* Yanıtlama Çubuğu */}
+          {replyingMessage && (
+            <View style={styles.replyBar}>
+              <View style={styles.replyBarIndicator} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.replyBarSender}>
+                  {replyingMessage.senderId === currentUserId ? 'Kendinize yanıt veriyorsunuz' : 'Yanıtlanan Mesaj'}
+                </Text>
+                <Text style={styles.replyBarText} numberOfLines={1}>
+                  {replyingMessage.content}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setReplyingMessage(null)} hitSlop={8}>
+                <XIcon size={16} color="#717673" />
+              </TouchableOpacity>
+            </View>
+          )}
 
-        {/* Mesaj Aksiyon Modalı (Uzun Basıldığında) */}
+          {/* Düzenleme Çubuğu */}
+          {editingMessage && (
+            <View style={[styles.replyBar, { backgroundColor: '#FEF3C7' }]}>
+              <View style={[styles.replyBarIndicator, { backgroundColor: '#D97706' }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.replyBarSender, { color: '#B45309' }]}>Mesajı Düzenliyorsunuz</Text>
+                <Text style={styles.replyBarText} numberOfLines={1}>
+                  {editingMessage.content}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setEditingMessage(null);
+                  setInputText('');
+                }}
+                hitSlop={8}
+              >
+                <XIcon size={16} color="#B45309" />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Mesaj Yazma Alanı */}
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.textInput}
+              value={inputText}
+              onChangeText={handleTextChange}
+              placeholder="Mesajınızı yazın…"
+              placeholderTextColor="#8C928E"
+              multiline
+              maxLength={1000}
+            />
+
+            <TouchableOpacity
+              onPress={() => handleSendText(inputText)}
+              disabled={!inputText.trim()}
+              style={[
+                styles.sendButton,
+                inputText.trim() ? styles.sendButtonActive : styles.sendButtonDisabled,
+              ]}
+            >
+              <SendIcon size={16} color="#FFFFFF" strokeWidth={2.2} />
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+
+        {/* Mesaj Aksiyon Menüsü (Uzun Basıldığında) */}
         <Modal
           visible={!!actionMessage}
           transparent
@@ -632,7 +923,9 @@ export function MessagesScreen({
                     style={styles.actionItem}
                     onPress={() => actionMessage && handleActionDelete(actionMessage)}
                   >
-                    <Text style={[styles.actionItemText, { color: '#DC2626' }]}>🗑️ Mesajı Geri Çek / Sil</Text>
+                    <Text style={[styles.actionItemText, { color: '#DC2626' }]}>
+                      🗑️ Mesajı Geri Çek / Sil
+                    </Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -640,54 +933,133 @@ export function MessagesScreen({
           </Pressable>
         </Modal>
 
-        {/* İlan Paylaşma Modalı */}
+        {/* Elastic Search Canlı İlan Arama & Paylaşma Modalı */}
         <Modal
           visible={shareJobModalOpen}
           transparent
           animationType="slide"
           onRequestClose={() => setShareJobModalOpen(false)}
         >
-          <Pressable style={styles.actionModalOverlay} onPress={() => setShareJobModalOpen(false)}>
+          <View style={styles.shareJobModalOverlay}>
+            <Pressable style={{ flex: 1 }} onPress={() => setShareJobModalOpen(false)} />
             <View style={styles.shareJobModalSheet}>
               <View style={styles.sheetHandle} />
-              <Text style={styles.shareJobTitle}>Sohbette İlan Paylaş</Text>
-              <Text style={styles.shareJobDesc}>
-                Karşı tarafa incelemesi için iş ilanının bağlantısını gönderin.
-              </Text>
 
-              {selected.job ? (
-                <TouchableOpacity
-                  style={styles.jobPickCard}
-                  onPress={() => handleShareJobLink(selected.job!.title, selected.job!.id)}
-                >
-                  <BriefcaseIcon size={20} color="#0D6847" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.jobPickTitle}>{selected.job.title}</Text>
-                    <Text style={styles.jobPickSubtitle}>Mevcut görüşülen ilan</Text>
-                  </View>
-                  <Text style={styles.jobPickSendBtn}>Paylaş</Text>
-                </TouchableOpacity>
-              ) : null}
-
-              <TouchableOpacity
-                style={styles.jobPickCard}
-                onPress={() => handleShareJobLink('Günübirlik Günlük İş İlanları')}
-              >
-                <SearchIcon size={20} color="#0D6847" />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.jobPickTitle}>Tüm Günübirlik İlanları</Text>
-                  <Text style={styles.jobPickSubtitle}>gunubirlik.qrders.com.tr/jobs</Text>
+              <View style={styles.shareJobHeaderRow}>
+                <View>
+                  <Text style={styles.shareJobTitle}>İş İlanı Bul ve Paylaş</Text>
+                  <Text style={styles.shareJobDesc}>
+                    Elastic Search ile başlık, şehir, meslek veya açıklama arayın.
+                  </Text>
                 </View>
-                <Text style={styles.jobPickSendBtn}>Paylaş</Text>
-              </TouchableOpacity>
+                <TouchableOpacity onPress={() => setShareJobModalOpen(false)} hitSlop={8}>
+                  <XIcon size={20} color="#717673" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Elastic Search Canlı Arama Çubuğu */}
+              <View style={styles.jobSearchBar}>
+                <SearchIcon size={16} color="#717673" />
+                <TextInput
+                  style={styles.jobSearchInput}
+                  placeholder="Ara… (Örn: kadikoy, boyaci usta, restorant)"
+                  placeholderTextColor="#8C928E"
+                  value={jobSearchQuery}
+                  onChangeText={setJobSearchQuery}
+                  autoFocus
+                />
+                {jobSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setJobSearchQuery('')} hitSlop={6}>
+                    <XIcon size={16} color="#717673" />
+                  </TouchableOpacity>
+                )}
+                {searchingJobs && <ActivityIndicator size="small" color="#0D6847" />}
+              </View>
+
+              {/* Kategori Filtre Hapları */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.jobFilterChipsScroll}
+                contentContainerStyle={{ gap: 6, paddingVertical: 4 }}
+              >
+                {[
+                  { id: 'all', label: 'Tümü' },
+                  { id: 'CONSTRUCTION', label: 'İnşaat' },
+                  { id: 'RESTAURANT', label: 'Restoran / Kafe' },
+                  { id: 'CLEANING', label: 'Temizlik' },
+                  { id: 'LOGISTICS', label: 'Lojistik' },
+                  { id: 'AGRICULTURE', label: 'Tarım' },
+                ].map((chip) => (
+                  <Pressable
+                    key={chip.id}
+                    onPress={() => setJobCategoryFilter(chip.id)}
+                    style={[
+                      styles.modalCategoryChip,
+                      jobCategoryFilter === chip.id && styles.modalCategoryChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modalCategoryChipText,
+                        jobCategoryFilter === chip.id && styles.modalCategoryChipTextActive,
+                      ]}
+                    >
+                      {chip.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              {/* Elastic Search Sonuçları Listesi */}
+              <ScrollView style={{ maxHeight: 360 }} keyboardShouldPersistTaps="handled">
+                {filteredElasticJobs.length === 0 && !searchingJobs ? (
+                  <View style={{ paddingVertical: 28, alignItems: 'center', gap: 6 }}>
+                    <BriefcaseIcon size={28} color="#C5DDD0" />
+                    <Text style={{ fontSize: 13, color: '#717673', fontFamily: 'PlusJakartaSans_500Medium' }}>
+                      {jobSearchQuery
+                        ? 'Aradığınız kriterlere uygun ilan bulunamadı.'
+                        : 'Aramak için anahtar kelime yazın.'}
+                    </Text>
+                  </View>
+                ) : (
+                  filteredElasticJobs.map((job) => (
+                    <TouchableOpacity
+                      key={job.id}
+                      style={styles.jobSearchCard}
+                      onPress={() => handleShareSelectedJob(job)}
+                    >
+                      <View style={styles.jobSearchIconBox}>
+                        <BriefcaseIcon size={18} color="#0D6847" />
+                      </View>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={styles.jobSearchTitle} numberOfLines={1}>
+                          {job.title}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={styles.jobSearchWage}>₺{job.wageAmount} / gün</Text>
+                          {(job.district || job.city) && (
+                            <Text style={styles.jobSearchLoc} numberOfLines={1}>
+                              · {job.district ?? ''} {job.city ?? ''}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      <View style={styles.jobShareBtnPill}>
+                        <Text style={styles.jobShareBtnPillText}>Paylaş</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </ScrollView>
             </View>
-          </Pressable>
+          </View>
         </Modal>
-      </KeyboardAvoidingView>
+      </View>
     );
   }
 
-  // ================= INBOX LIST VIEW =================
+  // ================= 2. GELEN KUTUSU LİSTESİ (INBOX VIEW) =================
   return (
     <View style={styles.listContainer}>
       <View style={styles.inboxHeader}>
@@ -773,7 +1145,7 @@ export function MessagesScreen({
           return (
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={() => handleSelectConversation(item)}
+              onPress={() => void handleSelectConversation(item)}
               style={styles.conversationCard}
             >
               <View style={styles.cardAvatarContainer}>
@@ -803,7 +1175,9 @@ export function MessagesScreen({
 
                 <View style={styles.cardBottomRow}>
                   <Text style={styles.cardLastMsg} numberOfLines={1}>
-                    {lastMsg}
+                    {lastMsg.includes('[JOB_CARD]') || lastMsg.includes('[İş İlanı]')
+                      ? '💼 Paylaşılan İş İlanı'
+                      : lastMsg}
                   </Text>
                   {unreadCount > 0 && (
                     <View style={styles.unreadBadge}>
@@ -821,6 +1195,8 @@ export function MessagesScreen({
     </View>
   );
 }
+
+export default MessagesScreen;
 
 const styles = StyleSheet.create({
   centered: {
@@ -862,11 +1238,9 @@ const styles = StyleSheet.create({
   },
   activeConvCountPill: {
     backgroundColor: '#EAF3EE',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#C5DDD0',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   activeConvCountText: {
     fontSize: 11,
@@ -890,7 +1264,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'PlusJakartaSans_500Medium',
     color: '#141615',
-    height: '100%',
     padding: 0,
   },
   filterRow: {
@@ -899,7 +1272,7 @@ const styles = StyleSheet.create({
   },
   filterChip: {
     paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 8,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -910,7 +1283,7 @@ const styles = StyleSheet.create({
     borderColor: '#0D6847',
   },
   filterChipText: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans_600SemiBold',
     fontWeight: '600',
     color: '#5C615E',
@@ -918,17 +1291,18 @@ const styles = StyleSheet.create({
   filterChipTextActive: {
     color: '#FFFFFF',
   },
+
   conversationsScroll: {
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 24,
+    gap: 8,
   },
   conversationCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginHorizontal: 12,
-    marginVertical: 4,
+    padding: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#EAE8E2',
@@ -941,9 +1315,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 11,
-    height: 11,
-    borderRadius: 5.5,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: '#10B981',
     borderWidth: 2,
     borderColor: '#FFFFFF',
@@ -960,35 +1334,33 @@ const styles = StyleSheet.create({
   cardNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     flex: 1,
   },
   cardName: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
     color: '#141615',
-    letterSpacing: -0.2,
   },
   cardTime: {
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_500Medium',
-    color: '#717673',
+    color: '#8C928E',
   },
   cardJobBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     alignSelf: 'flex-start',
-    backgroundColor: '#EAF3EE',
+    backgroundColor: '#F0F7F4',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   cardJobTitle: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans_600SemiBold',
-    fontWeight: '600',
     color: '#0D6847',
   },
   cardBottomRow: {
@@ -999,31 +1371,31 @@ const styles = StyleSheet.create({
   },
   cardLastMsg: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'PlusJakartaSans_400Regular',
-    color: '#5C615E',
-    marginRight: 8,
+    color: '#717673',
   },
   unreadBadge: {
+    backgroundColor: '#0D6847',
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#0D6847',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
   },
   unreadBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
+    color: '#FFFFFF',
   },
+
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 60,
+    paddingVertical: 48,
+    paddingHorizontal: 24,
     gap: 8,
   },
   emptyIconBox: {
@@ -1033,47 +1405,54 @@ const styles = StyleSheet.create({
     backgroundColor: '#EAF3EE',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
     color: '#141615',
-    textAlign: 'center',
   },
   emptyDesc: {
     fontSize: 12,
     fontFamily: 'PlusJakartaSans_400Regular',
-    color: '#5C615E',
+    color: '#717673',
     textAlign: 'center',
     lineHeight: 18,
   },
 
-  // Thread Chat View Styles
+  // Thread Header
   threadContainer: {
     flex: 1,
     backgroundColor: '#F6F5F2',
+  },
+  threadLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    backgroundColor: '#F0F7F4',
+  },
+  threadLoadingText: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    color: '#0D6847',
   },
   threadHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingTop: 8,
+    paddingBottom: 8,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E8E6DF',
-    gap: 10,
+    gap: 8,
   },
   backButton: {
-    width: 34,
-    height: 34,
+    padding: 6,
     borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F6F5F2',
-    borderWidth: 1,
-    borderColor: '#E2E0D8',
   },
   headerAvatarContainer: {
     position: 'relative',
@@ -1082,9 +1461,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -1,
     right: -1,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
     backgroundColor: '#10B981',
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
@@ -1096,20 +1475,19 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
   },
   headerTitle: {
     fontSize: 15,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
     color: '#141615',
-    letterSpacing: -0.2,
   },
   headerJobPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EAF3EE',
+    backgroundColor: '#F0F7F4',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -1118,15 +1496,14 @@ const styles = StyleSheet.create({
   headerJobText: {
     fontSize: 10,
     fontFamily: 'PlusJakartaSans_600SemiBold',
-    fontWeight: '600',
     color: '#0D6847',
   },
   headerShareJobBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     backgroundColor: '#EAF3EE',
-    paddingHorizontal: 9,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
@@ -1142,7 +1519,7 @@ const styles = StyleSheet.create({
   messagesList: {
     paddingHorizontal: 14,
     paddingTop: 12,
-    paddingBottom: 28, // Alt mesajın kesilmesini önleyen geniş boşluk
+    paddingBottom: 24,
     gap: 8,
   },
   dateSeparator: {
@@ -1179,11 +1556,19 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   messageBubble: {
-    maxWidth: '82%',
+    maxWidth: '85%',
     paddingHorizontal: 14,
     paddingTop: 10,
     paddingBottom: 7,
     borderRadius: 16,
+  },
+  jobCardWrapperBubble: {
+    maxWidth: '92%',
+    paddingHorizontal: 4,
+    paddingTop: 4,
+    paddingBottom: 4,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   myBubble: {
     backgroundColor: '#0D6847',
@@ -1195,46 +1580,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8E6DF',
   },
-  messageText: {
-    fontSize: 14,
-    fontFamily: 'PlusJakartaSans_500Medium',
-    lineHeight: 20,
-  },
-  myText: {
-    color: '#FFFFFF',
-  },
-  otherText: {
-    color: '#141615',
-  },
-  messageMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
-    marginTop: 4,
-  },
-  messageTime: {
-    fontSize: 10,
-    fontFamily: 'PlusJakartaSans_400Regular',
-  },
-  myTime: {
-    color: 'rgba(255,255,255,0.7)',
-  },
-  otherTime: {
-    color: '#717673',
-  },
-  editedLabel: {
-    fontSize: 9,
-    fontStyle: 'italic',
-  },
-
-  // Alıntılanan Mesaj
   quotedBubble: {
-    borderLeftWidth: 3,
+    padding: 6,
     borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
     marginBottom: 6,
+    borderLeftWidth: 3,
   },
   quotedBubbleMe: {
     backgroundColor: 'rgba(0, 0, 0, 0.15)',
@@ -1254,40 +1604,126 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_400Regular',
     color: '#5C615E',
+  },
+  messageText: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: 'PlusJakartaSans_500Medium',
+  },
+  myText: {
+    color: '#FFFFFF',
+  },
+  otherText: {
+    color: '#141615',
+  },
+  messageMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+    marginTop: 4,
+  },
+  messageTime: {
+    fontSize: 10,
+    fontFamily: 'PlusJakartaSans_400Regular',
+  },
+  myTime: {
+    color: 'rgba(255, 255, 255, 0.75)',
+  },
+  otherTime: {
+    color: '#8C928E',
+  },
+  editedLabel: {
+    fontSize: 9,
+    fontStyle: 'italic',
     marginTop: 1,
   },
 
-  // İlan Paylaşım Kartı
-  jobShareCard: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    padding: 8,
-    borderRadius: 8,
+  // İnteraktif İlan Kartı Widget'ı
+  jobShareWidget: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: '#C5DDD0',
+    gap: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  jobShareTitle: {
-    fontSize: 12,
+  jobShareWidgetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  jobShareWidgetBadge: {
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
     color: '#0D6847',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  jobShareWidgetTitle: {
+    fontSize: 14,
+    fontFamily: 'PlusJakartaSans_800ExtraBold',
+    fontWeight: '800',
+    color: '#141615',
+  },
+  jobShareWidgetMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  jobShareWidgetWage: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: '#0D6847',
+    backgroundColor: '#EAF3EE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  jobShareWidgetLoc: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    color: '#5C615E',
+  },
+  jobShareWidgetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#0D6847',
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  jobShareWidgetBtnText: {
+    fontSize: 12,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: '#FFFFFF',
   },
 
   // Yanıt / Düzenleme Barı
   replyBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
     backgroundColor: '#EAF3EE',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderTopWidth: 1,
     borderTopColor: '#C5DDD0',
-    gap: 10,
+    gap: 8,
   },
   replyBarIndicator: {
     width: 3,
-    height: '100%',
+    height: 28,
+    borderRadius: 1.5,
     backgroundColor: '#0D6847',
-    borderRadius: 2,
   },
   replyBarSender: {
     fontSize: 11,
@@ -1296,7 +1732,7 @@ const styles = StyleSheet.create({
     color: '#0D6847',
   },
   replyBarText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'PlusJakartaSans_400Regular',
     color: '#5C615E',
   },
@@ -1351,9 +1787,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 12,
     alignSelf: 'flex-start',
-    gap: 6,
     borderWidth: 1,
-    borderColor: '#EAE8E2',
+    borderColor: '#E8E6DF',
+    gap: 6,
   },
   typingText: {
     fontSize: 11,
@@ -1374,10 +1810,10 @@ const styles = StyleSheet.create({
   dot2: { opacity: 0.7 },
   dot3: { opacity: 1 },
 
-  // Aksiyon Modalı (Uzun Basış)
+  // Aksiyon Menüsü Modalı
   actionModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -1388,21 +1824,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
-    gap: 10,
+    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   actionModalTitle: {
     fontSize: 13,
     fontFamily: 'PlusJakartaSans_600SemiBold',
     color: '#717673',
-    paddingHorizontal: 4,
+    paddingBottom: 8,
   },
   actionDivider: {
     height: 1,
     backgroundColor: '#EAE8E2',
+    marginVertical: 4,
   },
   actionItem: {
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     borderRadius: 8,
   },
   actionItemText: {
@@ -1411,18 +1853,21 @@ const styles = StyleSheet.create({
     color: '#141615',
   },
 
-  // İlan Paylaş Modalı Sheet
+  // Elastic Search İlan Arama Modalı
+  shareJobModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
   shareJobModalSheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 36,
-    gap: 12,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 28,
+    maxHeight: '80%',
+    gap: 10,
   },
   sheetHandle: {
     width: 36,
@@ -1430,10 +1875,15 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#D1D5DB',
     alignSelf: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+  },
+  shareJobHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
   },
   shareJobTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontFamily: 'PlusJakartaSans_800ExtraBold',
     fontWeight: '800',
     color: '#141615',
@@ -1441,43 +1891,95 @@ const styles = StyleSheet.create({
   shareJobDesc: {
     fontSize: 12,
     fontFamily: 'PlusJakartaSans_400Regular',
-    color: '#5C615E',
-    lineHeight: 18,
+    color: '#717673',
+    marginTop: 2,
   },
-  jobPickCard: {
+  jobSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F6F5F2',
     borderWidth: 1,
     borderColor: '#E2E0D8',
     borderRadius: 12,
-    padding: 14,
-    gap: 12,
+    paddingHorizontal: 12,
+    height: 42,
+    gap: 8,
   },
-  jobPickTitle: {
-    fontSize: 14,
+  jobSearchInput: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    color: '#141615',
+    padding: 0,
+  },
+  jobFilterChipsScroll: {
+    maxHeight: 38,
+  },
+  modalCategoryChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: '#F6F5F2',
+    borderWidth: 1,
+    borderColor: '#E2E0D8',
+  },
+  modalCategoryChipActive: {
+    backgroundColor: '#0D6847',
+    borderColor: '#0D6847',
+  },
+  modalCategoryChipText: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_600SemiBold',
+    color: '#5C615E',
+  },
+  modalCategoryChipTextActive: {
+    color: '#FFFFFF',
+  },
+  jobSearchCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FBFBFA',
+    borderWidth: 1,
+    borderColor: '#EAE8E2',
+    borderRadius: 12,
+    padding: 10,
+    marginVertical: 4,
+    gap: 10,
+  },
+  jobSearchIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EAF3EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  jobSearchTitle: {
+    fontSize: 13,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
     color: '#141615',
   },
-  jobPickSubtitle: {
+  jobSearchWage: {
     fontSize: 11,
-    fontFamily: 'PlusJakartaSans_400Regular',
-    color: '#717673',
-    marginTop: 2,
-  },
-  jobPickSendBtn: {
-    fontSize: 12,
     fontFamily: 'PlusJakartaSans_700Bold',
-    fontWeight: '700',
     color: '#0D6847',
-    backgroundColor: '#EAF3EE',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#C5DDD0',
+  },
+  jobSearchLoc: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    color: '#717673',
+    flex: 1,
+  },
+  jobShareBtnPill: {
+    backgroundColor: '#0D6847',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  jobShareBtnPillText: {
+    fontSize: 11,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    color: '#FFFFFF',
   },
 });
-
-export default MessagesScreen;
