@@ -251,6 +251,8 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
   const [openConversationId, setOpenConversationId] = useState<string | null>(null);
   // Sohbet içindeyken alt navigasyon çubuğu gizlenir (tam ekran odak).
   const [isInsideChat, setIsInsideChat] = useState(false);
+  // Push bildirimi "Yanıtla" butonundan geldiyse mesaj kutusuna otomatik odaklan
+  const [autoFocusReply, setAutoFocusReply] = useState(false);
 
   // Bildirim sayacı (30 sn'de bir)
   useEffect(() => {
@@ -282,6 +284,7 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
       onPushNavigate((intent) => {
         setOpenJobId(intent.jobId ?? null);
         setOpenConversationId(intent.conversationId ?? null);
+        setAutoFocusReply(!!intent.autoFocusReply);
         if (intent.tab === "profile") {
           // wallet → Cüzdan; verification/profile → Hesap (Bildirim → Ayarlar açar).
           setProfileSub(intent.profileSub ?? null);
@@ -306,6 +309,7 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
     const t = setTimeout(() => {
       setOpenJobId(coldIntent.jobId ?? null);
       setOpenConversationId(coldIntent.conversationId ?? null);
+      setAutoFocusReply(!!coldIntent.autoFocusReply);
       if (coldIntent.tab === "profile") {
         setProfileSub(coldIntent.profileSub ?? null);
         setProfileOpenTab(coldIntent.profileSub ? null : "notifications");
@@ -456,6 +460,8 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
             openConversationId={openConversationId}
             onOpenConversationHandled={() => setOpenConversationId(null)}
             onActiveThreadChange={setIsInsideChat}
+            autoFocusReply={autoFocusReply}
+            onAutoFocusReplyHandled={() => setAutoFocusReply(false)}
           />
         )}
         {tab === "notifications" && (

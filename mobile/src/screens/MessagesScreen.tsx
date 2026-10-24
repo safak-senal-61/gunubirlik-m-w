@@ -52,6 +52,8 @@ interface MessagesScreenProps {
   onSelectConversation?: (id: string | null) => void;
   onActiveThreadChange?: (isActive: boolean) => void;
   refreshKey?: number;
+  autoFocusReply?: boolean;
+  onAutoFocusReplyHandled?: () => void;
 }
 
 // In-Memory Global Önbellek: Sekmeler ve konuşmalar arası geçişte 0 ms anında açılış
@@ -127,6 +129,8 @@ export function MessagesScreen({
   onSelectConversation,
   onActiveThreadChange,
   refreshKey,
+  autoFocusReply,
+  onAutoFocusReplyHandled,
 }: MessagesScreenProps) {
   const targetId = openConversationId || initialConversationId;
 
@@ -156,10 +160,22 @@ export function MessagesScreen({
   const [allJobs, setAllJobs] = useState<ApiJob[]>(inMemoryAllJobsCache);
   const [searchingJobs, setSearchingJobs] = useState(false);
 
-  // Scroll Yönetimi
+  // Scroll & Input Yönetimi
   const flatListRef = useRef<FlatList>(null);
+  const textInputRef = useRef<TextInput>(null);
   const [hasScrolledInitial, setHasScrolledInitial] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Push bildirimi "Yanıtla" butonuna basıldığında mesaj kutusuna odaklan
+  useEffect(() => {
+    if (selected && autoFocusReply) {
+      const timer = setTimeout(() => {
+        textInputRef.current?.focus();
+        onAutoFocusReplyHandled?.();
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [selected, autoFocusReply, onAutoFocusReplyHandled]);
 
   // Güçlü, Çok Kademeli En Alta Kaydırma Fonksiyonu (Yarım görünmeyi ve gecikmeyi engeller)
   const scrollToBottom = useCallback((animated = true) => {
@@ -858,6 +874,7 @@ export function MessagesScreen({
           {/* Mesaj Yazma Alanı */}
           <View style={styles.inputContainer}>
             <TextInput
+              ref={textInputRef}
               style={styles.textInput}
               value={inputText}
               onChangeText={handleTextChange}

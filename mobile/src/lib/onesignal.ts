@@ -11,6 +11,7 @@ import { LogLevel, OneSignal } from "react-native-onesignal";
 import type { NotificationClickEvent, NotificationWillDisplayEvent, PushSubscriptionChangedState } from "react-native-onesignal";
 import type { ApiUser, NotificationSettings } from "./types";
 import { ALL_PREF_KEYS, type NotificationPrefKey } from "./notification-prefs";
+import { markConversationRead } from "./api";
 
 LogBox.ignoreLogs([
   "[OneSignal]",
@@ -36,6 +37,8 @@ export type PushNavigateIntent = {
   applicationId?: string;
   /** tab=profile iken: wallet → Cüzdan sekmesi, verification/profile → Hesap. */
   profileSub?: "wallet" | "verification" | "profile";
+  /** "Yanıtla" aksiyon butonu tıklandıysa sohbet giriş alanına otomatik odaklan */
+  autoFocusReply?: boolean;
 };
 
 /**
@@ -377,13 +380,27 @@ export function initOneSignal(): void {
     emitArrived();
   };
   const onClick = (e: NotificationClickEvent) => {
+    const actionId = e?.result?.actionId;
+    const additional = (e?.notification as { additionalData?: any } | undefined)?.additionalData;
+    const convId = additional?.conversationId;
+
+    // Aksiyon butonu: "Okundu İşaretle" tıklandıysa arka planda sunucuya bildir
+    if (actionId === "mark_read" && convId) {
+      void markConversationRead(convId);
+      return;
+    }
     // 1) Backend app_url (launchURL) gönderdiyse ÖNCE onu dene: gunubirlik://... → uygulama içi hedef.
     //    (Kullanıcı web sitesine yönlenmez; doğru ekrana açılır.)
     const launchUrl = (e?.notification as { launchURL?: string } | undefined)?.launchURL;
     let intent = parseGunubirlikUrl(launchUrl ?? "");
     // 2) Yoksa additionalData'dan tip bazlı hedef çıkar (fallback).
     if (!intent) {
-      intent = intentFromPayload((e?.notification as { additionalData?: unknown } | undefined)?.additionalData);
+      intent = intentFromPayload(additional);
+    }
+
+    // Aksiyon butonu: "Yanıtla" seçildiyse doğrudan konuşma giriş alanına odaklan
+    if (actionId === "reply") {
+      intent.autoFocusReply = true;
     }
     pendingColdStartIntent = intent; // JS dinleyici henüz yoksa sonradan tüketilir
     emitNavigate(intent);
