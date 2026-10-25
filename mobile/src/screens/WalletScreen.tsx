@@ -37,6 +37,25 @@ import type {
   WalletTxType,
   WithdrawRequest,
 } from "@/lib/types";
+import {
+  ArrowDownLeftIcon,
+  ArrowUpRightIcon,
+  ArrowLeftRightIcon,
+  QrCodeIcon,
+  RotateCcwIcon,
+  ReceiptIcon,
+  BriefcaseIcon,
+  GiftIcon,
+  WalletIcon,
+  BuildingIcon,
+  CopyIcon,
+  ClockIcon,
+  CheckIcon,
+  XIcon,
+  AlertCircleIcon,
+  CheckCircleIcon,
+  InfoIcon,
+} from "@/components/icons";
 
 const TRY = (n: number) => `${n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`;
 
@@ -59,16 +78,39 @@ const POPULAR_BANKS = [
   "Halkbank",
 ];
 
-const TX_META: Record<string, { label: string; icon: string }> = {
-  DEPOSIT: { label: "Para yatırma", icon: "⬇️" },
-  WITHDRAW: { label: "Para çekme", icon: "⬆️" },
-  TRANSFER: { label: "Transfer", icon: "↔️" },
-  QR_PAYMENT: { label: "QR ödeme", icon: "📲" },
-  JOB_PAYMENT: { label: "İş ödemesi", icon: "🧰" },
-  REFUND: { label: "İade", icon: "↩️" },
-  FEE: { label: "Ücret", icon: "🏦" },
-  BONUS: { label: "Bonus", icon: "🎁" },
+const TX_META: Record<string, { label: string }> = {
+  DEPOSIT: { label: "Para yatırma" },
+  WITHDRAW: { label: "Para çekme" },
+  TRANSFER: { label: "Transfer" },
+  QR_PAYMENT: { label: "QR ödeme" },
+  JOB_PAYMENT: { label: "İş ödemesi" },
+  REFUND: { label: "İade" },
+  FEE: { label: "Hizmet bedeli" },
+  BONUS: { label: "Bonus / Teşvik" },
 };
+
+function getTxIcon(type: string, colors: ThemeColors) {
+  switch (type) {
+    case "DEPOSIT":
+      return <ArrowDownLeftIcon size={16} color={colors.emerald} />;
+    case "WITHDRAW":
+      return <ArrowUpRightIcon size={16} color={colors.rose} />;
+    case "TRANSFER":
+      return <ArrowLeftRightIcon size={16} color={colors.primary} />;
+    case "QR_PAYMENT":
+      return <QrCodeIcon size={16} color={colors.primary} />;
+    case "JOB_PAYMENT":
+      return <BriefcaseIcon size={16} color={colors.primary} />;
+    case "REFUND":
+      return <RotateCcwIcon size={16} color={colors.emerald} />;
+    case "FEE":
+      return <ReceiptIcon size={16} color={colors.muted} />;
+    case "BONUS":
+      return <GiftIcon size={16} color={colors.amber} />;
+    default:
+      return <WalletIcon size={16} color={colors.primary} />;
+  }
+}
 
 const TX_FILTERS: { key: WalletTxType; label: string }[] = [
   { key: "ALL", label: "Tümü" },
@@ -230,30 +272,29 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
       >
         {/* Bakiye kartı */}
         <View style={styles.balanceCard}>
-          <View style={styles.balanceBlob} pointerEvents="none" />
           <View style={styles.balanceTop}>
-            <Text style={styles.balanceLabel}>Cüzdan bakiyen</Text>
+            <Text style={styles.balanceLabel}>Cüzdan Bakiyesi</Text>
             <View style={styles.balanceRole}>
               <Text style={styles.balanceRoleText}>
-                {isAdmin ? "👑 Yönetici" : isEmployer ? "🏢 İşveren" : "🔨 İşçi"}
+                {isAdmin ? "Yönetici" : isEmployer ? "İşveren" : "İş Arayan"}
               </Text>
             </View>
           </View>
           <Text style={styles.balanceValue}>{balance == null ? (loading ? "…" : "—") : TRY(balance)}</Text>
-          <Text style={styles.balanceCurrency}>Günübirlik cüzdanı · TRY</Text>
+          <Text style={styles.balanceCurrency}>TRY · Kullanılabilir Bakiye</Text>
 
           <View style={styles.balanceStats}>
             {(isEmployer || isAdmin) && (
               <View style={styles.balanceStat}>
                 <Text style={styles.balanceStatValue}>{TRY(pendingDepositTotal)}</Text>
-                <Text style={styles.balanceStatLabel}>Yatırma bekliyor</Text>
+                <Text style={styles.balanceStatLabel}>Yatırma Bekliyor</Text>
               </View>
             )}
             {isAdmin && <View style={styles.balanceStatDivider} />}
             {(isWorker || isAdmin) && (
               <View style={styles.balanceStat}>
                 <Text style={styles.balanceStatValue}>{TRY(pendingWithdrawTotal)}</Text>
-                <Text style={styles.balanceStatLabel}>Çekme bekliyor</Text>
+                <Text style={styles.balanceStatLabel}>Çekim Bekliyor</Text>
               </View>
             )}
           </View>
@@ -267,19 +308,19 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
         <View style={styles.actionGrid}>
           {(isEmployer || isAdmin) && (
             <ActionTile
-              icon="⬇️"
+              icon={<ArrowDownLeftIcon size={20} color={colors.emerald} />}
               label="Para Yatır"
               hint="EFT / Havale ile Bakiye Yükle"
-              color={C.emerald}
+              color={colors.emerald}
               onPress={() => setSheet("deposit")}
             />
           )}
           {(isWorker || isAdmin) && (
             <ActionTile
-              icon="⬆️"
+              icon={<ArrowUpRightIcon size={20} color={colors.primary} />}
               label="Para Çek"
               hint="Banka IBAN'ına Çekim Talebi"
-              color={C.primary}
+              color={colors.primary}
               onPress={() => setSheet("withdraw")}
             />
           )}
@@ -296,7 +337,7 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
                 .map((d) => (
                   <RequestRow
                     key={d.id}
-                    icon="⬇️"
+                    icon={<ArrowDownLeftIcon size={16} color={colors.emerald} />}
                     title={`Yatırma · ${TRY(d.amount)}`}
                     subtitle={`${d.senderName} · ${d.senderIban.slice(-4)}••`}
                     status={d.status}
@@ -308,7 +349,7 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
                 .map((w) => (
                   <RequestRow
                     key={w.id}
-                    icon="⬆️"
+                    icon={<ArrowUpRightIcon size={16} color={colors.amber} />}
                     title={`Çekme · ${TRY(w.amount)}`}
                     subtitle={`${w.recipientName} · ${w.recipientIban.slice(-4)}••`}
                     status={w.status}
@@ -316,8 +357,8 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
                 ))}
             <Text style={styles.noteText}>
               {isEmployer
-                ? "ℹ️ EFT/havale talebin yönetim onayından sonra bakiyene işlenir (1-3 iş günü)."
-                : "ℹ️ Çekme talepleri onaylandığında IBAN'a gönderilir (3-5 iş günü)."}
+                ? "EFT/Havale talebiniz banka teyidinden sonra bakiyenize yansıtılır (1-3 iş günü)."
+                : "Çekim talepleri onaylandığında kayıtlı IBAN hesabınıza gönderilir (3-5 iş günü)."}
             </Text>
           </Card>
         )}
@@ -331,8 +372,12 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
             <Card style={{ padding: 0, overflow: "hidden" }}>
               {allRequests.map((r, i) => (
                 <View key={`${r.kind}-${r.id}`} style={[styles.txRow, i === allRequests.length - 1 ? {} : styles.txRowBorder]}>
-                  <View style={[styles.txIcon, { backgroundColor: r.kind === "deposit" ? C.emeraldBg : C.primarySoft }]}>
-                    <Text style={styles.txEmoji}>{r.kind === "deposit" ? "⬇️" : "⬆️"}</Text>
+                  <View style={[styles.txIcon, { backgroundColor: r.kind === "deposit" ? colors.primarySoft : colors.cardSecondary }]}>
+                    {r.kind === "deposit" ? (
+                      <ArrowDownLeftIcon size={16} color={colors.emerald} />
+                    ) : (
+                      <ArrowUpRightIcon size={16} color={colors.amber} />
+                    )}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.txTitle}>
@@ -368,7 +413,7 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
           </ScrollView>
 
           {txs.length === 0 && !txLoading ? (
-            <EmptyState emoji="🧾" title="Hareket yok" subtitle="Yatırma, çekme ve iş ödemeleri burada listelenir." />
+            <EmptyState icon={<ReceiptIcon size={32} color={colors.muted} />} title="Hareket yok" subtitle="Yatırma, çekme ve iş ödemeleri burada listelenir." />
           ) : (
             <Card style={{ padding: 0, overflow: "hidden" }}>
               {txs.map((t, i) => (
@@ -379,26 +424,59 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
         </View>
 
         {/* Ödeme akışı rehberi */}
-        <Card style={{ gap: 8 }}>
-          <SectionTitle>Ödeme akışı nasıl işler?</SectionTitle>
-          <Text style={styles.flowStep}>
-            1️⃣ İşveren iş ilanı açar ve işçi kabul eder (ücret emanete alınır).
-          </Text>
-          <Text style={styles.flowStep}>
-            2️⃣ İşe başlarken ve gün bitiminde QR kod okutulur.
-          </Text>
-          <Text style={styles.flowStep}>
-            3️⃣ İş tamamlandığında ücret işçinin cüzdan bakiyesine otomatik aktarılır.
-          </Text>
-          <Text style={styles.flowStep}>
-            4️⃣ {isEmployer ? "İşveren platform hesabına EFT/Havale ile bakiye yükler." : "İşçi biriken bakiyesini banka IBAN hesabına çeker."}
-          </Text>
-          <Text style={styles.noteText}>
-            ℹ️ {isEmployer ? "Yatırma talepleriniz banka dekontu kontrolünden sonra onaylanır." : "Çekme talepleriniz 3-5 iş günü içinde banka hesabınıza aktarılır."}
-          </Text>
+        <Card style={{ gap: 12 }}>
+          <SectionTitle>Ödeme Güvencesi ve Akışı</SectionTitle>
+          <View style={{ gap: 10 }}>
+            {[
+              {
+                step: "1",
+                title: "Güvenli Havuz (Emanet)",
+                desc: "İşveren iş ilanı açtığında ödeme platform emanet havuzuna alınır.",
+              },
+              {
+                step: "2",
+                title: "QR Giriş ve Çıkış Doğrulama",
+                desc: "İşe başlarken ve gün bitiminde konum onaylı QR kod karşılıklı okutulur.",
+              },
+              {
+                step: "3",
+                title: "Otomatik Bakiye Aktarımı",
+                desc: "İş tamamlandığında ücret anında işçinin cüzdan bakiyesine transfer edilir.",
+              },
+              {
+                step: "4",
+                title: isEmployer ? "Bakiye Yükleme" : "Banka Hesabına Çekim",
+                desc: isEmployer
+                  ? "İşveren EFT/Havale ile bakiye yükler; admin onayıyla işlenir."
+                  : "İşçi biriken bakiyesini dilediği zaman banka IBAN'ına çeker.",
+              },
+            ].map((st) => (
+              <View key={st.step} style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
+                <View
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: 13,
+                    backgroundColor: colors.primarySoft,
+                    borderWidth: 1,
+                    borderColor: colors.primary,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginTop: 1,
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: "800", color: colors.primary }}>{st.step}</Text>
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: colors.text }}>{st.title}</Text>
+                  <Text style={{ fontSize: 12, color: colors.muted, lineHeight: 17 }}>{st.desc}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
         </Card>
 
-        <Text style={styles.footNote}>Bakiye ve hareketler anlık olarak güncellenir. ↓ Aşağı çekerek yenile.</Text>
+        <Text style={styles.footNote}>Bakiye ve hareketler anlık olarak güncellenir. Aşağı çekerek yenileyebilirsiniz.</Text>
       </BrandRefreshScrollView>
 
       {/* ================= Modallar ================= */}
@@ -442,7 +520,7 @@ function ActionTile({
   color,
   onPress,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   hint: string;
   color: string;
@@ -454,7 +532,7 @@ function ActionTile({
       style={({ pressed }) => [styles.actionTile, pressed && { opacity: 0.8 }]}
     >
       <View style={[styles.actionIcon, { backgroundColor: `${color}1a` }]}>
-        <Text style={styles.actionEmoji}>{icon}</Text>
+        {icon}
       </View>
       <Text style={styles.actionLabel}>{label}</Text>
       <Text style={styles.actionHint}>{hint}</Text>
@@ -468,7 +546,7 @@ function RequestRow({
   subtitle,
   status,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   subtitle: string;
   status: string;
@@ -477,7 +555,7 @@ function RequestRow({
   const meta = getReqStatus(colors)[status] ?? getReqStatus(colors).PENDING;
   return (
     <View style={styles.requestRow}>
-      <Text style={styles.requestIcon}>{icon}</Text>
+      <View style={{ marginRight: 2 }}>{icon}</View>
       <View style={{ flex: 1 }}>
         <Text style={styles.requestTitle}>{title}</Text>
         <Text style={styles.requestSub}>{subtitle}</Text>
@@ -488,19 +566,20 @@ function RequestRow({
 }
 
 function TxRow({ tx, last }: { tx: WalletTransaction; last: boolean }) {
-  const meta = TX_META[tx.type] ?? { label: tx.type, icon: "💳" };
+  const { colors } = useTheme();
+  const meta = TX_META[tx.type] ?? { label: tx.type };
   const isPos = tx.amount > 0;
   return (
     <View style={[styles.txRow, last ? {} : styles.txRowBorder]}>
-      <View style={[styles.txIcon, { backgroundColor: isPos ? C.emeraldBg : C.stoneBg }]}>
-        <Text style={styles.txEmoji}>{meta.icon}</Text>
+      <View style={[styles.txIcon, { backgroundColor: isPos ? colors.primarySoft : colors.cardSecondary }]}>
+        {getTxIcon(tx.type, colors)}
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.txTitle}>{tx.description || meta.label}</Text>
         <Text style={styles.txSub}>{timeAgo(tx.createdAt)}</Text>
       </View>
       <View style={{ alignItems: "flex-end" }}>
-        <Text style={[styles.txAmount, { color: isPos ? C.emerald : C.text }]}>
+        <Text style={[styles.txAmount, { color: isPos ? colors.emerald : colors.text }]}>
           {isPos ? "+" : ""}
           {TRY(tx.amount)}
         </Text>
@@ -511,14 +590,22 @@ function TxRow({ tx, last }: { tx: WalletTransaction; last: boolean }) {
 }
 
 function Banner({ tone, text }: { tone: "error" | "success" | "info"; text: string }) {
-  const bg = tone === "error" ? "#fef2f2" : tone === "success" ? "#ecfdf5" : C.primarySoft;
-  const fg = tone === "error" ? C.danger : tone === "success" ? C.success : C.primary;
-  const border = tone === "error" ? "#fecaca" : tone === "success" ? "#a7f3d0" : "#c7d2fe";
+  const { colors } = useTheme();
+  const bg = tone === "error" ? colors.roseBg : tone === "success" ? colors.emeraldBg : colors.primarySoft;
+  const fg = tone === "error" ? colors.rose : tone === "success" ? colors.emerald : colors.primary;
+  const border = tone === "error" ? colors.rose : tone === "success" ? colors.emerald : colors.primary;
   return (
-    <View style={[styles.banner, { backgroundColor: bg, borderColor: border }]}>
-      <Text style={[styles.bannerText, { color: fg }]}>
-        {tone === "error" ? "⚠️" : tone === "success" ? "✅" : "ℹ️"} {text}
-      </Text>
+    <View style={[styles.banner, { backgroundColor: bg, borderColor: border, flexDirection: "row", alignItems: "center" }]}>
+      <View style={{ marginRight: 8 }}>
+        {tone === "error" ? (
+          <AlertCircleIcon size={16} color={fg} />
+        ) : tone === "success" ? (
+          <CheckCircleIcon size={16} color={fg} />
+        ) : (
+          <InfoIcon size={16} color={fg} />
+        )}
+      </View>
+      <Text style={[styles.bannerText, { color: fg, flex: 1 }]}>{text}</Text>
     </View>
   );
 }
@@ -534,10 +621,11 @@ function Sheet({
   visible: boolean;
   title: string;
   subtitle?: string;
-  icon?: string;
+  icon?: React.ReactNode;
   onClose: () => void;
   children: React.ReactNode;
 }) {
+  const { colors } = useTheme();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.sheetOverlay}>
@@ -547,8 +635,8 @@ function Sheet({
             <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
               {icon ? (
-                <View style={styles.sheetIconBox}>
-                  <Text style={styles.sheetIcon}>{icon}</Text>
+                <View style={[styles.sheetIconBox, { backgroundColor: colors.primarySoft }]}>
+                  {icon}
                 </View>
               ) : null}
               <View style={{ flex: 1 }}>
@@ -556,7 +644,7 @@ function Sheet({
                 {subtitle ? <Text style={styles.sheetSub}>{subtitle}</Text> : null}
               </View>
               <Pressable onPress={onClose} hitSlop={10} style={styles.sheetCloseBtn}>
-                <Text style={styles.sheetCloseText}>✕</Text>
+                <XIcon size={16} color={colors.muted} />
               </Pressable>
             </View>
             <ScrollView
@@ -631,6 +719,7 @@ function DepositModal({
   onClose: () => void;
   onDone: () => Promise<void>;
 }) {
+  const { colors } = useTheme();
   const [amount, setAmount] = useState("");
   const [senderName, setSenderName] = useState(defaultName);
   const [iban, setIban] = useState("");
@@ -679,7 +768,7 @@ function DepositModal({
         senderNote: note,
       });
       Alert.alert(
-        "Talebin alındı ✅",
+        "Talebiniz Alındı",
         "Yönetim EFT/havaleni teyit ettikten sonra bakiyene işlenecek. Taleplerim bölümünden takip edebilirsin.",
       );
       await onDone();
@@ -694,26 +783,32 @@ function DepositModal({
     <Sheet
       visible={open}
       onClose={onClose}
-      icon="⬇️"
+      icon={<ArrowDownLeftIcon size={18} color={colors.emerald} />}
       title="Para Yatır"
       subtitle={`Banka hesabından havale/EFT yap, onay sonrası bakiyene işlensin. Min ${MIN_DEPOSIT} ₺.`}
     >
       {/* Şirket Resmi Hesap Kartı (1-Dokunuşla Kopyalama) */}
       <View style={styles.companyCard}>
         <View style={styles.companyCardTop}>
-          <View style={styles.companyBankBadge}>
-            <Text style={styles.companyBankBadgeText}>🏦 {COMPANY_ACCOUNT.bank}</Text>
+          <View style={[styles.companyBankBadge, { backgroundColor: colors.primarySoft }]}>
+            <BuildingIcon size={12} color={colors.primary} />
+            <Text style={[styles.companyBankBadgeText, { color: colors.primary }]}>{COMPANY_ACCOUNT.bank}</Text>
           </View>
           <Pressable onPress={copyCompanyIban} style={[styles.copyBtn, copied && styles.copyBtnDone]}>
+            {copied ? (
+              <CheckIcon size={12} color={colors.primary} strokeWidth={2.5} />
+            ) : (
+              <CopyIcon size={12} color={colors.primary} />
+            )}
             <Text style={[styles.copyBtnText, copied && styles.copyBtnTextDone]}>
-              {copied ? "✓ Kopyalandı" : "📋 IBAN Kopyala"}
+              {copied ? "Kopyalandı" : "IBAN Kopyala"}
             </Text>
           </Pressable>
         </View>
         <Text style={styles.companyTitle}>{COMPANY_ACCOUNT.title}</Text>
         <Text style={styles.companyIban} selectable>{COMPANY_ACCOUNT.iban}</Text>
         <Text style={styles.companyNote}>
-          💡 Havale açıklamasına sistemde kayıtlı telefon numaranızı yazınız.
+          Lütfen havale açıklamasına sistemde kayıtlı telefon numaranızı yazınız.
         </Text>
       </View>
 
@@ -809,6 +904,7 @@ function WithdrawModal({
   onClose: () => void;
   onDone: () => Promise<void>;
 }) {
+  const { colors } = useTheme();
   const [amount, setAmount] = useState("");
   const [name, setName] = useState(defaultName);
   const [iban, setIban] = useState("");
@@ -846,7 +942,7 @@ function WithdrawModal({
         recipientNote: note,
       });
       Alert.alert(
-        "Talebin alındı ✅",
+        "Talebiniz Alındı",
         res.message ?? "Çekme talebin onaylandıktan sonra IBAN'a gönderilecek (3-5 iş günü).",
       );
       await onDone();
@@ -861,7 +957,7 @@ function WithdrawModal({
     <Sheet
       visible={open}
       onClose={onClose}
-      icon="⬆️"
+      icon={<ArrowUpRightIcon size={18} color={colors.primary} />}
       title="Para Çek"
       subtitle={`Bakiyenden banka IBAN hesabına aktar. Min ${MIN_WITHDRAW} ₺.`}
     >
@@ -942,7 +1038,10 @@ function WithdrawModal({
       <Field label="Açıklama (opsiyonel)" value={note} onChangeText={setNote} placeholder="Acil ihtiyaç" multiline />
 
       <View style={styles.processInfoCard}>
-        <Text style={styles.processInfoTitle}>⏳ İşlem Süreci</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+          <ClockIcon size={14} color={colors.muted} />
+          <Text style={styles.processInfoTitle}>İşlem Süreci</Text>
+        </View>
         <Text style={styles.processInfoText}>
           Talebiniz alındıktan sonra 3-5 iş günü içinde incelenir ve IBAN hesabınıza aktarılır.
         </Text>
@@ -965,29 +1064,30 @@ const createStyles = (colors: ThemeColors) =>
 
   // Bakiye kartı
   balanceCard: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.card,
     borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: 20,
     gap: 4,
     overflow: "hidden",
-    shadowColor: colors.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
   },
-  balanceBlob: { position: "absolute", top: -80, right: -40, width: 190, height: 190, borderRadius: 95, backgroundColor: "rgba(255,255,255,0.13)" },
   balanceTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  balanceLabel: { fontSize: 13, fontWeight: "700", color: "rgba(255,255,255,0.85)" },
-  balanceRole: { backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  balanceRoleText: { fontSize: 11, fontWeight: "700", color: "#fff" },
-  balanceValue: { fontSize: 34, fontWeight: "900", color: "#fff", marginTop: 6, letterSpacing: -0.5 },
-  balanceCurrency: { fontSize: 11, color: "rgba(255,255,255,0.7)" },
-  balanceStats: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 16, paddingVertical: 12, marginTop: 14 },
+  balanceLabel: { fontSize: 13, fontWeight: "700", color: colors.muted },
+  balanceRole: { backgroundColor: colors.cardSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  balanceRoleText: { fontSize: 11, fontWeight: "700", color: colors.text },
+  balanceValue: { fontSize: 34, fontWeight: "900", color: colors.text, marginTop: 6, letterSpacing: -0.5 },
+  balanceCurrency: { fontSize: 12, fontWeight: "600", color: colors.primary },
+  balanceStats: { flexDirection: "row", backgroundColor: colors.cardSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: 16, paddingVertical: 12, marginTop: 14 },
   balanceStat: { flex: 1, alignItems: "center", gap: 2 },
-  balanceStatDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.25)" },
-  balanceStatValue: { fontSize: 14, fontWeight: "800", color: "#fff" },
-  balanceStatLabel: { fontSize: 10, fontWeight: "600", color: "rgba(255,255,255,0.8)" },
+  balanceStatDivider: { width: 1, backgroundColor: colors.border },
+  balanceStatValue: { fontSize: 14, fontWeight: "800", color: colors.text },
+  balanceStatLabel: { fontSize: 10, fontWeight: "600", color: colors.muted },
 
   // Hızlı işlemler
   actionGrid: { flexDirection: "row", gap: 10 },
@@ -1105,7 +1205,7 @@ const createStyles = (colors: ThemeColors) =>
     backgroundColor: colors.primarySoft,
     borderColor: colors.primary,
   },
-  presetChipText: { fontSize: 12, fontWeight: "700", color: "#475569" },
+  presetChipText: { fontSize: 12, fontWeight: "700", color: colors.text },
   presetChipTextActive: { color: colors.primary, fontWeight: "800" },
 
   // Hızlı banka hapları
@@ -1114,16 +1214,16 @@ const createStyles = (colors: ThemeColors) =>
     paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: 10,
-    backgroundColor: colors.inputBg,
+    backgroundColor: colors.cardSecondary,
     borderWidth: 1,
     borderColor: colors.border,
   },
   bankPillActive: {
     backgroundColor: colors.primarySoft,
-    borderColor: "#3b82f6",
+    borderColor: colors.primary,
   },
-  bankPillText: { fontSize: 11.5, fontWeight: "600", color: "#475569" },
-  bankPillTextActive: { color: "#1d4ed8", fontWeight: "800" },
+  bankPillText: { fontSize: 11.5, fontWeight: "600", color: colors.text },
+  bankPillTextActive: { color: colors.primary, fontWeight: "800" },
 
   // Resmi şirket hesap kartı
   companyCard: {

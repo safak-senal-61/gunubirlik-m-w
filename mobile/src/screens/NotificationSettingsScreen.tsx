@@ -229,10 +229,8 @@ export default function NotificationSettingsScreen() {
     >
       {/* ---------- Durum başlığı ---------- */}
       <View style={styles.hero}>
-        <View style={styles.heroBlobA} />
-        <View style={styles.heroBlobB} />
         <View style={styles.heroIconBox}>
-          <BellIcon size={22} color="#FFFFFF" strokeWidth={2} />
+          <BellIcon size={20} color={colors.primary} strokeWidth={2} />
         </View>
         <Text style={styles.heroTitle}>Bildirim Tercihleri</Text>
         <Text style={styles.heroSub}>
@@ -244,11 +242,11 @@ export default function NotificationSettingsScreen() {
           <View style={[styles.heroChip, permission === true ? styles.heroChipOk : styles.heroChipOff]}>
             <View style={styles.chipRow}>
               {permission === true ? (
-                <CheckIcon size={12} color="#FFFFFF" strokeWidth={2.5} />
+                <CheckIcon size={12} color={colors.primary} strokeWidth={2.5} />
               ) : (
-                <XIcon size={12} color="#FFFFFF" strokeWidth={2.5} />
+                <XIcon size={12} color={colors.muted} strokeWidth={2.5} />
               )}
-              <Text style={styles.heroChipText}>
+              <Text style={[styles.heroChipText, permission === true && { color: colors.primary }]}>
                 {permission === true ? "Sistem İzni Var" : "Sistem İzni Yok"}
               </Text>
             </View>
@@ -490,40 +488,24 @@ const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   wrap: { padding: 16, paddingBottom: 48, gap: 12 },
   hero: {
-    backgroundColor: "#0D6847",
+    backgroundColor: colors.card,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: 18,
     gap: 6,
     overflow: "hidden",
-    shadowColor: "#0D6847",
-    shadowOpacity: 0.2,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
-  },
-  heroBlobA: {
-    position: "absolute",
-    top: -70,
-    right: -50,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
-  heroBlobB: {
-    position: "absolute",
-    bottom: -90,
-    left: -40,
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   heroIconBox: {
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,
@@ -532,35 +514,37 @@ const createStyles = (colors: ThemeColors) =>
     fontSize: 20,
     fontFamily: "PlusJakartaSans_800ExtraBold",
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: colors.text,
     letterSpacing: -0.3,
   },
   heroSub: {
     fontSize: 13,
     fontFamily: "PlusJakartaSans_500Medium",
-    color: "rgba(255,255,255,0.85)",
+    color: colors.muted,
   },
   heroChips: { flexDirection: "row", gap: 6, flexWrap: "wrap", marginTop: 4 },
   heroChip: {
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: colors.cardSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   chipRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  heroChipOk: { backgroundColor: "rgba(16,185,129,0.35)" },
-  heroChipOff: { backgroundColor: "rgba(255,255,255,0.15)" },
+  heroChipOk: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  heroChipOff: { backgroundColor: colors.cardSecondary, borderColor: colors.border },
   heroChipText: {
     fontSize: 11,
     fontFamily: "PlusJakartaSans_600SemiBold",
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: colors.muted,
   },
   savedFlash: {
     fontSize: 12,
     fontFamily: "PlusJakartaSans_700Bold",
     fontWeight: "700",
-    color: "#A7F3D0",
+    color: colors.primary,
     marginTop: 4,
   },
 

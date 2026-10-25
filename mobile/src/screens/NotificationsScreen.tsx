@@ -25,24 +25,45 @@ import {
   ClockIcon,
   StarIcon,
   TrashIcon,
+  ArrowDownLeftIcon,
+  ArrowUpRightIcon,
+  WalletIcon,
 } from "@/components/icons";
+
+/**
+ * Bildirim başlık ve gövdesindeki yapay zeka tarafından eklenmiş
+ * dekoratif emoji öneklerini ve sembollerini temizler.
+ */
+function cleanNotificationText(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/^[\p{Extended_Pictographic}\s\u200d\uFE0F\u20E3]+/u, "")
+    .replace(/[\p{Extended_Pictographic}\u200d\uFE0F\u20E3]+$/u, "")
+    .trim();
+}
 
 function getNotificationIcon(type: string, colors: ThemeColors) {
   switch (type) {
     case "APPLICATION_ACCEPTED":
-      return <CheckCircleIcon size={20} color={colors.primary} />;
+      return <CheckCircleIcon size={18} color={colors.primary} />;
     case "APPLICATION_REJECTED":
-      return <XCircleIcon size={20} color={colors.danger} />;
+      return <XCircleIcon size={18} color={colors.danger} />;
     case "NEW_APPLICATION":
-      return <ApplicationsIcon size={20} color={colors.primary} />;
+      return <ApplicationsIcon size={18} color={colors.primary} />;
     case "NEW_MESSAGE":
-      return <MessageIcon size={20} color={colors.primary} />;
+      return <MessageIcon size={18} color={colors.primary} />;
     case "JOB_REMINDER":
-      return <ClockIcon size={20} color={colors.amber} />;
+      return <ClockIcon size={18} color={colors.amber} />;
     case "RATING_RECEIVED":
-      return <StarIcon size={20} color={colors.amber} />;
+      return <StarIcon size={18} color={colors.amber} />;
+    case "PAYMENT_RECEIVED":
+    case "WALLET_DEPOSIT":
+      return <ArrowDownLeftIcon size={18} color={colors.primary} />;
+    case "PAYMENT_APPROVED":
+    case "WALLET_WITHDRAW":
+      return <ArrowUpRightIcon size={18} color={colors.amber} />;
     default:
-      return <BellIcon size={20} color={colors.primary} />;
+      return <BellIcon size={18} color={colors.primary} />;
   }
 }
 
@@ -186,7 +207,7 @@ export default function NotificationsScreen({
               key={n.id}
               style={[
                 styles.item,
-                !n.isRead && { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+                !n.isRead && { borderColor: colors.primary, borderLeftWidth: 3 },
               ]}
             >
               <Pressable
@@ -207,10 +228,10 @@ export default function NotificationsScreen({
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.titleRow}>
-                    <Text style={[styles.title, { color: colors.text }]}>{n.title}</Text>
-                    {!n.isRead && <View style={styles.dot} />}
+                    <Text style={[styles.title, { color: colors.text }]}>{cleanNotificationText(n.title)}</Text>
+                    {!n.isRead && <View style={[styles.dot, { backgroundColor: colors.primary }]} />}
                   </View>
-                  <Text style={[styles.bodyText, { color: colors.muted }]}>{n.body}</Text>
+                  <Text style={[styles.bodyText, { color: colors.muted }]}>{cleanNotificationText(n.body)}</Text>
                   <Text style={[styles.time, { color: colors.muted }]}>{timeAgo(n.createdAt)}</Text>
                 </View>
                 <Pressable onPress={() => remove(n.id)} hitSlop={8} style={styles.deleteHit}>

@@ -327,7 +327,7 @@ export function requestPermission(fallbackToSettings = true): Promise<boolean> {
  */
 function showIntegrationCompleteDialog(): void {
   Alert.alert(
-    "Push bildirimleri hazır! 🔔",
+    "Push bildirimleri hazır",
     "Günübirlik artık OneSignal üzerinden push bildirimleri ve uygulama içi mesaj gönderebiliyor. Bildirim almaya başlamak için aşağıya dokun.",
     [{ text: "Tamam", onPress: () => { void requestPermission(true); } }],
     { cancelable: false },

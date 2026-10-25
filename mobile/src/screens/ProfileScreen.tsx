@@ -19,7 +19,7 @@ import {
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { Badge, Card, C, PrimaryButton, SectionTitle, StatCard, useTheme, lightColors, type ThemeColors } from "@/components/ui";
+import { Badge, Card, PrimaryButton, SectionTitle, StatCard, useTheme, lightColors, type ThemeColors } from "@/components/ui";
 import {
   changePassword,
   confirmEmailChange,
@@ -80,43 +80,58 @@ import {
   ExternalLinkIcon,
   SunIcon,
   MoonIcon,
+  CalendarIcon,
+  MailIcon,
+  PhoneIcon,
+  MapPinIcon,
+  KeyRoundIcon,
+  LaptopIcon,
+  AlertCircleIcon,
+  FlagIcon,
+  CopyIcon,
+  EyeIcon,
+  EyeOffIcon,
+  CheckIcon,
+  BuildingIcon,
+  HelpCircleIcon,
+  SparklesIcon,
 } from "@/components/icons";
 
 type SettingsTab = "account" | "wallet" | "security" | "notifications" | "policies" | "about";
 
 const TABS: {
   key: SettingsTab;
-  icon: (active: boolean) => React.ReactNode;
+  icon: (active: boolean, colors: ThemeColors) => React.ReactNode;
   label: string;
 }[] = [
   {
     key: "account",
-    icon: (a) => <UserIcon size={16} color={a ? C.primary : C.muted} />,
+    icon: (a, c) => <UserIcon size={16} color={a ? c.primary : c.muted} />,
     label: "Hesap",
   },
   {
     key: "wallet",
-    icon: (a) => <WalletIcon size={16} color={a ? C.primary : C.muted} />,
+    icon: (a, c) => <WalletIcon size={16} color={a ? c.primary : c.muted} />,
     label: "Cüzdan",
   },
   {
     key: "security",
-    icon: (a) => <LockIcon size={16} color={a ? C.primary : C.muted} />,
+    icon: (a, c) => <LockIcon size={16} color={a ? c.primary : c.muted} />,
     label: "Güvenlik",
   },
   {
     key: "notifications",
-    icon: (a) => <BellIcon size={16} color={a ? C.primary : C.muted} />,
+    icon: (a, c) => <BellIcon size={16} color={a ? c.primary : c.muted} />,
     label: "Bildirim",
   },
   {
     key: "policies",
-    icon: (a) => <FileTextIcon size={16} color={a ? C.primary : C.muted} />,
+    icon: (a, c) => <FileTextIcon size={16} color={a ? c.primary : c.muted} />,
     label: "Politikalar",
   },
   {
     key: "about",
-    icon: (a) => <InfoIcon size={16} color={a ? C.primary : C.muted} />,
+    icon: (a, c) => <InfoIcon size={16} color={a ? c.primary : c.muted} />,
     label: "Hakkında",
   },
 ];
@@ -174,7 +189,7 @@ export default function ProfileScreen({
         contentContainerStyle={styles.tabStripInner}
       >
         {TABS.map((t) => (
-          <SettingsTabButton key={t.key} icon={t.icon(tab === t.key)} label={t.label} active={tab === t.key} onPress={() => setTab(t.key)} />
+          <SettingsTabButton key={t.key} icon={t.icon(tab === t.key, colors)} label={t.label} active={tab === t.key} onPress={() => setTab(t.key)} />
         ))}
       </ScrollView>
 
@@ -215,6 +230,7 @@ function SettingsTabButton({
   active: boolean;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
   // NOT: Bu bileşendeki TÜM animasyonlar useNativeDriver:false ile sürülür.
   // Aynı Animated.View üzerinde hem native (transform) hem JS (backgroundColor)
   // animasyonu çalıştırmak "animated node has been moved to native" hatası verir.
@@ -232,11 +248,11 @@ function SettingsTabButton({
 
   const pillBg = activeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["rgba(13,104,71,0)", C.primarySoft],
+    outputRange: ["rgba(0,0,0,0)", colors.primarySoft],
   });
   const labelColor = activeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [C.muted, C.primary],
+    outputRange: [colors.muted, colors.primary],
   });
 
   return (
@@ -258,13 +274,13 @@ function SettingsTabButton({
 
 function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number }) {
   const { refreshUser } = useAuth();
+  const { colors } = useTheme();
   const isEmployer = user.role === "EMPLOYER";
 
   return (
     <>
-      {/* Modern profil kartı: renkli üst blok + yuvarlak avatar + cam hissi istatistikler */}
+      {/* Modern ve zarif profil kartı */}
       <View style={styles.profileCard}>
-        
         <View style={styles.profileTop}>
           <Pressable
             onPress={async () => {
@@ -302,7 +318,7 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
               </View>
             )}
             <View style={styles.avatarBadge}>
-              <CameraIcon size={12} color="#FFFFFF" strokeWidth={2.2} />
+              <CameraIcon size={11} color="#FFFFFF" strokeWidth={2.2} />
             </View>
           </Pressable>
 
@@ -316,7 +332,7 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
               </View>
               {user.isVerified && (
                 <View style={[styles.profileChip, styles.profileChipOk]}>
-                  <VerifiedCheckIcon size={13} color="#0D6847" />
+                  <VerifiedCheckIcon size={12} color={colors.primary} />
                   <Text style={[styles.profileChipText, styles.profileChipTextOk]}>Doğrulanmış Hesap</Text>
                 </View>
               )}
@@ -328,19 +344,30 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
         </View>
 
         <View style={styles.profileInfoRow}>
-          <InfoPill text={user.email} />
-          {user.phone ? <InfoPill text={user.phone} /> : null}
-          {user.city || user.district ? <InfoPill text={`${user.district ?? ""}, ${user.city ?? ""}`.trim()} /> : null}
+          <InfoPill icon={<MailIcon size={13} color={colors.muted} />} text={user.email} />
+          {user.phone ? <InfoPill icon={<PhoneIcon size={13} color={colors.muted} />} text={user.phone} /> : null}
+          {user.city || user.district ? (
+            <InfoPill
+              icon={<MapPinIcon size={13} color={colors.muted} />}
+              text={[user.district, user.city].filter(Boolean).join(", ")}
+            />
+          ) : null}
         </View>
 
         <View style={styles.profileStats}>
           <View style={styles.profileStat}>
-            <Text style={styles.profileStatValue}>{user.ratingAvg.toFixed(1)} ★</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <Text style={styles.profileStatValue}>{user.ratingAvg.toFixed(1)}</Text>
+              <StarIcon size={13} color={colors.amber} />
+            </View>
             <Text style={styles.profileStatLabel}>{user.ratingCount} değerlendirme</Text>
           </View>
           <View style={styles.profileStatDivider} />
           <View style={styles.profileStat}>
-            <Text style={[styles.profileStatValue, styles.profileStatValueSm]}>{formatDate(user.createdAt)}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <CalendarIcon size={12} color={colors.muted} />
+              <Text style={[styles.profileStatValue, styles.profileStatValueSm]}>{formatDate(user.createdAt)}</Text>
+            </View>
             <Text style={styles.profileStatLabel}>Üyelik başlangıcı</Text>
           </View>
         </View>
@@ -350,7 +377,7 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
         {!isEmployer && user.skills.length > 0 && (
           <View style={styles.skillsRow}>
             {user.skills.map((s) => (
-              <Badge key={s} label={s} color={C.primary} bg={C.primarySoft} />
+              <Badge key={s} label={s} color={colors.primary} bg={colors.primarySoft} />
             ))}
           </View>
         )}
@@ -496,10 +523,10 @@ function ThemeSettingsSection() {
   );
 }
 
-function InfoPill({ icon, text }: { icon?: string; text: string }) {
+function InfoPill({ icon, text }: { icon?: React.ReactNode; text: string }) {
   return (
     <View style={styles.infoPill}>
-      {icon ? <Text style={styles.infoPillIcon}>{icon}</Text> : null}
+      {icon ? <View style={styles.infoPillIconBox}>{icon}</View> : null}
       <Text style={styles.infoPillText} numberOfLines={1}>{text}</Text>
     </View>
   );
@@ -508,6 +535,7 @@ function InfoPill({ icon, text }: { icon?: string; text: string }) {
 /* ================= HESAP: profil düzenle ================= */
 
 function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => Promise<void> }) {
+  const { colors } = useTheme();
   const [open, setOpen] = useState(false);
   const isEmployer = user.role === "EMPLOYER";
   const [fullName, setFullName] = useState(user.fullName);
@@ -539,17 +567,51 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
     setOpen(true);
   };
 
+  const pickAvatar = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("İzin gerekli", "Galeri erişimi olmadan fotoğraf seçilemez.");
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (res.canceled || !res.assets?.[0]) return;
+      const a = res.assets[0];
+      const uri = a.uri ?? "";
+      const name = a.fileName ?? `avatar-${Date.now()}.jpg`;
+      const type = a.mimeType ?? "image/jpeg";
+      await uploadAvatar({ uri, name, type });
+      await onSaved();
+      Alert.alert("Tamam", "Profil fotoğrafın güncellendi.");
+    } catch (err) {
+      Alert.alert("Fotoğraf yüklenemedi", err instanceof Error ? err.message : "Tekrar deneyin.");
+    }
+  };
+
   const submit = async () => {
+    if (!fullName.trim()) {
+      setError("Lütfen ad ve soyadınızı giriniz.");
+      return;
+    }
+    if (wMin && wMax && Number(wMin) > Number(wMax)) {
+      setError("Minimum saatlik ücret maksimumdan büyük olamaz.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       await updateMe({
-        fullName,
-        phone,
-        city,
-        district,
-        ...(isEmployer && companyName ? { companyName } : {}),
-        ...(bio ? { bio } : {}),
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        city: city.trim(),
+        district: district.trim(),
+        ...(isEmployer && companyName ? { companyName: companyName.trim() } : {}),
+        ...(bio ? { bio: bio.trim() } : {}),
         ...(skills.trim() ? { skills: skills.split(",").map((s) => s.trim()).filter(Boolean) } : {}),
         ...(exp ? { experienceYears: Number(exp) } : {}),
         ...(wMin ? { hourlyWageMin: Number(wMin) } : {}),
@@ -557,7 +619,7 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
       });
       await onSaved();
       setOpen(false);
-      Alert.alert("Tamam", "Profilin güncellendi. ✨");
+      Alert.alert("Tamam", "Profiliniz güncellendi.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Profil güncellenemedi");
     } finally {
@@ -580,15 +642,15 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
               <View style={styles.sheetHandle} />
               {/* Modern başlık: ikon rozeti + başlık + kapat butonu */}
               <View style={styles.sheetHeader}>
-                <View style={styles.sheetIconBox}>
-                  <EditIcon size={18} color="#0D6847" />
+                <View style={[styles.sheetIconBox, { backgroundColor: colors.primarySoft }]}>
+                  <EditIcon size={18} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.sheetTitle}>Profili düzenle</Text>
+                  <Text style={styles.sheetTitle}>Profili Düzenle</Text>
                   <Text style={styles.sheetSub}>Bilgilerini güncel tut, işverenler seni daha kolay bulur.</Text>
                 </View>
                 <Pressable onPress={() => setOpen(false)} hitSlop={8} style={styles.sheetClose}>
-                  <XIcon size={16} color="#717673" />
+                  <XIcon size={16} color={colors.muted} />
                 </Pressable>
               </View>
               <ScrollView
@@ -596,6 +658,31 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
                 showsVerticalScrollIndicator={true}
                 contentContainerStyle={{ gap: 14, paddingBottom: 32 }}
               >
+                {/* Fotoğraf düzenleme */}
+                <View style={[styles.formSectionCard, { flexDirection: "row", alignItems: "center", gap: 14 }]}>
+                  <Pressable onPress={pickAvatar} style={styles.avatarRing}>
+                    {user.avatarUrl ? (
+                      <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} />
+                    ) : (
+                      <View style={styles.avatar}>
+                        <Text style={styles.avatarText}>{user.fullName.slice(0, 2).toUpperCase()}</Text>
+                      </View>
+                    )}
+                    <View style={styles.avatarBadge}>
+                      <CameraIcon size={11} color="#FFFFFF" strokeWidth={2.2} />
+                    </View>
+                  </Pressable>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={styles.sectionLabel}>Profil Fotoğrafı</Text>
+                    <Text style={{ fontSize: 12, color: colors.muted }}>
+                      Net bir fotoğraf güvenilirliği artırır.
+                    </Text>
+                    <Pressable onPress={pickAvatar} hitSlop={6} style={{ marginTop: 2 }}>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>Fotoğrafı Değiştir</Text>
+                    </Pressable>
+                  </View>
+                </View>
+
                 <View style={styles.formSectionCard}>
                   <Text style={styles.sectionLabel}>Kişisel Bilgiler</Text>
                   <Field label="Ad Soyad" value={fullName} onChangeText={setFullName} placeholder="Adınız Soyadınız" />
@@ -628,7 +715,12 @@ function EditProfileSection({ user, onSaved }: { user: ApiUser; onSaved: () => P
                   <Field label="Kendini kısaca tanıt" value={bio} onChangeText={setBio} multiline placeholder="Deneyimlerinden ve çalışma prensiplerinden kısaca bahset..." />
                 </View>
 
-                {error ? <Text style={styles.error}>{error}</Text> : null}
+                {error ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.roseBg, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.rose }}>
+                    <AlertCircleIcon size={16} color={colors.rose} />
+                    <Text style={{ color: colors.rose, fontSize: 13, fontWeight: "600", flex: 1 }}>{error}</Text>
+                  </View>
+                ) : null}
 
                 <View style={[styles.row, { marginTop: 4 }]}>
                   <View style={styles.half}><PrimaryButton label="Vazgeç" variant="ghost" onPress={() => setOpen(false)} /></View>
@@ -693,7 +785,7 @@ function WorkerStatsSection({ refreshKey }: { refreshKey: number }) {
                 <Text style={styles.historyTitle} numberOfLines={1}>{a.job?.title ?? "İş"}</Text>
                 <Text style={styles.historyMeta}>
                   {a.job ? `${new Date(a.job.workDate).toLocaleDateString("tr-TR")} · ${formatWage(a.job.wageAmount, a.job.wageType)}` : APPLICATION_STATUS_LABELS[a.status]}
-                  {a.rating ? ` · ⭐ ${a.rating}/5` : ""}
+                  {a.rating ? ` · ${a.rating}/5 Puan` : ""}
                 </Text>
               </View>
             ))}
@@ -709,43 +801,17 @@ function WorkerStatsSection({ refreshKey }: { refreshKey: number }) {
   );
 }
 
-/* ================= HESAP: modern istatistik kartı ================= */
-
-function GradientStat({
-  emoji,
-  label,
-  value,
-  color,
-  bg,
-}: {
-  emoji: string;
-  label: string;
-  value: string;
-  color: string;
-  bg: string;
-}) {
-  return (
-    <View style={[styles.gradStat, { backgroundColor: bg, borderColor: `${color}22` }]}>
-      <View style={[styles.gradStatIcon, { backgroundColor: `${color}1A` }]}>
-        <Text style={styles.gradStatEmoji}>{emoji}</Text>
-      </View>
-      <Text style={[styles.gradStatValue, { color }]} numberOfLines={1} adjustsFontSizeToFit>
-        {value}
-      </Text>
-      <Text style={styles.gradStatLabel} numberOfLines={2}>{label}</Text>
-    </View>
-  );
-}
-
 /* ================= HESAP: puan özeti + yorumlar ================= */
 
-function Stars({ value, size = 12 }: { value: number; size?: number }) {
+function Stars({ value, size = 13 }: { value: number; size?: number }) {
   const full = Math.round(value);
+  const { colors } = useTheme();
   return (
-    <Text style={{ fontSize: size, color: C.amber, letterSpacing: 1 }}>
-      {"★".repeat(Math.max(0, Math.min(5, full)))}
-      <Text style={{ color: "#d1d5db" }}>{"★".repeat(5 - Math.max(0, Math.min(5, full)))}</Text>
-    </Text>
+    <View style={{ flexDirection: "row", gap: 2, alignItems: "center" }}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <StarIcon key={i} size={size} color={i <= full ? colors.amber : colors.border} />
+      ))}
+    </View>
   );
 }
 
@@ -810,6 +876,7 @@ function RatingSummarySection() {
 }
 
 function MyReviewsSection() {
+  const { colors } = useTheme();
   const [items, setItems] = useState<ApiReview[] | null>(null);
 
   useEffect(() => {
@@ -826,7 +893,7 @@ function MyReviewsSection() {
     return (
       <Card style={{ gap: 8 }}>
         <SectionTitle>Aldığım Yorumlar</SectionTitle>
-        <ActivityIndicator color={C.primary} style={{ paddingVertical: 8 }} />
+        <ActivityIndicator color={colors.primary} style={{ paddingVertical: 8 }} />
       </Card>
     );
   }
@@ -861,13 +928,25 @@ function MyReviewsSection() {
 
 /* ================= HESAP: doğrulama & rozet ================= */
 
-const VERIF_TYPES: { type: VerificationType; icon: string; label: string; hint: string }[] = [
-  { type: "IDENTITY", icon: "KML", label: "Kimlik", hint: "T.C. kimlik veya pasaport belgesi" },
-  { type: "COMPANY", icon: "ŞRK", label: "Şirket", hint: "Ticari sicil gazetesi veya faaliyet belgesi" },
-  { type: "TAX", icon: "VRG", label: "Vergi", hint: "Güncel vergi levhası" },
+const VERIF_TYPES: { type: VerificationType; label: string; hint: string }[] = [
+  { type: "IDENTITY", label: "Kimlik Doğrulama", hint: "T.C. kimlik veya pasaport belgesi" },
+  { type: "COMPANY", label: "Şirket Doğrulama", hint: "Ticari sicil gazetesi veya faaliyet belgesi" },
+  { type: "TAX", label: "Vergi Levhası", hint: "Güncel vergi levhası belgesi" },
 ];
 
+function getVerifIcon(type: VerificationType, colors: ThemeColors) {
+  switch (type) {
+    case "IDENTITY":
+      return <UserIcon size={18} color={colors.primary} />;
+    case "COMPANY":
+      return <BuildingIcon size={18} color={colors.primary} />;
+    case "TAX":
+      return <FileTextIcon size={18} color={colors.primary} />;
+  }
+}
+
 function VerificationSection() {
+  const { colors } = useTheme();
   const [status, setStatus] = useState<VerificationStatus | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [type, setType] = useState<VerificationType>("IDENTITY");
@@ -950,10 +1029,10 @@ function VerificationSection() {
   if (status.pendingRequest) {
     return (
       <View style={[styles.verifiedBanner, styles.verifiedBannerPending]}>
-        <HourglassIcon size={24} color={C.amber} />
+        <HourglassIcon size={24} color={colors.amber} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.verifiedTitle, { color: C.amber }]}>Doğrulama Talebiniz Beklemede</Text>
-          <Text style={[styles.verifiedSub, { color: C.amber }]}>
+          <Text style={[styles.verifiedTitle, { color: colors.amber }]}>Doğrulama Talebiniz Beklemede</Text>
+          <Text style={[styles.verifiedSub, { color: colors.muted }]}>
             {VERIF_TYPES.find((t) => t.type === status.pendingRequest?.type)?.label ?? "Belge"} kontrol ediliyor. Sonuç bildirimle iletilecektir.
           </Text>
         </View>
@@ -1002,7 +1081,9 @@ function VerificationSection() {
                         pressed && { opacity: 0.85 },
                       ]}
                     >
-                      <Text style={{ fontSize: 20 }}>{t.icon}</Text>
+                      <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" }}>
+                        {getVerifIcon(t.type, colors)}
+                      </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.verifTypeLabel}>{t.label}</Text>
                         <Text style={styles.verifTypeHint}>{t.hint}</Text>
@@ -1021,7 +1102,7 @@ function VerificationSection() {
                       <Image source={{ uri: docUri }} style={styles.docPreview} resizeMode="cover" />
                     ) : (
                       <View style={styles.docPickEmpty}>
-                        <Text style={{ fontSize: 13, fontWeight: "700", color: C.primary }}>Belge Yüklendi</Text>
+                        <FileTextIcon size={24} color={colors.primary} />
                         <Text style={styles.docPickText}>Belge fotoğrafı seç</Text>
                         <Text style={styles.docPickHint}>Galeriden yükle (JPG/PNG)</Text>
                       </View>
@@ -1063,12 +1144,16 @@ async function readImageAsBase64DataUrl(uri: string): Promise<string> {
 
 function SecurityTab({ user }: { user: ApiUser }) {
   const { refreshUser } = useAuth();
+  const { colors } = useTheme();
   return (
     <>
       <View style={styles.secHero}>
-        <View style={styles.secHeroBlob} pointerEvents="none" />
-        
-        <Text style={styles.secHeroTitle}>Güvenlik merkezi</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 }}>
+          <View style={styles.secHeroIconBox}>
+            <ShieldCheckIcon size={20} color={colors.primary} />
+          </View>
+          <Text style={styles.secHeroTitle}>Güvenlik Merkezi</Text>
+        </View>
         <Text style={styles.secHeroSub}>
           {user.twoFactorEnabled && user.emailVerified
             ? "Hesabınız üst düzey güvenlik standartlarıyla korunmaktadır."
@@ -1085,28 +1170,55 @@ function SecurityTab({ user }: { user: ApiUser }) {
 }
 
 function AccountSecuritySection({ user }: { user: ApiUser }) {
+  const { colors } = useTheme();
   const [secInfo, setSecInfo] = useState<SecurityInfo | null>(null);
 
   useEffect(() => {
     fetchSecurityInfo().then(setSecInfo).catch(() => {});
   }, []);
 
-  const rows: { icon: string; label: string; value: string; danger?: boolean }[] = [
-    { icon: "EP", label: "E-posta doğrulanmış", value: (secInfo?.emailVerified ?? user.emailVerified) ? "Evet ✓" : "Hayır" },
-    { icon: "2F", label: "İki faktörlü koruma", value: (secInfo?.twoFactorEnabled ?? user.twoFactorEnabled) ? "Açık ✓" : "Kapalı" },
-    { icon: "GR", label: "Giriş yöntemi", value: user.provider === "GOOGLE" ? "Google hesabı" : "E-posta + şifre" },
-    ...(secInfo?.activeSessions ? [{ icon: "OT", label: "Aktif oturum", value: `${secInfo.activeSessions} oturum` }] : []),
-    { icon: "UY", label: "Uyarı sayısı", value: String(user.warningCount ?? 0), danger: (user.warningCount ?? 0) > 0 },
-    { icon: "RP", label: "Rapor sayısı", value: String(user.flagCount ?? 0), danger: (user.flagCount ?? 0) > 0 },
+  const rows: { icon: React.ReactNode; label: string; value: string; danger?: boolean }[] = [
+    {
+      icon: <MailIcon size={16} color={colors.primary} />,
+      label: "E-posta Doğrulanmış",
+      value: (secInfo?.emailVerified ?? user.emailVerified) ? "Doğrulandı" : "Doğrulanmadı",
+    },
+    {
+      icon: <ShieldCheckIcon size={16} color={colors.primary} />,
+      label: "İki Faktörlü Koruma (2FA)",
+      value: (secInfo?.twoFactorEnabled ?? user.twoFactorEnabled) ? "Aktif" : "Kapalı",
+    },
+    {
+      icon: <KeyRoundIcon size={16} color={colors.primary} />,
+      label: "Giriş Yöntemi",
+      value: user.provider === "GOOGLE" ? "Google Hesabı" : "E-posta ve Şifre",
+    },
+    ...(secInfo?.activeSessions ? [{
+      icon: <LaptopIcon size={16} color={colors.primary} />,
+      label: "Aktif Oturum",
+      value: `${secInfo.activeSessions} Cihaz`,
+    }] : []),
+    {
+      icon: <AlertCircleIcon size={16} color={colors.rose} />,
+      label: "Uyarı Sayısı",
+      value: String(user.warningCount ?? 0),
+      danger: (user.warningCount ?? 0) > 0,
+    },
+    {
+      icon: <FlagIcon size={16} color={colors.rose} />,
+      label: "Rapor Sayısı",
+      value: String(user.flagCount ?? 0),
+      danger: (user.flagCount ?? 0) > 0,
+    },
   ];
 
   return (
     <Card style={{ gap: 8 }}>
-      <SectionTitle>Hesap güvenlik durumu</SectionTitle>
+      <SectionTitle>Hesap Güvenlik Durumu</SectionTitle>
       {rows.map((r) => (
         <View key={r.label} style={[styles.secRow, r.danger && styles.secRowDanger]}>
           <View style={[styles.secIconBox, r.danger && styles.secIconBoxDanger]}>
-            <Text style={styles.secIcon}>{r.icon}</Text>
+            {r.icon}
           </View>
           <Text style={styles.secLabel}>{r.label}</Text>
           <Text style={[styles.secValue, r.danger && styles.secValueDanger]}>{r.value}</Text>
@@ -1239,8 +1351,12 @@ function TwoFactorSection({ enabled, onChanged }: { enabled: boolean; onChanged:
 }
 
 function PasswordSection({ provider }: { provider?: string }) {
+  const { colors } = useTheme();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNext, setShowNext] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isGoogle = provider === "GOOGLE";
@@ -1248,32 +1364,70 @@ function PasswordSection({ provider }: { provider?: string }) {
   return (
     <View style={styles.pwCard}>
       <View style={styles.pwHead}>
-        <View style={[styles.pwIconBox, isGoogle && { backgroundColor: C.amberBg }]}>
-          <LockIcon size={20} color={C.primary} />
+        <View style={[styles.pwIconBox, { backgroundColor: colors.primarySoft }]}>
+          <KeyRoundIcon size={20} color={colors.primary} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.pwTitle}>Şifre değiştir</Text>
+          <Text style={styles.pwTitle}>Şifre Değiştir</Text>
           <Text style={styles.pwSub}>
             {isGoogle
-              ? "Google ile giriş yapıyorsun; istersen şifre de belirleyebilirsin."
-              : "En az 8 karakter, harf + rakam karışımı önerilir."}
+              ? "Google ile giriş yapıyorsunuz; isterseniz bağımsız bir şifre de belirleyebilirsiniz."
+              : "En az 8 karakter, harf ve rakam kombinasyonu önerilir."}
           </Text>
         </View>
       </View>
-      <Field label="Mevcut şifre" value={current} onChangeText={setCurrent} secureTextEntry />
-      <Field label="Yeni şifre" value={next} onChangeText={setNext} secureTextEntry />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <Field
+        label="Mevcut Şifre"
+        value={current}
+        onChangeText={setCurrent}
+        secureTextEntry={!showCurrent}
+        placeholder="Mevcut şifreniz"
+        rightElement={
+          <Pressable onPress={() => setShowCurrent(!showCurrent)} hitSlop={8}>
+            {showCurrent ? <EyeOffIcon size={18} color={colors.muted} /> : <EyeIcon size={18} color={colors.muted} />}
+          </Pressable>
+        }
+      />
+      <Field
+        label="Yeni Şifre"
+        value={next}
+        onChangeText={setNext}
+        secureTextEntry={!showNext}
+        placeholder="En az 8 karakter"
+        rightElement={
+          <Pressable onPress={() => setShowNext(!showNext)} hitSlop={8}>
+            {showNext ? <EyeOffIcon size={18} color={colors.muted} /> : <EyeIcon size={18} color={colors.muted} />}
+          </Pressable>
+        }
+      />
+      <Field
+        label="Yeni Şifre Tekrarı"
+        value={confirm}
+        onChangeText={setConfirm}
+        secureTextEntry={!showNext}
+        placeholder="Yeni şifrenizi tekrar girin"
+      />
+      {error ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.roseBg, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.rose }}>
+          <AlertCircleIcon size={16} color={colors.rose} />
+          <Text style={{ color: colors.rose, fontSize: 13, fontWeight: "600", flex: 1 }}>{error}</Text>
+        </View>
+      ) : null}
       <PrimaryButton
-        label="Şifreyi güncelle"
+        label="Şifreyi Güncelle"
         loading={saving}
         onPress={async () => {
+          if (!current) return setError("Lütfen mevcut şifrenizi giriniz.");
+          if (next.length < 8) return setError("Yeni şifreniz en az 8 karakter olmalıdır.");
+          if (next !== confirm) return setError("Yeni şifreler birbiriyle eşleşmiyor.");
           setSaving(true);
           setError(null);
           try {
             await changePassword(current, next);
             setCurrent("");
             setNext("");
-            Alert.alert("Tamam", "Şifren güncellendi");
+            setConfirm("");
+            Alert.alert("Tamam", "Şifreniz başarıyla güncellendi.");
           } catch (err) {
             setError(err instanceof Error ? err.message : "Şifre değiştirilemedi");
           } finally {
@@ -1439,6 +1593,7 @@ function NotificationsTab() {
 /* ================= POLİTİKALAR ================= */
 
 function PoliciesTab() {
+  const { colors } = useTheme();
   const [openRule, setOpenRule] = useState<string | null>("terms");
   const toggle = (k: string) => setOpenRule(openRule === k ? null : k);
 
@@ -1449,10 +1604,10 @@ function PoliciesTab() {
   return (
     <>
       {/* Doğrudan Resmi Web Sitesi Bağlantısı */}
-      <Card style={{ gap: 8, backgroundColor: "#EAF3EE", borderColor: "#C5DDD0" }}>
+      <Card style={{ gap: 8, backgroundColor: colors.primarySoft, borderColor: colors.primary + "30" }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <FileTextIcon size={20} color="#0D6847" />
-          <Text style={{ fontSize: 15, fontFamily: "PlusJakartaSans_700Bold", color: "#0D6847" }}>
+          <FileTextIcon size={20} color={colors.primary} />
+          <Text style={{ fontSize: 15, fontFamily: "PlusJakartaSans_700Bold", color: colors.primary }}>
             Resmi Sözleşmeler Merkezi
           </Text>
         </View>
@@ -1471,7 +1626,7 @@ function PoliciesTab() {
         <Pressable onPress={() => toggle("terms")}>
           <View style={styles.accHeader}>
             <SectionTitle>Kullanım Koşulları & Üyelik Sözleşmesi</SectionTitle>
-            {openRule === "terms" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
+            {openRule === "terms" ? <ChevronDownIcon size={16} color={colors.muted} /> : <ChevronRightIcon size={16} color={colors.muted} />}
           </View>
         </Pressable>
         {openRule === "terms" && (
@@ -1497,7 +1652,7 @@ function PoliciesTab() {
         <Pressable onPress={() => toggle("privacy")}>
           <View style={styles.accHeader}>
             <SectionTitle>Gizlilik & Google OAuth Politikası</SectionTitle>
-            {openRule === "privacy" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
+            {openRule === "privacy" ? <ChevronDownIcon size={16} color={colors.muted} /> : <ChevronRightIcon size={16} color={colors.muted} />}
           </View>
         </Pressable>
         {openRule === "privacy" && (
@@ -1521,7 +1676,7 @@ function PoliciesTab() {
         <Pressable onPress={() => toggle("escrow")}>
           <View style={styles.accHeader}>
             <SectionTitle>Mesafeli Satış & Emanet (Escrow) Sözleşmesi</SectionTitle>
-            {openRule === "escrow" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
+            {openRule === "escrow" ? <ChevronDownIcon size={16} color={colors.muted} /> : <ChevronRightIcon size={16} color={colors.muted} />}
           </View>
         </Pressable>
         {openRule === "escrow" && (
@@ -1543,7 +1698,7 @@ function PoliciesTab() {
         <Pressable onPress={() => toggle("kvkk")}>
           <View style={styles.accHeader}>
             <SectionTitle>6698 Sayılı KVKK Aydınlatma Metni</SectionTitle>
-            {openRule === "kvkk" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
+            {openRule === "kvkk" ? <ChevronDownIcon size={16} color={colors.muted} /> : <ChevronRightIcon size={16} color={colors.muted} />}
           </View>
         </Pressable>
         {openRule === "kvkk" && (
@@ -1563,7 +1718,7 @@ function PoliciesTab() {
         <Pressable onPress={() => toggle("moderation")}>
           <View style={styles.accHeader}>
             <SectionTitle>Otomatik Moderasyon & İhlal Tablosu</SectionTitle>
-            {openRule === "moderation" ? <ChevronDownIcon size={16} color="#717673" /> : <ChevronRightIcon size={16} color="#717673" />}
+            {openRule === "moderation" ? <ChevronDownIcon size={16} color={colors.muted} /> : <ChevronRightIcon size={16} color={colors.muted} />}
           </View>
         </Pressable>
         {openRule === "moderation" && (
@@ -1572,11 +1727,11 @@ function PoliciesTab() {
               Mesajlarda içerik otomatik olarak taranır. İhlaller sistemce yakalanır ve puanınıza yansıtılır:
             </Text>
             {[
-              { label: "Küfür & hakaret içeren ifadeler", sev: "HIGH", color: C.rose, bg: C.roseBg },
-              { label: "Telefon numarası paylaşımı", sev: "LOW", color: C.amber, bg: C.amberBg },
-              { label: "E-posta veya harici link paylaşımı", sev: "LOW", color: C.amber, bg: C.amberBg },
-              { label: "IBAN ve banka hesap paylaşımı", sev: "LOW", color: C.amber, bg: C.amberBg },
-              { label: "Tehdit içeren mesajlar (otomatik engelleme)", sev: "CRITICAL", color: C.rose, bg: C.roseBg },
+              { label: "Küfür & hakaret içeren ifadeler", sev: "HIGH", color: colors.rose, bg: colors.roseBg },
+              { label: "Telefon numarası paylaşımı", sev: "LOW", color: colors.amber, bg: colors.amberBg },
+              { label: "E-posta veya harici link paylaşımı", sev: "LOW", color: colors.amber, bg: colors.amberBg },
+              { label: "IBAN ve banka hesap paylaşımı", sev: "LOW", color: colors.amber, bg: colors.amberBg },
+              { label: "Tehdit içeren mesajlar (otomatik engelleme)", sev: "CRITICAL", color: colors.rose, bg: colors.roseBg },
             ].map((r) => (
               <View key={r.label} style={styles.ruleRow}>
                 <Text style={styles.ruleText}>{r.label}</Text>
@@ -1606,13 +1761,13 @@ function PoliciesTab() {
 /* ================= HAKKINDA ================= */
 
 function AboutTab({ onLogout }: { onLogout: () => void }) {
+  const { colors } = useTheme();
   return (
     <>
       <Card style={{ alignItems: "center", gap: 8 }}>
-        
-        <Text style={{ fontSize: 20, fontWeight: "800", color: C.text }}>Günübirlik</Text>
+        <Text style={{ fontSize: 20, fontWeight: "800", color: colors.text }}>Günübirlik</Text>
         <Text style={styles.desc}>Günlük iş bulma ve işçi bulma platformu</Text>
-        <Badge label="Mobil v1.4.0" color={C.primary} bg={C.primarySoft} />
+        <Badge label="Mobil v1.4.0" color={colors.primary} bg={colors.primarySoft} />
       </Card>
 
       <Card style={{ gap: 10 }}>
@@ -1641,22 +1796,41 @@ function AboutTab({ onLogout }: { onLogout: () => void }) {
 
 /* ================= HAKKINDA: destek talepleri ================= */
 
-const TICKET_CATEGORIES: { value: SupportCategory; icon: string; label: string }[] = [
-  { value: "COMPLAINT", icon: "ŞKY", label: "Şikayet" },
-  { value: "SUGGESTION", icon: "ÖNR", label: "Öneri" },
-  { value: "BUG", icon: "HTA", label: "Hata Bildirimi" },
-  { value: "ACCOUNT", icon: "HSP", label: "Hesap" },
-  { value: "PAYMENT", icon: "ÖDM", label: "Ödeme" },
-  { value: "OTHER", icon: "DĞR", label: "Diğer" },
+const TICKET_CATEGORIES: { value: SupportCategory; label: string }[] = [
+  { value: "COMPLAINT", label: "Şikayet" },
+  { value: "SUGGESTION", label: "Öneri" },
+  { value: "BUG", label: "Hata Bildirimi" },
+  { value: "ACCOUNT", label: "Hesap İşlemleri" },
+  { value: "PAYMENT", label: "Ödeme ve Bakiye" },
+  { value: "OTHER", label: "Diğer" },
 ];
 
-const TICKET_PRIORITIES: { value: SupportPriority; label: string; color: string; bg: string }[] = [
-  { value: "LOW", label: "Düşük", color: C.muted, bg: "#f3f4f6" },
-  { value: "NORMAL", label: "Normal", color: C.primary, bg: C.primarySoft },
-  { value: "HIGH", label: "Yüksek", color: C.rose, bg: C.roseBg },
+function getCategoryIcon(cat: SupportCategory, colors: ThemeColors) {
+  switch (cat) {
+    case "COMPLAINT":
+      return <AlertCircleIcon size={14} color={colors.rose} />;
+    case "SUGGESTION":
+      return <SparklesIcon size={14} color={colors.amber} />;
+    case "BUG":
+      return <HelpCircleIcon size={14} color={colors.rose} />;
+    case "ACCOUNT":
+      return <UserIcon size={14} color={colors.primary} />;
+    case "PAYMENT":
+      return <WalletIcon size={14} color={colors.primary} />;
+    case "OTHER":
+    default:
+      return <InfoIcon size={14} color={colors.muted} />;
+  }
+}
+
+const getTicketPriorities = (colors: ThemeColors): { value: SupportPriority; label: string; color: string; bg: string }[] => [
+  { value: "LOW", label: "Düşük", color: colors.muted, bg: colors.cardSecondary },
+  { value: "NORMAL", label: "Normal", color: colors.primary, bg: colors.primarySoft },
+  { value: "HIGH", label: "Yüksek", color: colors.rose, bg: colors.roseBg },
 ];
 
 function SupportTicketSection() {
+  const { colors } = useTheme();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [history, setHistory] = useState<SupportTicket[] | null>(null);
   const [category, setCategory] = useState<SupportCategory>("OTHER");
@@ -1712,10 +1886,10 @@ function SupportTicketSection() {
 
   const statusChip = (s: string) => {
     const map: Record<string, { label: string; color: string; bg: string }> = {
-      OPEN: { label: "Açık", color: C.primary, bg: C.primarySoft },
-      IN_PROGRESS: { label: "İnceleniyor", color: C.amber, bg: C.amberBg },
-      RESOLVED: { label: "Çözüldü", color: C.emerald, bg: C.emeraldBg },
-      CLOSED: { label: "Kapandı", color: C.muted, bg: "#f3f4f6" },
+      OPEN: { label: "Açık", color: colors.primary, bg: colors.primarySoft },
+      IN_PROGRESS: { label: "İnceleniyor", color: colors.amber, bg: colors.amberBg },
+      RESOLVED: { label: "Çözüldü", color: colors.emerald, bg: colors.emeraldBg },
+      CLOSED: { label: "Kapandı", color: colors.muted, bg: colors.cardSecondary },
     };
     const it = map[s] ?? map.OPEN;
     return <Badge label={it.label} color={it.color} bg={it.bg} />;
@@ -1771,16 +1945,19 @@ function SupportTicketSection() {
                         onPress={() => setCategory(c.value)}
                         style={[styles.chip, category === c.value && styles.chipActive]}
                       >
-                        <Text style={[styles.chipText, category === c.value && styles.chipTextActive]}>
-                          {c.icon} {c.label}
-                        </Text>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                          {getCategoryIcon(c.value, colors)}
+                          <Text style={[styles.chipText, category === c.value && styles.chipTextActive]}>
+                            {c.label}
+                          </Text>
+                        </View>
                       </Pressable>
                     ))}
                   </View>
 
                   <Text style={styles.label}>Öncelik</Text>
                   <View style={styles.chipWrap}>
-                    {TICKET_PRIORITIES.map((p) => (
+                    {getTicketPriorities(colors).map((p) => (
                       <Pressable
                         key={p.value}
                         onPress={() => setPriority(p.value)}
@@ -1813,6 +1990,7 @@ function SupportTicketSection() {
 /* ================= HAKKINDA: hesap silme ================= */
 
 function DeleteAccountSection() {
+  const { colors } = useTheme();
   const [status, setStatus] = useState<DeleteAccountStatus | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -1859,12 +2037,12 @@ function DeleteAccountSection() {
     const pending = status.status === "PENDING";
     return (
       <View style={[styles.verifiedBanner, pending ? styles.verifiedBannerPending : styles.deleteBannerDone]}>
-        <TrashIcon size={20} color={pending ? C.amber : C.danger} />
+        <TrashIcon size={20} color={pending ? colors.amber : colors.danger} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.verifiedTitle, { color: C.amber }]}>
+          <Text style={[styles.verifiedTitle, { color: pending ? colors.amber : colors.danger }]}>
             {pending ? "Hesap silme talebin beklemede" : `Hesap silme talebi: ${status.status}`}
           </Text>
-          <Text style={[styles.verifiedSub, { color: C.amber }]}>
+          <Text style={[styles.verifiedSub, { color: colors.muted }]}>
             Admin onayına kadar uygulamayı kullanmaya devam edebilirsin.
           </Text>
         </View>
@@ -1874,7 +2052,7 @@ function DeleteAccountSection() {
 
   return (
     <>
-      <Card style={{ gap: 10, borderColor: "#fecaca" }}>
+      <Card style={{ gap: 10, borderColor: colors.rose + "40" }}>
         <SectionTitle>Hesap Silme</SectionTitle>
         <Text style={styles.desc}>
           Hesabını silmek istersen talep oluşturursun; admin onayladığında tüm verilerin
@@ -1924,14 +2102,16 @@ function Field(props: {
   multiline?: boolean;
   maxLength?: number;
   placeholder?: string;
+  rightElement?: React.ReactNode;
 }) {
   const [focused, setFocused] = useState(false);
+  const { colors } = useTheme();
   return (
     <View style={{ gap: 5 }}>
-      {props.label ? <Text style={styles.label}>{props.label}</Text> : null}
-      <View style={[styles.inputWrap, focused && styles.inputWrapFocused]}>
+      {props.label ? <Text style={[styles.label, { color: colors.text }]}>{props.label}</Text> : null}
+      <View style={[styles.inputWrap, focused && styles.inputWrapFocused, { flexDirection: "row", alignItems: "center" }]}>
         <TextInput
-          style={[styles.input, props.multiline && styles.textArea]}
+          style={[styles.input, props.multiline && styles.textArea, { flex: 1, color: colors.text }]}
           value={props.value}
           onChangeText={props.onChangeText}
           secureTextEntry={props.secureTextEntry}
@@ -1940,10 +2120,11 @@ function Field(props: {
           multiline={props.multiline}
           maxLength={props.maxLength}
           placeholder={props.placeholder}
-          placeholderTextColor="#94a3b8"
+          placeholderTextColor={colors.muted}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
         />
+        {props.rightElement ? <View style={{ paddingLeft: 8 }}>{props.rightElement}</View> : null}
       </View>
     </View>
   );
@@ -1980,67 +2161,60 @@ const createStyles = (colors: ThemeColors) =>
   memberSince: { fontSize: 11, color: colors.muted, marginTop: 8 },
   // --- Modern profil kartı ---
   profileCard: {
-    backgroundColor: colors.primary,
-    borderRadius: 22,
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: 18,
     gap: 14,
-    overflow: "hidden",
-    shadowColor: colors.primary,
-    shadowOpacity: 0.28,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 5,
-  },
-  profileGlow: {
-    position: "absolute",
-    top: -70,
-    right: -50,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: "rgba(255,255,255,0.14)",
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
   profileTop: { flexDirection: "row", gap: 14, alignItems: "center" },
   avatarRing: {
     padding: 3,
     borderRadius: 40,
     borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.55)",
-    backgroundColor: "rgba(255,255,255,0.18)",
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
-  profileName: { fontSize: 19, fontWeight: "800", color: "#fff" },
+  profileName: { fontSize: 18, fontWeight: "800", color: colors.text },
   profileChipRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
-  profileChip: { backgroundColor: "rgba(255,255,255,0.22)", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
-  profileChipOk: { backgroundColor: "rgba(16,185,129,0.28)" },
-  profileChipText: { fontSize: 10, fontWeight: "700", color: "#fff" },
-  profileChipTextOk: { color: "#a7f3d0" },
-  profileCompany: { fontSize: 12, fontWeight: "600", color: "rgba(255,255,255,0.85)" },
+  profileChip: { backgroundColor: colors.cardSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },
+  profileChipOk: { backgroundColor: colors.emeraldBg, borderColor: colors.emerald + "40" },
+  profileChipText: { fontSize: 10.5, fontWeight: "700", color: colors.text },
+  profileChipTextOk: { color: colors.emerald },
+  profileCompany: { fontSize: 12, fontWeight: "600", color: colors.muted },
   profileInfoRow: { gap: 6 },
-  infoPill: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 12, paddingHorizontal: 11, paddingVertical: 8 },
+  infoPill: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.cardSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 8 },
+  infoPillIconBox: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
   infoPillIcon: { fontSize: 12 },
-  infoPillText: { flex: 1, fontSize: 12, color: "#fff", fontWeight: "600" },
-  profileStats: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 16, paddingVertical: 12 },
+  infoPillText: { flex: 1, fontSize: 12, color: colors.text, fontWeight: "600" },
+  profileStats: { flexDirection: "row", backgroundColor: colors.cardSecondary, borderWidth: 1, borderColor: colors.border, borderRadius: 16, paddingVertical: 12 },
   profileStat: { flex: 1, alignItems: "center", gap: 2 },
-  profileStatDivider: { width: 1, backgroundColor: "rgba(255,255,255,0.25)" },
-  profileStatValue: { fontSize: 15, fontWeight: "800", color: "#fff" },
+  profileStatDivider: { width: 1, backgroundColor: colors.border },
+  profileStatValue: { fontSize: 15, fontWeight: "800", color: colors.text },
   profileStatValueSm: { fontSize: 13 },
-  profileStatLabel: { fontSize: 10, fontWeight: "600", color: "rgba(255,255,255,0.8)" },
+  profileStatLabel: { fontSize: 10.5, fontWeight: "600", color: colors.muted },
   desc: { fontSize: 13, color: colors.muted, lineHeight: 19 },
   backupTitle: { fontSize: 12, fontWeight: "700", color: colors.amber },
   backupCodes: { fontSize: 12, color: colors.amber, lineHeight: 20 },
   qrImage: { width: 180, height: 180, alignSelf: "center", borderRadius: 12, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
   secretText: { fontSize: 12, fontWeight: "700", color: colors.text, textAlign: "center", letterSpacing: 1 },
-  label: { fontSize: 12, fontWeight: "800", color: "#334155", letterSpacing: 0.2 },
+  label: { fontSize: 12, fontWeight: "800", color: colors.text, letterSpacing: 0.2 },
   inputWrap: {
     borderWidth: 1.5,
     borderColor: colors.border,
     borderRadius: 14,
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.cardSecondary,
     paddingHorizontal: 12,
   },
   inputWrapFocused: {
     borderColor: colors.primary,
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.card,
     shadowColor: colors.primary,
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -2110,7 +2284,7 @@ const createStyles = (colors: ThemeColors) =>
     shadowOffset: { width: 0, height: -8 },
     elevation: 18,
   },
-  sheetHandle: { alignSelf: "center", width: 44, height: 5, borderRadius: 3, backgroundColor: "#e2e8f0", marginBottom: 12 },
+  sheetHandle: { alignSelf: "center", width: 44, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: 12 },
   sheetTitle: { fontSize: 19, fontWeight: "800", color: colors.text },
   sheetSub: { fontSize: 13, color: colors.muted, lineHeight: 19, marginTop: 4, marginBottom: 12 },
   sheetHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 2, marginBottom: 14 },
@@ -2268,28 +2442,32 @@ const createStyles = (colors: ThemeColors) =>
   docPreview: { width: "100%", height: 170 },
   // --- Güvenlik hero ---
   secHero: {
-    backgroundColor: "#0f172a",
+    backgroundColor: colors.card,
     borderRadius: 20,
-    padding: 18,
-    overflow: "hidden",
-    gap: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    gap: 8,
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
-  secHeroBlob: {
-    position: "absolute",
-    top: -60,
-    right: -40,
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: "rgba(79,70,229,0.35)",
+  secHeroIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
   },
   secHeroIcon: { fontSize: 24 },
-  secHeroTitle: { fontSize: 18, fontWeight: "900", color: "#fff" },
-  secHeroSub: { fontSize: 12.5, color: "rgba(255,255,255,0.72)", lineHeight: 18 },
+  secHeroTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+  secHeroSub: { fontSize: 12.5, color: colors.muted, lineHeight: 18 },
   secRowDanger: { backgroundColor: colors.roseBg, borderRadius: 12, paddingHorizontal: 8, marginHorizontal: -8, paddingVertical: 8 },
   secIconBox: {
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
     borderRadius: 10,
     backgroundColor: colors.cardSecondary,
     alignItems: "center",

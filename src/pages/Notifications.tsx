@@ -8,19 +8,48 @@ import {
 } from "@/lib/api";
 import type { ApiNotification } from "@/lib/api-types";
 import { timeAgo } from "@/lib/format";
-import { Bell, BellOff, CheckCheck, Trash2 } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  CheckCheck,
+  CheckCircle2,
+  Clock,
+  Inbox,
+  MessageSquare,
+  Star,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
-const TYPE_ICONS: Record<string, string> = {
-  APPLICATION_ACCEPTED: "✅",
-  APPLICATION_REJECTED: "❌",
-  NEW_APPLICATION: "📥",
-  NEW_MESSAGE: "💬",
-  JOB_REMINDER: "⏰",
-  RATING_RECEIVED: "⭐",
-};
+function cleanNotificationText(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/^[\p{Extended_Pictographic}\s\u200d\uFE0F\u20E3]+/u, "")
+    .replace(/[\p{Extended_Pictographic}\u200d\uFE0F\u20E3]+$/u, "")
+    .trim();
+}
+
+function renderNotificationIcon(type: string) {
+  switch (type) {
+    case "APPLICATION_ACCEPTED":
+      return <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />;
+    case "APPLICATION_REJECTED":
+      return <XCircle className="size-4 text-rose-600 dark:text-rose-400" />;
+    case "NEW_APPLICATION":
+      return <Inbox className="size-4 text-primary" />;
+    case "NEW_MESSAGE":
+      return <MessageSquare className="size-4 text-primary" />;
+    case "JOB_REMINDER":
+      return <Clock className="size-4 text-amber-500" />;
+    case "RATING_RECEIVED":
+      return <Star className="size-4 text-amber-500" />;
+    default:
+      return <Bell className="size-4 text-muted-foreground" />;
+  }
+}
 
 export default function Notifications() {
   const [items, setItems] = useState<ApiNotification[]>([]);
@@ -124,15 +153,15 @@ export default function Notifications() {
                   onClick={() => handleClick(n)}
                   className="flex min-w-0 flex-1 items-start gap-3 text-left"
                 >
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-base">
-                    {TYPE_ICONS[n.type] ?? <Bell className="size-4 text-muted-foreground" />}
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted/80 text-base">
+                    {renderNotificationIcon(n.type)}
                   </span>
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 text-sm font-bold">
-                      {n.title}
+                      {cleanNotificationText(n.title)}
                       {!n.isRead && <span className="size-2 shrink-0 rounded-full bg-rose-500" />}
                     </p>
-                    <p className="mt-0.5 text-sm text-muted-foreground">{n.body}</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{cleanNotificationText(n.body)}</p>
                     <p className="mt-1 text-[11px] text-muted-foreground">{timeAgo(n.createdAt)}</p>
                   </div>
                 </button>

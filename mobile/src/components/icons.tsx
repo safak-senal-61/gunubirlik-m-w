@@ -531,3 +531,135 @@ export function MoonIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: Icon
     </Svg>
   );
 }
+
+export function ArrowDownLeftIcon({ size = 18, color = "#0D6847", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Line x1="17" y1="7" x2="7" y2="17" />
+      <Polyline points="17 17 7 17 7 7" />
+    </Svg>
+  );
+}
+
+export function ArrowUpRightIcon({ size = 18, color = "#DC2626", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Line x1="7" y1="17" x2="17" y2="7" />
+      <Polyline points="7 7 17 7 17 17" />
+    </Svg>
+  );
+}
+
+export function ArrowLeftRightIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M8 3 4 7l4 4" />
+      <Path d="M4 7h16" />
+      <Path d="m16 21 4-4-4-4" />
+      <Path d="M20 17H4" />
+    </Svg>
+  );
+}
+
+export function QrCodeIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Rect width="5" height="5" x="3" y="3" rx="1" />
+      <Rect width="5" height="5" x="16" y="3" rx="1" />
+      <Rect width="5" height="5" x="3" y="16" rx="1" />
+      <Path d="M21 16h-3a2 2 0 0 0-2 2v3" />
+      <Path d="M21 21v.01" />
+      <Path d="M12 7v3a2 2 0 0 1-2 2H7" />
+      <Path d="M3 12h.01" />
+      <Path d="M12 3h.01" />
+      <Path d="M12 16v.01" />
+      <Path d="M16 12h1" />
+      <Path d="M21 12v.01" />
+      <Path d="M12 21v-1" />
+    </Svg>
+  );
+}
+
+export function RotateCcwIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <Path d="M3 3v5h5" />
+    </Svg>
+  );
+}
+
+export function ReceiptIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
+      <Path d="M8 7h8" />
+      <Path d="M8 11h8" />
+      <Path d="M8 15h5" />
+    </Svg>
+  );
+}
+
+export function KeyRoundIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z" />
+      <Circle cx="16.5" cy="7.5" r=".5" fill={color} />
+    </Svg>
+  );
+}
+
+export function LaptopIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16" />
+    </Svg>
+  );
+}
+
+export function FlagIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+      <Line x1="4" x2="4" y1="22" y2="15" />
+    </Svg>
+  );
+}
+
+export function MailIcon({ size = 16, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Rect width="20" height="16" x="2" y="4" rx="2" />
+      <Path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </Svg>
+  );
+}
+
+export function CopyIcon({ size = 16, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+      <Path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </Svg>
+  );
+}
+
+export function EyeIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <Circle cx="12" cy="12" r="3" />
+    </Svg>
+  );
+}
+
+export function EyeOffIcon({ size = 18, color = "#5C615E", strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+      <Path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+      <Path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+      <Line x1="2" x2="22" y1="2" y2="22" />
+    </Svg>
+  );
+}
