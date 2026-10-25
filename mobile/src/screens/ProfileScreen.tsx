@@ -193,10 +193,12 @@ export default function ProfileScreen({
         ))}
       </ScrollView>
 
-      {/* Cüzdan kendi kaydırma/pull-to-refresh alanına sahip olduğu için
+      {/* Cüzdan ve Bildirimler kendi kaydırma/pull-to-refresh alanına sahip olduğu için
           dış ScrollView ile sarılmaz (iç içe ScrollView kilitlenmesin). */}
       {tab === "wallet" ? (
         <WalletScreen user={user} />
+      ) : tab === "notifications" ? (
+        <NotificationSettingsScreen />
       ) : (
       <ScrollView style={[styles.flex, { backgroundColor: colors.bg }]} contentContainerStyle={[styles.wrap, { backgroundColor: colors.bg }]}>
         <Animated.View
@@ -208,7 +210,6 @@ export default function ProfileScreen({
         >
           {tab === "account" && <AccountTab user={user} refreshKey={refreshKey} />}
           {tab === "security" && <SecurityTab user={user} />}
-          {tab === "notifications" && <NotificationsTab />}
           {tab === "policies" && <PoliciesTab />}
           {tab === "about" && <AboutTab onLogout={() => logout()} />}
         </Animated.View>
@@ -1582,12 +1583,6 @@ function EmailVerificationSection({ email, onVerified }: { email: string; onVeri
       {error && !sent ? <Text style={styles.error}>{error}</Text> : null}
     </Card>
   );
-}
-
-/* ================= BİLDİRİM TERCİHLERİ ================= */
-
-function NotificationsTab() {
-  return <NotificationSettingsScreen />;
 }
 
 /* ================= POLİTİKALAR ================= */
