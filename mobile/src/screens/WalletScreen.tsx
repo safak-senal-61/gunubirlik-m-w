@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { Badge, C, Card, Chip, EmptyState, PrimaryButton, SectionTitle, useTheme } from "@/components/ui";
+import { Badge, C, Card, Chip, EmptyState, PrimaryButton, SectionTitle, useTheme, lightColors, type ThemeColors } from "@/components/ui";
 import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
 import { timeAgo } from "@/lib/format";
 import {
@@ -77,17 +77,18 @@ const TX_FILTERS: { key: WalletTxType; label: string }[] = [
   { key: "JOB_PAYMENT", label: "İş ödemesi" },
 ];
 
-const REQ_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-  PENDING: { label: "Onay bekliyor", color: C.amber, bg: C.amberBg },
-  APPROVED: { label: "Onaylandı", color: C.emerald, bg: C.emeraldBg },
-  COMPLETED: { label: "Tamamlandı", color: C.emerald, bg: C.emeraldBg },
-  REJECTED: { label: "Reddedildi", color: C.rose, bg: C.roseBg },
-};
+const getReqStatus = (colors: ThemeColors): Record<string, { label: string; color: string; bg: string }> => ({
+  PENDING: { label: "Onay bekliyor", color: colors.amber, bg: colors.amberBg },
+  APPROVED: { label: "Onaylandı", color: colors.emerald, bg: colors.emeraldBg },
+  COMPLETED: { label: "Tamamlandı", color: colors.emerald, bg: colors.emeraldBg },
+  REJECTED: { label: "Reddedildi", color: colors.rose, bg: colors.roseBg },
+});
 
 type SheetType = "deposit" | "withdraw" | null;
 
 export default function WalletScreen({ user }: { user: ApiUser }) {
   const { colors } = useTheme();
+  styles = useMemo(() => createStyles(colors), [colors]);
   const isEmployer = user.role === "EMPLOYER";
   const isAdmin = user.role === "ADMIN";
   const isWorker = !isEmployer && !isAdmin;
@@ -344,9 +345,9 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
                     {r.rejectReason ? <Text style={styles.rejectText}>Ret: {r.rejectReason}</Text> : null}
                   </View>
                   <Badge
-                    label={(REQ_STATUS[r.status] ?? REQ_STATUS.PENDING).label}
-                    color={(REQ_STATUS[r.status] ?? REQ_STATUS.PENDING).color}
-                    bg={(REQ_STATUS[r.status] ?? REQ_STATUS.PENDING).bg}
+                    label={(getReqStatus(colors)[r.status] ?? getReqStatus(colors).PENDING).label}
+                    color={(getReqStatus(colors)[r.status] ?? getReqStatus(colors).PENDING).color}
+                    bg={(getReqStatus(colors)[r.status] ?? getReqStatus(colors).PENDING).bg}
                   />
                 </View>
               ))}
@@ -472,7 +473,8 @@ function RequestRow({
   subtitle: string;
   status: string;
 }) {
-  const meta = REQ_STATUS[status] ?? REQ_STATUS.PENDING;
+  const { colors } = useTheme();
+  const meta = getReqStatus(colors)[status] ?? getReqStatus(colors).PENDING;
   return (
     <View style={styles.requestRow}>
       <Text style={styles.requestIcon}>{icon}</Text>
@@ -956,18 +958,19 @@ function WithdrawModal({
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: C.bg },
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+  flex: { flex: 1, backgroundColor: colors.bg },
   wrap: { padding: 16, paddingBottom: 40, gap: 14 },
 
   // Bakiye kartı
   balanceCard: {
-    backgroundColor: C.primary,
+    backgroundColor: colors.primary,
     borderRadius: 22,
     padding: 20,
     gap: 4,
     overflow: "hidden",
-    shadowColor: C.primary,
+    shadowColor: colors.primary,
     shadowOpacity: 0.3,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
@@ -988,41 +991,41 @@ const styles = StyleSheet.create({
 
   // Hızlı işlemler
   actionGrid: { flexDirection: "row", gap: 10 },
-  actionTile: { flex: 1, backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 16, gap: 4 },
+  actionTile: { flex: 1, backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16, gap: 4 },
   actionIcon: { width: 42, height: 42, borderRadius: 12, alignItems: "center", justifyContent: "center", marginBottom: 6 },
   actionEmoji: { fontSize: 20 },
-  actionLabel: { fontSize: 15, fontWeight: "800", color: C.text },
-  actionHint: { fontSize: 12, color: C.muted },
+  actionLabel: { fontSize: 15, fontWeight: "800", color: colors.text },
+  actionHint: { fontSize: 12, color: colors.muted },
 
   // Talepler
-  requestRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.bg, borderRadius: 12, padding: 10 },
+  requestRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.bg, borderRadius: 12, padding: 10 },
   requestIcon: { fontSize: 16 },
-  requestTitle: { fontSize: 13, fontWeight: "700", color: C.text },
-  requestSub: { fontSize: 11, color: C.muted, marginTop: 1 },
-  noteText: { fontSize: 11, color: C.muted, lineHeight: 16 },
-  flowStep: { fontSize: 12, color: C.text, lineHeight: 19 },
-  footNote: { fontSize: 11, color: C.muted, textAlign: "center", lineHeight: 16 },
+  requestTitle: { fontSize: 13, fontWeight: "700", color: colors.text },
+  requestSub: { fontSize: 11, color: colors.muted, marginTop: 1 },
+  noteText: { fontSize: 11, color: colors.muted, lineHeight: 16 },
+  flowStep: { fontSize: 12, color: colors.text, lineHeight: 19 },
+  footNote: { fontSize: 11, color: colors.muted, textAlign: "center", lineHeight: 16 },
 
   // Hareketler
   sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  sectionHint: { fontSize: 11, color: C.muted },
+  sectionHint: { fontSize: 11, color: colors.muted },
   chipRow: { gap: 6, paddingVertical: 2 },
   txRow: { flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 14, paddingVertical: 12 },
-  txRowBorder: { borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
+  txRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.borderLight },
   txIcon: { width: 36, height: 36, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   txEmoji: { fontSize: 15 },
-  txTitle: { fontSize: 13, fontWeight: "700", color: C.text },
-  txSub: { fontSize: 11, color: C.muted, marginTop: 1 },
+  txTitle: { fontSize: 13, fontWeight: "700", color: colors.text },
+  txSub: { fontSize: 11, color: colors.muted, marginTop: 1 },
   txAmount: { fontSize: 14, fontWeight: "800" },
-  txBalance: { fontSize: 10, color: C.muted, marginTop: 1 },
-  rejectText: { fontSize: 10, color: C.rose, marginTop: 2, fontWeight: "600" },
+  txBalance: { fontSize: 10, color: colors.muted, marginTop: 1 },
+  rejectText: { fontSize: 10, color: colors.rose, marginTop: 2, fontWeight: "600" },
 
   // Banner / sheet / form
   banner: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1 },
   bannerText: { fontSize: 12, fontWeight: "600", lineHeight: 18 },
   sheetOverlay: { flex: 1, backgroundColor: "rgba(15,23,42,0.5)", justifyContent: "flex-end" },
   sheet: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 20,
@@ -1040,53 +1043,53 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: "#eff6ff",
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },
   sheetIcon: { fontSize: 20 },
-  sheetTitle: { fontSize: 18, fontWeight: "800", color: C.text },
-  sheetSub: { fontSize: 12, color: C.muted, marginTop: 2, lineHeight: 17 },
+  sheetTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+  sheetSub: { fontSize: 12, color: colors.muted, marginTop: 2, lineHeight: 17 },
   sheetCloseBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: colors.cardSecondary,
     alignItems: "center",
     justifyContent: "center",
   },
-  sheetCloseText: { fontSize: 13, color: C.muted, fontWeight: "800" },
+  sheetCloseText: { fontSize: 13, color: colors.muted, fontWeight: "800" },
 
   // Modern input field
-  fieldLabel: { fontSize: 12, fontWeight: "800", color: "#334155", letterSpacing: 0.2 },
+  fieldLabel: { fontSize: 12, fontWeight: "800", color: colors.text, letterSpacing: 0.2 },
   fieldWrap: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1.5,
-    borderColor: "#e2e8f0",
+    borderColor: colors.border,
     borderRadius: 14,
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.inputBg,
     paddingHorizontal: 12,
   },
   fieldWrapFocused: {
-    borderColor: C.primary,
-    backgroundColor: "#ffffff",
-    shadowColor: C.primary,
+    borderColor: colors.primary,
+    backgroundColor: colors.inputBg,
+    shadowColor: colors.primary,
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 2,
   },
-  fieldWrapError: { borderColor: C.rose },
+  fieldWrapError: { borderColor: colors.rose },
   fieldInput: {
     flex: 1,
     paddingVertical: 12,
     fontSize: 14,
     fontWeight: "600",
-    color: C.text,
+    color: colors.text,
   },
-  fieldPrefix: { fontSize: 14, fontWeight: "800", color: C.primary, marginRight: 6 },
-  fieldSuffix: { fontSize: 14, fontWeight: "800", color: "#64748b", marginLeft: 6 },
-  fieldError: { fontSize: 11, color: C.danger, fontWeight: "600" },
+  fieldPrefix: { fontSize: 14, fontWeight: "800", color: colors.primary, marginRight: 6 },
+  fieldSuffix: { fontSize: 14, fontWeight: "800", color: colors.muted, marginLeft: 6 },
+  fieldError: { fontSize: 11, color: colors.danger, fontWeight: "600" },
 
   // Hızlı tutar çipleri
   presetsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
@@ -1094,16 +1097,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: colors.cardSecondary,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: colors.border,
   },
   presetChipActive: {
-    backgroundColor: C.primarySoft,
-    borderColor: C.primary,
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   presetChipText: { fontSize: 12, fontWeight: "700", color: "#475569" },
-  presetChipTextActive: { color: C.primary, fontWeight: "800" },
+  presetChipTextActive: { color: colors.primary, fontWeight: "800" },
 
   // Hızlı banka hapları
   bankPillsRow: { gap: 6, paddingVertical: 2 },
@@ -1111,12 +1114,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: 10,
-    backgroundColor: "#f8fafc",
+    backgroundColor: colors.inputBg,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: colors.border,
   },
   bankPillActive: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: colors.primarySoft,
     borderColor: "#3b82f6",
   },
   bankPillText: { fontSize: 11.5, fontWeight: "600", color: "#475569" },
@@ -1124,7 +1127,7 @@ const styles = StyleSheet.create({
 
   // Resmi şirket hesap kartı
   companyCard: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: colors.primarySoft,
     borderWidth: 1.5,
     borderColor: "#bfdbfe",
     borderRadius: 18,
@@ -1189,3 +1192,4 @@ const styles = StyleSheet.create({
   processInfoTitle: { fontSize: 12, fontWeight: "800", color: "#92400e" },
   processInfoText: { fontSize: 11, color: "#92400e", lineHeight: 16 },
 });
+let styles = createStyles(lightColors);

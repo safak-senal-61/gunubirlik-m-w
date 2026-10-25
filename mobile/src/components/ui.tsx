@@ -10,7 +10,7 @@ import {
   type ThemeMode,
 } from "@/lib/theme";
 
-export { useTheme, ThemeProvider, type ThemeColors, type ThemeMode };
+export { useTheme, ThemeProvider, lightColors, darkColors, type ThemeColors, type ThemeMode };
 
 /**
  * Dinamik Renk Paleti Proxy'si

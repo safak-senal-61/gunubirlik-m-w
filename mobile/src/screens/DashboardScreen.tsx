@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, type ReactNode } from "react";
+import React, { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Alert,
   Modal,
@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Badge, Card, C, EmptyState, Loading, PrimaryButton, useTheme } from "@/components/ui";
+import { Badge, Card, C, EmptyState, Loading, PrimaryButton, useTheme, type ThemeColors } from "@/components/ui";
 import { useCachedList } from "@/hooks/use-cached-list";
 import { createJob, deleteJob, fetchCategories, fetchJobs } from "@/lib/api";
 import type { ApiCategory, ApiJob, JobCategory } from "@/lib/types";
@@ -43,6 +43,7 @@ export default function DashboardScreen({
 }) {
   const { user } = useAuth();
   const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [viewMode, setViewMode] = useState<"ALL" | "MINE">("ALL");
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -297,6 +298,7 @@ function EmployerMetricCard({
   onPress?: () => void;
 }) {
   const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const t = METRIC_THEMES[theme];
   return (
     <Pressable
@@ -353,6 +355,7 @@ function EmployerJobCard({
   onPress: () => void;
 }) {
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [busy, setBusy] = useState(false);
   const isOwner = job.employerId === currentUserId;
 
@@ -427,6 +430,7 @@ function CreateJobSheet({
   onCreated: () => void;
 }) {
   const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -860,6 +864,7 @@ function SheetField(props: {
   keyboardType?: "default" | "number-pad";
 }) {
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.fieldWrap}>
       <Text style={[styles.sheetLabel, { color: colors.text }]}>{props.label}</Text>
@@ -894,6 +899,7 @@ function Pill({
   onPress: () => void;
 }) {
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable
       style={[
@@ -910,8 +916,9 @@ function Pill({
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: C.bg },
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+  flex: { flex: 1, backgroundColor: colors.bg },
   wrap: { padding: 16, paddingBottom: 40, gap: 12 },
   headerBox: {
     gap: 4,
@@ -923,7 +930,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   employerBadge: {
-    backgroundColor: C.primarySoft,
+    backgroundColor: colors.primarySoft,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -934,14 +941,14 @@ const styles = StyleSheet.create({
   employerBadgeText: {
     fontSize: 11,
     fontWeight: "800",
-    color: C.primary,
+    color: colors.primary,
     letterSpacing: 0.6,
   },
   quickStatPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: C.primarySoft,
+    backgroundColor: colors.primarySoft,
     borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 4,
@@ -957,10 +964,10 @@ const styles = StyleSheet.create({
   quickStatPillText: {
     fontSize: 11,
     fontWeight: "700",
-    color: C.primary,
+    color: colors.primary,
   },
-  h1: { fontSize: 22, fontWeight: "800", color: C.text },
-  sub: { fontSize: 13, color: C.muted, lineHeight: 18 },
+  h1: { fontSize: 22, fontWeight: "800", color: colors.text },
+  sub: { fontSize: 13, color: colors.muted, lineHeight: 18 },
 
   statRow: {
     flexDirection: "row",
@@ -971,11 +978,11 @@ const styles = StyleSheet.create({
   metricCard: {
     flex: 1,
     aspectRatio: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 10,
     borderWidth: 1,
-    borderColor: "#E2E0D8",
+    borderColor: colors.border,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -1023,25 +1030,25 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 22,
     fontWeight: "800",
-    color: C.text,
+    color: colors.text,
     fontVariant: ["tabular-nums"],
   },
   metricLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: C.muted,
+    color: colors.muted,
   },
 
   createJobBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: C.primary,
+    backgroundColor: colors.primary,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 20,
     gap: 8,
-    shadowColor: C.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -1064,11 +1071,11 @@ const styles = StyleSheet.create({
   },
 
   jobCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#E2E0D8",
+    borderColor: colors.border,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -1080,15 +1087,15 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: C.primarySoft,
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "rgba(13,104,71,0.12)",
   },
-  title: { fontSize: 15, fontWeight: "800", color: C.text },
+  title: { fontSize: 15, fontWeight: "800", color: colors.text },
   cardMetaRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
-  meta: { fontSize: 12, color: C.muted },
+  meta: { fontSize: 12, color: colors.muted },
   jobBottomRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1096,18 +1103,18 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: "#F6F5F2",
+    borderTopColor: colors.borderLight,
   },
   wageText: {
     fontSize: 14,
     fontWeight: "800",
-    color: C.primary,
+    color: colors.primary,
   },
-  metaSmall: { fontSize: 12, color: C.muted },
-  actions: { flexDirection: "row", gap: 8, marginTop: 10, borderTopWidth: 1, borderTopColor: "#E2E0D8", paddingTop: 10 },
+  metaSmall: { fontSize: 12, color: colors.muted },
+  actions: { flexDirection: "row", gap: 8, marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
   segmentContainer: {
     flexDirection: "row",
-    backgroundColor: "#EBE9E3",
+    backgroundColor: colors.cardSecondary,
     borderRadius: 12,
     padding: 3,
     gap: 4,
@@ -1121,7 +1128,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
   },
   segmentBtnActive: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.card,
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 4,
@@ -1131,52 +1138,52 @@ const styles = StyleSheet.create({
   segmentText: {
     fontSize: 13,
     fontWeight: "700",
-    color: C.muted,
+    color: colors.muted,
   },
   segmentTextActive: {
-    color: C.primary,
+    color: colors.primary,
   },
   searchInput: {
     borderWidth: 1,
-    borderColor: "#E2E0D8",
+    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 14,
-    color: C.text,
-    backgroundColor: "#FFFFFF",
+    color: colors.text,
+    backgroundColor: colors.card,
   },
-  sheetPage: { flex: 1, backgroundColor: C.bg },
-  sheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, backgroundColor: "#FFFFFF", borderBottomWidth: 1, borderBottomColor: C.border },
-  sheetTitle: { fontSize: 17, fontWeight: "800", color: C.text },
-  sheetClose: { fontSize: 18, color: C.muted },
+  sheetPage: { flex: 1, backgroundColor: colors.bg },
+  sheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 16, backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border },
+  sheetTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+  sheetClose: { fontSize: 18, color: colors.muted },
   sheetBody: { padding: 16, paddingBottom: 40, gap: 12 },
   fieldWrap: { gap: 6 },
-  sheetLabel: { fontSize: 13, fontWeight: "600", color: C.text },
-  input: { borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: C.text, backgroundColor: "#FFFFFF" },
+  sheetLabel: { fontSize: 13, fontWeight: "600", color: colors.text },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: colors.text, backgroundColor: colors.card },
   textArea: { minHeight: 90, textAlignVertical: "top" },
   row: { flexDirection: "row", gap: 10 },
   half: { flex: 1 },
-  duration: { fontSize: 12, color: C.muted, marginTop: -4 },
+  duration: { fontSize: 12, color: colors.muted, marginTop: -4 },
   catGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  catItem: { width: "23%", alignItems: "center", gap: 4, borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingVertical: 10, backgroundColor: "#FFFFFF" },
-  catItemActive: { borderWidth: 1.5, borderColor: C.primary, backgroundColor: C.primarySoft },
+  catItem: { width: "23%", alignItems: "center", gap: 4, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingVertical: 10, backgroundColor: colors.card },
+  catItemActive: { borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.primarySoft },
   catIconSmall: { alignItems: "center", justifyContent: "center" },
-  catLabel: { fontSize: 10, color: C.muted, fontWeight: "600" },
-  catLabelActive: { color: C.primary, fontWeight: "700" },
+  catLabel: { fontSize: 10, color: colors.muted, fontWeight: "600" },
+  catLabelActive: { color: colors.primary, fontWeight: "700" },
   pillRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
-  pill: { borderRadius: 999, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: "#FFFFFF" },
-  pillActive: { backgroundColor: C.primary, borderColor: C.primary },
-  pillText: { fontSize: 12, fontWeight: "600", color: C.muted },
+  pill: { borderRadius: 999, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.card },
+  pillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  pillText: { fontSize: 12, fontWeight: "600", color: colors.muted },
   pillTextActive: { color: "#FFFFFF" },
-  locBox: { borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 12, backgroundColor: "#FFFFFF", gap: 8, flexDirection: "row", flexWrap: "wrap", alignItems: "center" },
-  locTitle: { fontSize: 13, fontWeight: "700", color: C.text },
-  locDesc: { fontSize: 12, color: C.muted, marginTop: 2 },
-  error: { color: C.danger, fontSize: 13 },
+  locBox: { borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 12, backgroundColor: colors.card, gap: 8, flexDirection: "row", flexWrap: "wrap", alignItems: "center" },
+  locTitle: { fontSize: 13, fontWeight: "700", color: colors.text },
+  locDesc: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  error: { color: colors.danger, fontSize: 13 },
   sheetWizardCard: {
-    backgroundColor: "#F6F5F2",
+    backgroundColor: colors.cardSecondary,
     borderWidth: 1,
-    borderColor: "#E2E0D8",
+    borderColor: colors.border,
     borderRadius: 14,
     padding: 12,
     marginBottom: 6,
@@ -1193,7 +1200,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sheetWizardStepBadge: {
-    backgroundColor: C.primary,
+    backgroundColor: colors.primary,
     width: 22,
     height: 22,
     borderRadius: 11,
@@ -1208,10 +1215,10 @@ const styles = StyleSheet.create({
   sheetWizardTitleText: {
     fontSize: 12,
     fontWeight: "800",
-    color: C.primary,
+    color: colors.primary,
   },
   sheetXpPill: {
-    backgroundColor: C.primarySoft,
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
     borderColor: "rgba(13,104,71,0.2)",
     paddingHorizontal: 8,
@@ -1219,7 +1226,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   sheetXpPillText: {
-    color: C.primary,
+    color: colors.primary,
     fontSize: 10,
     fontWeight: "800",
   },
@@ -1231,7 +1238,7 @@ const styles = StyleSheet.create({
   },
   sheetProgressBarFill: {
     height: "100%",
-    backgroundColor: C.primary,
+    backgroundColor: colors.primary,
     borderRadius: 999,
   },
   sheetStepChipsRow: {
@@ -1254,12 +1261,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   sheetStepDotActive: {
-    backgroundColor: C.primary,
+    backgroundColor: colors.primary,
   },
   sheetStepDotText: {
     fontSize: 9,
     fontWeight: "800",
-    color: "#64748B",
+    color: colors.muted,
   },
   sheetStepDotTextActive: {
     color: "#FFFFFF",
@@ -1267,10 +1274,10 @@ const styles = StyleSheet.create({
   sheetStepLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: C.muted,
+    color: colors.muted,
   },
   sheetStepLabelActive: {
-    color: C.primary,
+    color: colors.primary,
     fontWeight: "800",
   },
   sheetStepConnector: {
@@ -1280,15 +1287,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   sheetStepConnectorActive: {
-    backgroundColor: C.primary,
+    backgroundColor: colors.primary,
   },
   sheetStepContent: {
     gap: 12,
   },
   previewBox: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "#E2E0D8",
+    borderColor: colors.border,
     borderRadius: 14,
     padding: 12,
     gap: 8,
@@ -1303,14 +1310,14 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: C.primarySoft,
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },
   previewTitle: {
     fontSize: 14,
     fontWeight: "800",
-    color: C.text,
+    color: colors.text,
   },
   previewMetaRow: {
     flexDirection: "row",
@@ -1319,7 +1326,7 @@ const styles = StyleSheet.create({
   },
   previewSubtitle: {
     fontSize: 12,
-    color: C.muted,
+    color: colors.muted,
   },
   previewDivider: {
     height: 1,
@@ -1333,11 +1340,11 @@ const styles = StyleSheet.create({
   previewWage: {
     fontSize: 13,
     fontWeight: "800",
-    color: C.primary,
+    color: colors.primary,
   },
   previewLoc: {
     fontSize: 12,
-    color: C.muted,
+    color: colors.muted,
   },
   stepNavRow: {
     flexDirection: "row",
@@ -1349,13 +1356,13 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: "#F6F5F2",
+    backgroundColor: colors.cardSecondary,
     borderWidth: 1,
-    borderColor: "#E2E0D8",
+    borderColor: colors.border,
   },
   backBtnText: {
     fontSize: 14,
     fontWeight: "700",
-    color: C.muted,
+    color: colors.muted,
   },
 });

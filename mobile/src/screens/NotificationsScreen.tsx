@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
-import { Card, C, EmptyState, Loading, useTheme } from "@/components/ui";
+import { Card, C, EmptyState, Loading, useTheme, lightColors, type ThemeColors } from "@/components/ui";
 import { useCachedList } from "@/hooks/use-cached-list";
 import {
   getPermissionCached,
@@ -27,22 +27,22 @@ import {
   TrashIcon,
 } from "@/components/icons";
 
-function getNotificationIcon(type: string) {
+function getNotificationIcon(type: string, colors: ThemeColors) {
   switch (type) {
     case "APPLICATION_ACCEPTED":
-      return <CheckCircleIcon size={20} color={C.primary} />;
+      return <CheckCircleIcon size={20} color={colors.primary} />;
     case "APPLICATION_REJECTED":
-      return <XCircleIcon size={20} color={C.danger} />;
+      return <XCircleIcon size={20} color={colors.danger} />;
     case "NEW_APPLICATION":
-      return <ApplicationsIcon size={20} color={C.primary} />;
+      return <ApplicationsIcon size={20} color={colors.primary} />;
     case "NEW_MESSAGE":
-      return <MessageIcon size={20} color={C.primary} />;
+      return <MessageIcon size={20} color={colors.primary} />;
     case "JOB_REMINDER":
-      return <ClockIcon size={20} color={C.amber} />;
+      return <ClockIcon size={20} color={colors.amber} />;
     case "RATING_RECEIVED":
-      return <StarIcon size={20} color={C.amber} />;
+      return <StarIcon size={20} color={colors.amber} />;
     default:
-      return <BellIcon size={20} color={C.primary} />;
+      return <BellIcon size={20} color={colors.primary} />;
   }
 }
 
@@ -58,6 +58,7 @@ export default function NotificationsScreen({
   onOpenNotificationSettings?: () => void;
 }) {
   const { colors } = useTheme();
+  styles = useMemo(() => createStyles(colors), [colors]);
   const [items, setItems] = useState<ApiNotification[]>([]);
   const [unread, setUnread] = useState(0);
   // null = henüz bilinmiyor (yanlışlıkla bant göstermemek için izin doğrulanana kadar bekle).
@@ -202,7 +203,7 @@ export default function NotificationsScreen({
                 }}
               >
                 <View style={[styles.iconBox, { backgroundColor: colors.primarySoft }]}>
-                  {getNotificationIcon(n.type)}
+                  {getNotificationIcon(n.type, colors)}
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.titleRow}>
@@ -224,11 +225,12 @@ export default function NotificationsScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: C.bg },
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+  flex: { flex: 1, backgroundColor: colors.bg },
   header: { flexDirection: "row", alignItems: "flex-start", gap: 10, padding: 16, paddingBottom: 8 },
-  h1: { fontSize: 22, fontWeight: "800", color: C.text },
-  sub: { fontSize: 13, color: C.muted, marginTop: 2 },
+  h1: { fontSize: 22, fontWeight: "800", color: colors.text },
+  sub: { fontSize: 13, color: colors.muted, marginTop: 2 },
   list: { padding: 16, gap: 8, paddingBottom: 40 },
   permBanner: {
     flexDirection: "row",
@@ -238,30 +240,30 @@ const styles = StyleSheet.create({
     marginTop: 4,
     padding: 12,
     borderRadius: 14,
-    backgroundColor: "#fff7ed",
+    backgroundColor: colors.cardSecondary,
     borderWidth: 1,
-    borderColor: "#fdba74",
+    borderColor: colors.amber,
   },
   permIconBox: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#ffedd5",
+    backgroundColor: colors.amberBg,
     alignItems: "center",
     justifyContent: "center",
   },
   permBannerTextWrap: { flex: 1, gap: 1 },
-  permBannerTitle: { fontSize: 14, fontWeight: "800", color: "#9a3412" },
-  permBannerSub: { fontSize: 12, color: "#c2410c" },
-  permBannerChevron: { fontSize: 20, color: "#f97316", fontWeight: "800" },
+  permBannerTitle: { fontSize: 14, fontWeight: "800", color: colors.amber },
+  permBannerSub: { fontSize: 12, color: colors.muted },
+  permBannerChevron: { fontSize: 20, color: colors.amber, fontWeight: "800" },
   item: { padding: 12 },
-  itemUnread: { borderColor: C.primary, backgroundColor: C.primarySoft },
+  itemUnread: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   itemBody: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
   iconBox: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: C.primarySoft,
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -271,9 +273,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  title: { fontSize: 14, fontWeight: "800", color: C.text, flexShrink: 1 },
+  title: { fontSize: 14, fontWeight: "800", color: colors.text, flexShrink: 1 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#e11d48" },
-  bodyText: { fontSize: 13, color: C.muted, marginTop: 2, lineHeight: 19 },
-  time: { fontSize: 11, color: C.muted, marginTop: 4 },
+  bodyText: { fontSize: 13, color: colors.muted, marginTop: 2, lineHeight: 19 },
+  time: { fontSize: 11, color: colors.muted, marginTop: 4 },
   delete: { fontSize: 14, opacity: 0.7, paddingHorizontal: 4 },
 });
+let styles = createStyles(lightColors);

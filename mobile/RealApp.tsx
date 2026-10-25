@@ -1,6 +1,6 @@
 // EN ÖNEMLİ IMPORT: crash reporter tüm modül kodundan ÖNCE kurulmalı.
 import "@/lib/crash-reporter";
-import { Component, useCallback, useEffect, useState, type ReactNode } from "react";
+import { Component, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
@@ -27,7 +27,7 @@ import NotificationsScreen from "@/screens/NotificationsScreen";
 import ProfileScreen from "@/screens/ProfileScreen";
 import QRScreen from "@/screens/QRScreen";
 import QrScannerScreen from "@/screens/QrScannerScreen";
-import { Card, C, EmptyState, PrimaryButton, ThemeProvider, useTheme } from "@/components/ui";
+import { Card, C, EmptyState, PrimaryButton, ThemeProvider, useTheme, lightColors, type ThemeColors } from "@/components/ui";
 import { BookmarkIcon, QrScanIcon } from "@/components/icons";
 import { useCachedList } from "@/hooks/use-cached-list";
 import AnimatedSplashScreen from "@/components/AnimatedSplashScreen";
@@ -239,6 +239,7 @@ function Root({ fontsReady }: { fontsReady: boolean }) {
 function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
   const { user } = useAuth();
   const { colors } = useTheme();
+  styles = useMemo(() => createStyles(colors), [colors]);
   const isEmployer = user?.role === "EMPLOYER";
   const [tab, setTab] = useState<Tab>(isEmployer ? "jobs" : "jobs");
   const [openJobId, setOpenJobId] = useState<string | null>(null);
@@ -492,10 +493,10 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
             />
           ) : (
             <View style={{ flex: 1, padding: 24, justifyContent: "center", alignItems: "center", gap: 12 }}>
-              <Text style={{ fontSize: 20, fontWeight: "800", color: C.text, textAlign: "center" }}>
+              <Text style={{ fontSize: 20, fontWeight: "800", color: colors.text, textAlign: "center" }}>
                 Hesabınıza Giriş Yapın
               </Text>
-              <Text style={{ fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 18, maxWidth: 280 }}>
+              <Text style={{ fontSize: 13, color: colors.muted, textAlign: "center", lineHeight: 18, maxWidth: 280 }}>
                 Başvurularınızı yönetmek, ilan vermek ve mesajlaşmak için lütfen giriş yapın.
               </Text>
               <PrimaryButton
@@ -579,10 +580,10 @@ function SavedScreen({ onOpenJob, refreshKey }: { onOpenJob: (job: ApiJob) => vo
         <Text style={[styles.h1, { color: colors.text }]}>Kaydedilenler</Text>
         <Text style={[styles.sub, { color: colors.muted }]}>Daha sonra başvurmak için kaydettiğin ilanlar.</Text>
         {loading ? (
-          <ActivityIndicator style={{ marginTop: 30 }} color={C.primary} />
+          <ActivityIndicator style={{ marginTop: 30 }} color={colors.primary} />
         ) : jobs.length === 0 ? (
           <EmptyState
-            icon={<BookmarkIcon size={24} color={C.muted} />}
+            icon={<BookmarkIcon size={24} color={colors.muted} />}
             title="Kayıtlı İlan Yok"
             subtitle="İlan kartlarındaki kaydet butonuna dokunarak ilanları buraya ekleyebilirsiniz."
           />
@@ -620,33 +621,35 @@ function JobCardInline({ job, onOpen, onUnsave }: { job: ApiJob; onOpen: () => v
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: C.bg },
-  center: { alignItems: "center", justifyContent: "center", backgroundColor: C.bg },
-  content: { flex: 1, backgroundColor: C.bg },
-  savedScreenContainer: { flex: 1, backgroundColor: C.bg },
-  chatTargetCard: { position: "absolute", left: 16, right: 16, bottom: 80, padding: 14, gap: 10 },
-  scanFab: {
-    position: "absolute",
-    right: 16,
-    bottom: 84,
-    backgroundColor: C.primary,
-    borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  scanFabText: { color: "#fff", fontWeight: "800", fontSize: 13 },
-  savedWrap: { padding: 16, paddingBottom: 40, gap: 12 },
-  h1: { fontSize: 22, fontWeight: "800", color: C.text },
-  sub: { fontSize: 13, color: C.muted, marginTop: -6 },
-  savedTitle: { fontSize: 15, fontWeight: "800", color: C.text },
-  savedMeta: { fontSize: 12, color: C.muted, marginTop: 2 },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.bg },
+    center: { alignItems: "center", justifyContent: "center", backgroundColor: colors.bg },
+    content: { flex: 1, backgroundColor: colors.bg },
+    savedScreenContainer: { flex: 1, backgroundColor: colors.bg },
+    chatTargetCard: { position: "absolute", left: 16, right: 16, bottom: 80, padding: 14, gap: 10 },
+    scanFab: {
+      position: "absolute",
+      right: 16,
+      bottom: 84,
+      backgroundColor: colors.primary,
+      borderRadius: 999,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 6,
+    },
+    scanFabText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+    savedWrap: { padding: 16, paddingBottom: 40, gap: 12 },
+    h1: { fontSize: 22, fontWeight: "800", color: colors.text },
+    sub: { fontSize: 13, color: colors.muted, marginTop: -6 },
+    savedTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
+    savedMeta: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  });
+let styles = createStyles(lightColors);

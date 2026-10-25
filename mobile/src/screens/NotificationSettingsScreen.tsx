@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
-import { Card, C, PrimaryButton, SectionTitle, useTheme } from "@/components/ui";
+import { Card, C, PrimaryButton, SectionTitle, useTheme, lightColors, type ThemeColors } from "@/components/ui";
 import {
   fetchNotificationSettingsCached,
   resetNotificationSettings,
@@ -486,7 +486,8 @@ function PrefSwitch({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   wrap: { padding: 16, paddingBottom: 48, gap: 12 },
   hero: {
     backgroundColor: "#0D6847",
@@ -567,11 +568,11 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 13, color: "#DC2626", fontWeight: "700" },
   errorHint: { fontSize: 11, color: "#DC2626" },
 
-  desc: { fontSize: 13, color: "#5C615E", lineHeight: 19 },
+  desc: { fontSize: 13, color: colors.muted, lineHeight: 19 },
   link: { fontSize: 12, fontWeight: "700", color: "#0D6847", textAlign: "center", marginTop: 4 },
-  footNote: { fontSize: 11, color: "#717673", lineHeight: 16, marginTop: 4 },
-  divider: { height: 1, backgroundColor: "#EAE8E2", marginVertical: 4 },
-  rowDivider: { height: 1, backgroundColor: "#F3F1EC", marginLeft: 44 },
+  footNote: { fontSize: 11, color: colors.muted, lineHeight: 16, marginTop: 4 },
+  divider: { height: 1, backgroundColor: colors.borderLight, marginVertical: 4 },
+  rowDivider: { height: 1, backgroundColor: colors.borderLight, marginLeft: 44 },
 
   statusRow: {
     flexDirection: "row",
@@ -579,17 +580,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 4,
   },
-  statusLabel: { fontSize: 13, fontWeight: "600", color: "#141615" },
+  statusLabel: { fontSize: 13, fontWeight: "600", color: colors.text },
   statusValue: { fontSize: 13, fontWeight: "800" },
   diagBox: {
-    backgroundColor: "#F6F5F2",
+    backgroundColor: colors.cardSecondary,
     borderRadius: 8,
     padding: 8,
     gap: 2,
     borderWidth: 1,
-    borderColor: "#E2E0D8",
+    borderColor: colors.border,
   },
-  diagText: { fontSize: 10, color: "#717673", fontFamily: "monospace" },
+  diagText: { fontSize: 10, color: colors.muted, fontFamily: "monospace" },
 
   groupHeader: {
     flexDirection: "row",
@@ -601,24 +602,24 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "#EAF3EE",
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#C5DDD0",
+    borderColor: colors.border,
   },
   groupTitle: {
     fontSize: 15,
     fontFamily: "PlusJakartaSans_700Bold",
     fontWeight: "700",
-    color: "#141615",
+    color: colors.text,
   },
-  groupHint: { fontSize: 11, color: "#717673" },
+  groupHint: { fontSize: 11, color: colors.muted },
   groupCount: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#717673",
-    backgroundColor: "#F0EFEA",
+    color: colors.muted,
+    backgroundColor: colors.cardSecondary,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -635,18 +636,18 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "#F4F3F0",
+    backgroundColor: colors.cardSecondary,
     alignItems: "center",
     justifyContent: "center",
   },
   prefIconBoxMaster: {
-    backgroundColor: "#EAF3EE",
+    backgroundColor: colors.primarySoft,
   },
   prefLabel: {
     fontSize: 14,
     fontFamily: "PlusJakartaSans_600SemiBold",
     fontWeight: "600",
-    color: "#141615",
+    color: colors.text,
   },
   prefLabelMaster: {
     fontSize: 15,
@@ -654,7 +655,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#0D6847",
   },
-  prefDesc: { fontSize: 11, color: "#717673", marginTop: 2, lineHeight: 15 },
+  prefDesc: { fontSize: 11, color: colors.muted, marginTop: 2, lineHeight: 15 },
   trackFake: {
     width: 44,
     height: 24,
@@ -685,11 +686,11 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: "#EAF3EE",
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#C5DDD0",
+    borderColor: colors.border,
     marginTop: 2,
   },
   stepNum: {
@@ -698,5 +699,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#0D6847",
   },
-  infoText: { flex: 1, fontSize: 12, color: "#5C615E", lineHeight: 18 },
+  infoText: { flex: 1, fontSize: 12, color: colors.muted, lineHeight: 18 },
 });
+let styles = createStyles(lightColors);

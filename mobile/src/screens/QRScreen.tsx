@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Badge, Card, C, PrimaryButton, SectionTitle, useTheme } from "@/components/ui";
+import { Badge, Card, C, PrimaryButton, SectionTitle, useTheme, lightColors, type ThemeColors } from "@/components/ui";
 import { formatWage } from "@/lib/format";
 import {
   fetchQrStatus,
@@ -230,42 +230,44 @@ export default function QRScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: C.bg },
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+  page: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     padding: 16,
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: colors.border,
   },
-  close: { fontSize: 18, color: C.muted, width: 24 },
-  headerTitle: { fontSize: 16, fontWeight: "800", color: C.text },
+  close: { fontSize: 18, color: colors.muted, width: 24 },
+  headerTitle: { fontSize: 16, fontWeight: "800", color: colors.text },
   body: { padding: 16, gap: 12, paddingBottom: 40 },
   qrCard: { gap: 12 },
   modeRow: { flexDirection: "row", justifyContent: "center", flexWrap: "wrap", gap: 6 },
-  modeChip: { borderRadius: 999, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: "#fff" },
-  modeChipActive: { backgroundColor: C.primary, borderColor: C.primary },
-  modeChipText: { fontSize: 12, fontWeight: "700", color: C.muted },
+  modeChip: { borderRadius: 999, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: colors.card },
+  modeChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  modeChipText: { fontSize: 12, fontWeight: "700", color: colors.muted },
   modeChipTextActive: { color: "#fff" },
-  modeDesc: { fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 19 },
-  qrImage: { width: 240, height: 240, alignSelf: "center", borderRadius: 16, backgroundColor: "#fff", borderWidth: 1, borderColor: C.border },
-  countdown: { fontSize: 14, fontWeight: "800", color: C.primary, textAlign: "center" },
-  qrNote: { fontSize: 12, color: C.muted, textAlign: "center", lineHeight: 18 },
-  workerNoteBox: { backgroundColor: C.primarySoft, borderRadius: 14, padding: 14, gap: 8 },
-  workerNoteTitle: { fontSize: 14, fontWeight: "800", color: C.primary },
-  workerNote: { fontSize: 13, color: C.text, lineHeight: 20 },
-  workerNoteHint: { fontSize: 11, color: C.muted, lineHeight: 16 },
-  error: { color: C.danger, fontSize: 13, textAlign: "center" },
-  divider: { height: 1, backgroundColor: "#f3f4f6" },
+  modeDesc: { fontSize: 13, color: colors.muted, textAlign: "center", lineHeight: 19 },
+  qrImage: { width: 240, height: 240, alignSelf: "center", borderRadius: 16, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  countdown: { fontSize: 14, fontWeight: "800", color: colors.primary, textAlign: "center" },
+  qrNote: { fontSize: 12, color: colors.muted, textAlign: "center", lineHeight: 18 },
+  workerNoteBox: { backgroundColor: colors.primarySoft, borderRadius: 14, padding: 14, gap: 8 },
+  workerNoteTitle: { fontSize: 14, fontWeight: "800", color: colors.primary },
+  workerNote: { fontSize: 13, color: colors.text, lineHeight: 20 },
+  workerNoteHint: { fontSize: 11, color: colors.muted, lineHeight: 16 },
+  error: { color: colors.danger, fontSize: 13, textAlign: "center" },
+  divider: { height: 1, backgroundColor: colors.borderLight },
   infoRow: { flexDirection: "row", gap: 10, paddingVertical: 4 },
-  infoLabel: { fontSize: 12, color: C.muted, width: 80 },
-  infoValue: { fontSize: 13, color: C.text, flex: 1, lineHeight: 19 },
-  infoValueStrong: { fontSize: 13, fontWeight: "800", color: C.primary, flex: 1 },
-  scannedAt: { fontSize: 11, color: C.muted, marginTop: 4 },
+  infoLabel: { fontSize: 12, color: colors.muted, width: 80 },
+  infoValue: { fontSize: 13, color: colors.text, flex: 1, lineHeight: 19 },
+  infoValueStrong: { fontSize: 13, fontWeight: "800", color: colors.primary, flex: 1 },
+  scannedAt: { fontSize: 11, color: colors.muted, marginTop: 4 },
   flowCard: { gap: 8 },
-  flowStep: { fontSize: 13, color: C.text, lineHeight: 20 },
-  flowNote: { fontSize: 12, color: C.muted, lineHeight: 18, backgroundColor: "#f5f5f7", borderRadius: 10, padding: 10 },
+  flowStep: { fontSize: 13, color: colors.text, lineHeight: 20 },
+  flowNote: { fontSize: 12, color: colors.muted, lineHeight: 18, backgroundColor: colors.cardSecondary, borderRadius: 10, padding: 10 },
 });
+let styles = createStyles(lightColors);

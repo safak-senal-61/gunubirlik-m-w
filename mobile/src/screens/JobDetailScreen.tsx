@@ -1,4 +1,4 @@
-import React, { useEffect, useState, type ReactNode } from "react";
+import React, { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Alert,
   Linking,
@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Badge, Card, C, Loading, PrimaryButton, SectionTitle, useTheme } from "@/components/ui";
+import { Badge, Card, C, Loading, PrimaryButton, SectionTitle, useTheme, lightColors, type ThemeColors } from "@/components/ui";
 import LeafletMap from "@/components/LeafletMap";
 import { applyToJob, deleteJob, fetchJob } from "@/lib/api";
 import { toggleSaved, useSavedIds } from "@/lib/saved-store";
@@ -60,6 +60,7 @@ export default function JobDetailScreen({
 }) {
   const { user } = useAuth();
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [job, setJob] = useState<ApiJob | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -392,6 +393,7 @@ function StatusBanner({ status, workDate }: { status: ApiApplication["status"]; 
 
 function Tile({ icon, label, value }: { icon: ReactNode; value: string; label: string }) {
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={[styles.tile, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
       <View style={styles.tileHeader}>
@@ -415,6 +417,7 @@ function ApplyModal({
   onApplied: () => void;
 }) {
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [message, setMessage] = useState("");
   const [wage, setWage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -514,22 +517,23 @@ function ApplyModal({
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: C.bg },
-  wrap: { padding: 16, paddingBottom: 40, gap: 12, backgroundColor: C.bg },
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+  flex: { flex: 1, backgroundColor: colors.bg },
+  wrap: { padding: 16, paddingBottom: 40, gap: 12, backgroundColor: colors.bg },
   backButton: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 },
-  back: { fontSize: 13, fontWeight: "600", color: C.muted },
+  back: { fontSize: 13, fontWeight: "600", color: colors.muted },
   headRow: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
-  title: { fontSize: 20, fontWeight: "800", color: C.text, lineHeight: 26 },
+  title: { fontSize: 20, fontWeight: "800", color: colors.text, lineHeight: 26 },
   employerRowInline: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
-  employer: { fontSize: 13, color: C.muted },
-  verifiedBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: C.primarySoft, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  verifiedText: { fontSize: 11, fontWeight: "700", color: C.primary },
+  employer: { fontSize: 13, color: colors.muted },
+  verifiedBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.primarySoft, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  verifiedText: { fontSize: 11, fontWeight: "700", color: colors.primary },
   catBox: {
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: C.primarySoft,
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -537,23 +541,23 @@ const styles = StyleSheet.create({
   },
   badgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 12 },
   tiles: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 14 },
-  tile: { width: "48.5%", backgroundColor: "#F6F5F2", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#E8E6DF" },
+  tile: { width: "48.5%", backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border },
   tileHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
-  tileLabel: { fontSize: 11, color: C.muted, fontWeight: "600" },
-  tileValue: { fontSize: 13, fontWeight: "700", color: C.text, marginTop: 4 },
-  metaLine: { fontSize: 11, color: C.muted, marginTop: 12 },
+  tileLabel: { fontSize: 11, color: colors.muted, fontWeight: "600" },
+  tileValue: { fontSize: 13, fontWeight: "700", color: colors.text, marginTop: 4 },
+  metaLine: { fontSize: 11, color: colors.muted, marginTop: 12 },
   actionRow: { flexDirection: "row", gap: 8, marginTop: 14, alignItems: "center", flexWrap: "wrap" },
-  para: { fontSize: 14, color: C.text, lineHeight: 22, marginTop: 10 },
-  skillsTitle: { fontSize: 11, fontWeight: "700", color: C.muted, letterSpacing: 0.5, marginTop: 14 },
+  para: { fontSize: 14, color: colors.text, lineHeight: 22, marginTop: 10 },
+  skillsTitle: { fontSize: 11, fontWeight: "700", color: colors.muted, letterSpacing: 0.5, marginTop: 14 },
   skillRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
-  locationNoteBox: { flexDirection: "row", gap: 8, backgroundColor: "#F6F5F2", borderRadius: 12, padding: 12, marginTop: 12, borderWidth: 1, borderColor: "#E8E6DF" },
-  noteText: { flex: 1, fontSize: 13, color: C.text, lineHeight: 19 },
+  locationNoteBox: { flexDirection: "row", gap: 8, backgroundColor: colors.cardSecondary, borderRadius: 12, padding: 12, marginTop: 12, borderWidth: 1, borderColor: colors.border },
+  noteText: { flex: 1, fontSize: 13, color: colors.text, lineHeight: 19 },
   mapRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   mapTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   mapLinkBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
-  mapLink: { fontSize: 12, fontWeight: "700", color: C.primary },
+  mapLink: { fontSize: 12, fontWeight: "700", color: colors.primary },
   mapCard: { gap: 10 },
-  mapHint: { fontSize: 12, color: C.muted, marginTop: 8 },
+  mapHint: { fontSize: 12, color: colors.muted, marginTop: 8 },
   statusBanner: {
     flexDirection: "row",
     gap: 12,
@@ -567,32 +571,33 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.9)",
+    backgroundColor: colors.card,
     alignItems: "center",
     justifyContent: "center",
   },
-  statusBannerTitle: { fontSize: 14, fontWeight: "800", color: C.text },
-  statusBannerDesc: { fontSize: 12, color: C.muted, marginTop: 2, lineHeight: 17 },
+  statusBannerTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
+  statusBannerDesc: { fontSize: 12, color: colors.muted, marginTop: 2, lineHeight: 17 },
   employerRow: { flexDirection: "row", gap: 12, alignItems: "center", marginTop: 10 },
-  employerAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: C.primarySoft, alignItems: "center", justifyContent: "center" },
-  employerInitial: { fontSize: 18, fontWeight: "800", color: C.primary },
-  employerName: { fontSize: 14, fontWeight: "700", color: C.text },
+  employerAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
+  employerInitial: { fontSize: 18, fontWeight: "800", color: colors.primary },
+  employerName: { fontSize: 14, fontWeight: "700", color: colors.text },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
-  employerMeta: { fontSize: 12, color: C.muted, fontWeight: "600" },
-  notFound: { fontSize: 16, fontWeight: "700", color: C.text, textAlign: "center" },
-  notFoundSub: { fontSize: 13, color: C.muted, textAlign: "center", marginTop: 6, marginBottom: 14 },
+  employerMeta: { fontSize: 12, color: colors.muted, fontWeight: "600" },
+  notFound: { fontSize: 16, fontWeight: "700", color: colors.text, textAlign: "center" },
+  notFoundSub: { fontSize: 13, color: colors.muted, textAlign: "center", marginTop: 6, marginBottom: 14 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
-  modalSheet: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 12 },
+  modalSheet: { backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, gap: 12 },
   quickRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  quickChip: { backgroundColor: C.primarySoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "rgba(13,104,71,0.15)" },
+  quickChip: { backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: "rgba(13,104,71,0.15)" },
   quickChipPressed: { opacity: 0.8 },
-  quickText: { fontSize: 11, fontWeight: "600", color: C.primary },
+  quickText: { fontSize: 11, fontWeight: "600", color: colors.primary },
   spamNote: { flexDirection: "row", gap: 8, alignItems: "flex-start", backgroundColor: "#fffbeb", borderColor: "#fde68a", borderWidth: 1, borderRadius: 12, padding: 10 },
-  spamText: { flex: 1, fontSize: 11, color: C.amber, lineHeight: 16 },
-  modalTitle: { fontSize: 18, fontWeight: "800", color: C.text },
-  modalDesc: { fontSize: 13, color: C.muted, lineHeight: 19 },
-  input: { borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: C.text },
+  spamText: { flex: 1, fontSize: 11, color: colors.amber, lineHeight: 16 },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+  modalDesc: { fontSize: 13, color: colors.muted, lineHeight: 19 },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: colors.text },
   textArea: { minHeight: 90, textAlignVertical: "top" },
-  error: { color: C.danger, fontSize: 13 },
+  error: { color: colors.danger, fontSize: 13 },
   modalActions: { flexDirection: "row", gap: 10, justifyContent: "flex-end", marginTop: 4 },
 });
+let styles = createStyles(lightColors);

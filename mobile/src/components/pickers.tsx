@@ -16,7 +16,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { C, PrimaryButton } from "@/components/ui";
+import { C, PrimaryButton, useTheme, type ThemeColors } from "@/components/ui";
 
 const TR_MONTHS = [
   "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
@@ -74,6 +74,8 @@ export function DatePicker({
   value: string;
   onChange: (iso: string) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const parsed = value ? new Date(`${value}T00:00:00`) : null;
   const selected = parsed && !Number.isNaN(parsed.getTime()) ? parsed : null;
   const [expanded, setExpanded] = useState(false);
@@ -208,6 +210,8 @@ export function TimePicker({
   label: string;
   onChange: (v: string) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [expanded, setExpanded] = useState(false);
   const [manual, setManual] = useState(value);
   const [error, setError] = useState<string | null>(null);
@@ -310,80 +314,81 @@ export function TimePicker({
   );
 }
 
-const styles = StyleSheet.create({
-  fieldBtn: { borderRadius: 14, borderWidth: 1, borderColor: C.border, backgroundColor: "#fff" },
-  fieldBtnPressed: { borderColor: C.primary },
-  fieldBtnInner: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
-  fieldBtnIcon: { fontSize: 18 },
-  fieldBtnLabel: { fontSize: 11, color: C.muted, fontWeight: "600" },
-  fieldBtnValue: { fontSize: 15, fontWeight: "800", color: C.text, marginTop: 1 },
-  fieldBtnPlaceholder: { color: C.muted, fontWeight: "600" },
-  fieldBtnChevron: { fontSize: 16, color: C.muted },
-  dateStrip: { gap: 8, paddingVertical: 4 },
-  dateChip: {
-    width: 52,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: C.border,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    paddingVertical: 8,
-    gap: 1,
-  },
-  dateChipActive: { backgroundColor: C.primary, borderColor: C.primary },
-  dateChipDow: { fontSize: 10, fontWeight: "700", color: C.muted },
-  dateChipDay: { fontSize: 17, fontWeight: "800", color: C.text },
-  dateChipToday: { fontSize: 8, fontWeight: "700", color: C.primary },
-  dateChipTextActive: { color: "#fff" },
-  overlay: { flex: 1, backgroundColor: "rgba(17,24,39,0.45)", justifyContent: "flex-end" },
-  sheet: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    padding: 20,
-    paddingBottom: 30,
-    gap: 12,
-  },
-  sheetHandle: { alignSelf: "center", width: 42, height: 4, borderRadius: 2, backgroundColor: C.border, marginBottom: 2 },
-  sheetTitle: { fontSize: 17, fontWeight: "800", color: C.text },
-  calHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  calNav: { fontSize: 24, color: C.primary, fontWeight: "800", paddingHorizontal: 14 },
-  calMonth: { fontSize: 15, fontWeight: "800", color: C.text },
-  weekRow: { flexDirection: "row", gap: 4 },
-  weekDay: { flex: 1, textAlign: "center", fontSize: 11, fontWeight: "700", color: C.muted, paddingVertical: 6 },
-  dayCell: { flex: 1, aspectRatio: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", marginVertical: 2 },
-  dayCellActive: { backgroundColor: C.primary },
-  dayCellPast: { opacity: 0.35 },
-  dayText: { fontSize: 13, fontWeight: "700", color: C.text },
-  dayTextActive: { color: "#fff", fontWeight: "800" },
-  dayTextPast: { color: C.muted },
-  calFooter: { marginTop: 6 },
-  timeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingVertical: 4 },
-  timeChip: {
-    flexGrow: 0,
-    flexBasis: "30%",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    paddingVertical: 10,
-  },
-  timeChipActive: { backgroundColor: C.primary, borderColor: C.primary },
-  timeChipText: { fontSize: 14, fontWeight: "700", color: C.text },
-  timeChipTextActive: { color: "#fff" },
-  manualRow: { flexDirection: "row", gap: 10, alignItems: "center" },
-  manualInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 14,
-    color: C.text,
-    backgroundColor: "#fff",
-  },
-  manualBtnWrap: { width: 110 },
-  manualError: { color: C.danger, fontSize: 12 },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    fieldBtn: { borderRadius: 14, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+    fieldBtnPressed: { borderColor: colors.primary },
+    fieldBtnInner: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
+    fieldBtnIcon: { fontSize: 18 },
+    fieldBtnLabel: { fontSize: 11, color: colors.muted, fontWeight: "600" },
+    fieldBtnValue: { fontSize: 15, fontWeight: "800", color: colors.text, marginTop: 1 },
+    fieldBtnPlaceholder: { color: colors.muted, fontWeight: "600" },
+    fieldBtnChevron: { fontSize: 16, color: colors.muted },
+    dateStrip: { gap: 8, paddingVertical: 4 },
+    dateChip: {
+      width: 52,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      alignItems: "center",
+      paddingVertical: 8,
+      gap: 1,
+    },
+    dateChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    dateChipDow: { fontSize: 10, fontWeight: "700", color: colors.muted },
+    dateChipDay: { fontSize: 17, fontWeight: "800", color: colors.text },
+    dateChipToday: { fontSize: 8, fontWeight: "700", color: colors.primary },
+    dateChipTextActive: { color: "#fff" },
+    overlay: { flex: 1, backgroundColor: "rgba(17,24,39,0.55)", justifyContent: "flex-end" },
+    sheet: {
+      backgroundColor: colors.card,
+      borderTopLeftRadius: 26,
+      borderTopRightRadius: 26,
+      padding: 20,
+      paddingBottom: 30,
+      gap: 12,
+    },
+    sheetHandle: { alignSelf: "center", width: 42, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: 2 },
+    sheetTitle: { fontSize: 17, fontWeight: "800", color: colors.text },
+    calHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    calNav: { fontSize: 24, color: colors.primary, fontWeight: "800", paddingHorizontal: 14 },
+    calMonth: { fontSize: 15, fontWeight: "800", color: colors.text },
+    weekRow: { flexDirection: "row", gap: 4 },
+    weekDay: { flex: 1, textAlign: "center", fontSize: 11, fontWeight: "700", color: colors.muted, paddingVertical: 6 },
+    dayCell: { flex: 1, aspectRatio: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", marginVertical: 2 },
+    dayCellActive: { backgroundColor: colors.primary },
+    dayCellPast: { opacity: 0.35 },
+    dayText: { fontSize: 13, fontWeight: "700", color: colors.text },
+    dayTextActive: { color: "#fff", fontWeight: "800" },
+    dayTextPast: { color: colors.muted },
+    calFooter: { marginTop: 6 },
+    timeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingVertical: 4 },
+    timeChip: {
+      flexGrow: 0,
+      flexBasis: "30%",
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      alignItems: "center",
+      paddingVertical: 10,
+    },
+    timeChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    timeChipText: { fontSize: 14, fontWeight: "700", color: colors.text },
+    timeChipTextActive: { color: "#fff" },
+    manualRow: { flexDirection: "row", gap: 10, alignItems: "center" },
+    manualInput: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 11,
+      fontSize: 14,
+      color: colors.text,
+      backgroundColor: colors.inputBg,
+    },
+    manualBtnWrap: { width: 110 },
+    manualError: { color: colors.danger, fontSize: 12 },
+  });

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { C, PrimaryButton } from "@/components/ui";
+import { C, PrimaryButton, useTheme, lightColors, type ThemeColors } from "@/components/ui";
 import { scanQr } from "@/lib/api";
 
 /**
@@ -13,6 +13,8 @@ import { scanQr } from "@/lib/api";
  * ekrandaki "Token ile doğrula" bölümüne token'ı (veya QR içeriğini) yapıştırmak yeterli.
  */
 export default function QrScannerScreen({ onClose, onScanned }: { onClose: () => void; onScanned?: () => void }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -151,70 +153,72 @@ export default function QrScannerScreen({ onClose, onScanned }: { onClose: () =>
   );
 }
 
-const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#000" },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    backgroundColor: "#111",
-  },
-  close: { fontSize: 18, color: "#fff", width: 24 },
-  headerTitle: { fontSize: 16, fontWeight: "800", color: "#fff" },
-  cameraBox: { flex: 1 },
-  camera: { flex: 1 },
-  frame: {
-    position: "absolute",
-    top: "20%",
-    left: "12%",
-    right: "12%",
-    height: 240,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.9)",
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "flex-end",
-    paddingBottom: -30,
-  },
-  frameHint: {
-    position: "absolute",
-    bottom: -34,
-    alignSelf: "center",
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "700",
-    backgroundColor: "rgba(0,0,0,0.55)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    overflow: "hidden",
-  },
-  footer: { padding: 16, backgroundColor: "#111", gap: 10 },
-  footerText: { color: "#fff", fontSize: 12, textAlign: "center", lineHeight: 18, opacity: 0.85 },
-  manualBox: {
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-    padding: 14,
-    gap: 8,
-  },
-  manualTitle: { color: "#fff", fontSize: 14, fontWeight: "800" },
-  manualDesc: { color: "rgba(255,255,255,0.7)", fontSize: 12, lineHeight: 17 },
-  manualInput: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderColor: "rgba(255,255,255,0.2)",
-    borderWidth: 1,
-    borderRadius: 10,
-    color: "#fff",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13,
-    minHeight: 44,
-  },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: C.bg, padding: 24 },
-  permEmoji: { fontSize: 44 },
-  permTitle: { fontSize: 18, fontWeight: "800", color: C.text },
-  permDesc: { fontSize: 13, color: C.muted, textAlign: "center", lineHeight: 19, marginBottom: 8 },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    page: { flex: 1, backgroundColor: "#000" },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: 16,
+      backgroundColor: "#111",
+    },
+    close: { fontSize: 18, color: "#fff", width: 24 },
+    headerTitle: { fontSize: 16, fontWeight: "800", color: "#fff" },
+    cameraBox: { flex: 1 },
+    camera: { flex: 1 },
+    frame: {
+      position: "absolute",
+      top: "20%",
+      left: "12%",
+      right: "12%",
+      height: 240,
+      borderWidth: 2,
+      borderColor: "rgba(255,255,255,0.9)",
+      borderRadius: 16,
+      alignItems: "center",
+      justifyContent: "flex-end",
+      paddingBottom: -30,
+    },
+    frameHint: {
+      position: "absolute",
+      bottom: -34,
+      alignSelf: "center",
+      color: "#fff",
+      fontSize: 13,
+      fontWeight: "700",
+      backgroundColor: "rgba(0,0,0,0.55)",
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 999,
+      overflow: "hidden",
+    },
+    footer: { padding: 16, backgroundColor: "#111", gap: 10 },
+    footerText: { color: "#fff", fontSize: 12, textAlign: "center", lineHeight: 18, opacity: 0.85 },
+    manualBox: {
+      backgroundColor: "rgba(255,255,255,0.06)",
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: "rgba(255,255,255,0.14)",
+      padding: 14,
+      gap: 8,
+    },
+    manualTitle: { color: "#fff", fontSize: 14, fontWeight: "800" },
+    manualDesc: { color: "rgba(255,255,255,0.7)", fontSize: 12, lineHeight: 17 },
+    manualInput: {
+      backgroundColor: "rgba(255,255,255,0.08)",
+      borderColor: "rgba(255,255,255,0.2)",
+      borderWidth: 1,
+      borderRadius: 10,
+      color: "#fff",
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 13,
+      minHeight: 44,
+    },
+    center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, backgroundColor: colors.bg, padding: 24 },
+    permEmoji: { fontSize: 44 },
+    permTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+    permDesc: { fontSize: 13, color: colors.muted, textAlign: "center", lineHeight: 19, marginBottom: 8 },
+  });
+let styles = createStyles(lightColors);

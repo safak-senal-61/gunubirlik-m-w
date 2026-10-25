@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { Badge, Card, C, Chip, EmptyState, Loading, PrimaryButton, SectionTitle, useTheme } from "@/components/ui";
+import { Badge, Card, C, Chip, EmptyState, Loading, PrimaryButton, SectionTitle, useTheme, lightColors, type ThemeColors } from "@/components/ui";
 import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
 import { useCachedList } from "@/hooks/use-cached-list";
 import { fetchApplications, fetchApplicationsByEmployer, rateApplication, updateApplicationStatus } from "@/lib/api";
@@ -36,6 +36,7 @@ export default function ApplicationsScreen({
 }) {
   const { user } = useAuth();
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [apps, setApps] = useState<ApiApplication[]>([]);
   const [filter, setFilter] = useState<Filter>("ALL");
   const isEmployer = user?.role === "EMPLOYER";
@@ -305,6 +306,7 @@ function RatingModal({
   onSubmit: (rating: number, comment?: string) => Promise<void>;
 }) {
   const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
@@ -358,33 +360,35 @@ function RatingModal({
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: C.bg },
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+  flex: { flex: 1, backgroundColor: colors.bg },
   wrap: { padding: 16, paddingBottom: 40, gap: 12 },
-  h1: { fontSize: 22, fontWeight: "800", color: C.text },
-  sub: { fontSize: 13, color: C.muted, marginTop: -6 },
+  h1: { fontSize: 22, fontWeight: "800", color: colors.text },
+  sub: { fontSize: 13, color: colors.muted, marginTop: -6 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   topRow: { flexDirection: "row", gap: 8, alignItems: "flex-start", justifyContent: "space-between" },
-  jobTitle: { fontSize: 15, fontWeight: "800", color: C.text },
+  jobTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
   otherRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" },
-  other: { fontSize: 12, color: C.muted, fontWeight: "600" },
+  other: { fontSize: 12, color: colors.muted, fontWeight: "600" },
   ratingBadge: { flexDirection: "row", alignItems: "center", gap: 3 },
   ratingText: { fontSize: 11, fontWeight: "700", color: "#D97706" },
-  otherMeta: { fontSize: 12, color: C.muted },
+  otherMeta: { fontSize: 12, color: colors.muted },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 },
-  meta: { fontSize: 12, color: C.muted },
-  quote: { fontSize: 13, color: C.text, backgroundColor: "#F6F5F2", borderRadius: 10, padding: 10, marginTop: 8, lineHeight: 19, borderWidth: 1, borderColor: "#E8E6DF" },
-  proposal: { fontSize: 12, fontWeight: "700", color: C.primary, marginTop: 6 },
-  note: { fontSize: 12, color: C.muted, marginTop: 6 },
-  time: { fontSize: 11, color: C.muted, marginTop: 6 },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12, borderTopWidth: 1, borderTopColor: "#E8E6DF", paddingTop: 12, alignItems: "center" },
+  meta: { fontSize: 12, color: colors.muted },
+  quote: { fontSize: 13, color: colors.text, backgroundColor: colors.cardSecondary, borderRadius: 10, padding: 10, marginTop: 8, lineHeight: 19, borderWidth: 1, borderColor: colors.border },
+  proposal: { fontSize: 12, fontWeight: "700", color: colors.primary, marginTop: 6 },
+  note: { fontSize: 12, color: colors.muted, marginTop: 6 },
+  time: { fontSize: 11, color: colors.muted, marginTop: 6 },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12, borderTopWidth: 1, borderTopColor: colors.borderLight, paddingTop: 12, alignItems: "center" },
   chatRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", padding: 24 },
-  modalCard: { backgroundColor: "#fff", borderRadius: 20, padding: 20, width: "100%", gap: 10 },
-  modalDesc: { fontSize: 13, color: C.muted },
+  modalCard: { backgroundColor: colors.card, borderRadius: 20, padding: 20, width: "100%", gap: 10 },
+  modalDesc: { fontSize: 13, color: colors.muted },
   stars: { flexDirection: "row", justifyContent: "center", gap: 8, paddingVertical: 10 },
   starBtn: { padding: 4 },
-  input: { borderWidth: 1, borderColor: C.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: C.text },
+  input: { borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: colors.text },
   textArea: { minHeight: 70, textAlignVertical: "top" },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10 },
 });
+let styles = createStyles(lightColors);

@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Linking, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { WebView } from "react-native-webview";
-import { C } from "@/components/ui";
+import { C, useTheme, lightColors, type ThemeColors } from "@/components/ui";
 import { CATEGORY_ICONS, CATEGORY_LABELS } from "@/lib/format";
 import { getCurrentCoords } from "@/hooks/use-location";
 import type { JobCategory } from "@/lib/types";
@@ -38,6 +38,8 @@ export default function LeafletMap({
   category?: JobCategory | null;
   address?: string | null;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [full, setFull] = useState(false);
   const [route, setRoute] = useState<RouteState>({ kind: "idle" });
   // Çizilen rotanın koordinatları [ [lat,lng], ... ] — HTML'e enjekte edilir.
@@ -239,67 +241,70 @@ ${routeScript}
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { gap: 8 },
-  box: {
-    height: 260,
-    borderRadius: 16,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: C.border,
-    backgroundColor: C.primarySoft,
-  },
-  fullBox: { flex: 1, backgroundColor: C.primarySoft },
-  web: { flex: 1 },
-  center: { alignItems: "center", justifyContent: "center" },
-  webNote: { fontSize: 13, color: C.muted, fontWeight: "600" },
-  actionRow: { flexDirection: "row", gap: 8 },
-  fullActions: { flexDirection: "row", gap: 10 },
-  actionBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 7,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: C.primary,
-    backgroundColor: "#fff",
-    paddingVertical: 11,
-  },
-  actionBtnPrimary: { backgroundColor: C.primary },
-  actionIcon: { fontSize: 14 },
-  actionText: { fontSize: 13, fontWeight: "800", color: C.primary },
-  actionTextPrimary: { color: "#fff" },
-  routeBadge: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    backgroundColor: "rgba(255,255,255,0.95)",
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  routeBadgeText: { fontSize: 11, fontWeight: "800", color: C.primary },
-  routeHint: { fontSize: 12, fontWeight: "800", color: C.primary, marginTop: -2 },
-  routeError: { fontSize: 11, color: C.danger, lineHeight: 16 },
-  routeErrLink: { fontWeight: "800", textDecorationLine: "underline" },
-  openFullHint: { alignSelf: "flex-start", backgroundColor: C.primarySoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
-  openFullHintText: { fontSize: 11, fontWeight: "800", color: C.primary },
-  fullWrap: { flex: 1, backgroundColor: "#fff" },
-  fullHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    gap: 8,
-  },
-  fullClose: { fontSize: 17, color: C.muted, fontWeight: "700" },
-  fullTitle: { flex: 1, fontSize: 14, fontWeight: "800", color: C.text, textAlign: "center" },
-  fullFooter: { padding: 14, paddingBottom: 22, borderTopWidth: 1, borderTopColor: C.border },
-});
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    wrap: { gap: 8 },
+    box: {
+      height: 260,
+      borderRadius: 16,
+      overflow: "hidden",
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+    },
+    fullBox: { flex: 1, backgroundColor: colors.bg },
+    web: { flex: 1 },
+    center: { alignItems: "center", justifyContent: "center" },
+    webNote: { fontSize: 13, color: colors.muted, fontWeight: "600" },
+    actionRow: { flexDirection: "row", gap: 8 },
+    fullActions: { flexDirection: "row", gap: 10 },
+    actionBtn: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 7,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      borderColor: colors.primary,
+      backgroundColor: colors.card,
+      paddingVertical: 11,
+    },
+    actionBtnPrimary: { backgroundColor: colors.primary },
+    actionIcon: { fontSize: 14 },
+    actionText: { fontSize: 13, fontWeight: "800", color: colors.primary },
+    actionTextPrimary: { color: "#fff" },
+    routeBadge: {
+      position: "absolute",
+      top: 8,
+      left: 8,
+      backgroundColor: colors.card,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    routeBadgeText: { fontSize: 11, fontWeight: "800", color: colors.primary },
+    routeHint: { fontSize: 12, fontWeight: "800", color: colors.primary, marginTop: -2 },
+    routeError: { fontSize: 11, color: colors.danger, lineHeight: 16 },
+    routeErrLink: { fontWeight: "800", textDecorationLine: "underline" },
+    openFullHint: { alignSelf: "flex-start", backgroundColor: colors.primarySoft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
+    openFullHintText: { fontSize: 11, fontWeight: "800", color: colors.primary },
+    fullWrap: { flex: 1, backgroundColor: colors.bg },
+    fullHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      backgroundColor: colors.headerBg,
+      gap: 8,
+    },
+    fullClose: { fontSize: 17, color: colors.muted, fontWeight: "700" },
+    fullTitle: { flex: 1, fontSize: 14, fontWeight: "800", color: colors.text, textAlign: "center" },
+    fullFooter: { padding: 14, paddingBottom: 22, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card },
+  });
+let styles = createStyles(lightColors);

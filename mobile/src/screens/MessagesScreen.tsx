@@ -27,7 +27,7 @@ import {
 } from '../lib/api';
 import type { ApiConversation, ApiMessage, ApiJob } from '../lib/types';
 import { subscribeToConversation, sendRealtimeMessage, TypingUser } from '../lib/socket';
-import { Avatar, useTheme } from '../components/ui';
+import { Avatar, useTheme, type ThemeColors } from '../components/ui';
 import {
   ArrowLeftIcon,
   SendIcon,
@@ -133,6 +133,7 @@ export function MessagesScreen({
   onAutoFocusReplyHandled,
 }: MessagesScreenProps) {
   const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const targetId = openConversationId || initialConversationId;
 
   // Ana State'ler
@@ -1236,30 +1237,31 @@ export function MessagesScreen({
 
 export default MessagesScreen;
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   centered: {
     flex: 1,
-    backgroundColor: '#F6F5F2',
+    backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   loadingText: {
     fontSize: 13,
-    color: '#5C615E',
+    color: colors.muted,
     fontFamily: 'PlusJakartaSans_500Medium',
   },
   listContainer: {
     flex: 1,
-    backgroundColor: '#F6F5F2',
+    backgroundColor: colors.bg,
   },
   inboxHeader: {
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 10,
-    backgroundColor: '#F6F5F2',
+    backgroundColor: colors.bg,
     borderBottomWidth: 1,
-    borderBottomColor: '#E8E6DF',
+    borderBottomColor: colors.borderLight,
     gap: 10,
   },
   inboxTitleRow: {
@@ -1271,11 +1273,11 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: 'PlusJakartaSans_800ExtraBold',
     fontWeight: '800',
-    color: '#141615',
+    color: colors.text,
     letterSpacing: -0.4,
   },
   activeConvCountPill: {
-    backgroundColor: '#EAF3EE',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -1284,14 +1286,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
-    color: '#0D6847',
+    color: colors.primary,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.inputBg,
     borderWidth: 1,
-    borderColor: '#E2E0D8',
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 40,
@@ -1301,7 +1303,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontFamily: 'PlusJakartaSans_500Medium',
-    color: '#141615',
+    color: colors.text,
     padding: 0,
   },
   filterRow: {
@@ -1312,19 +1314,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: '#E2E0D8',
+    borderColor: colors.border,
   },
   filterChipActive: {
-    backgroundColor: '#0D6847',
-    borderColor: '#0D6847',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterChipText: {
     fontSize: 12,
     fontFamily: 'PlusJakartaSans_600SemiBold',
     fontWeight: '600',
-    color: '#5C615E',
+    color: colors.muted,
   },
   filterChipTextActive: {
     color: '#FFFFFF',
@@ -1339,11 +1341,11 @@ const styles = StyleSheet.create({
   conversationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#EAE8E2',
+    borderColor: colors.border,
     gap: 12,
   },
   cardAvatarContainer: {
@@ -1379,19 +1381,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
-    color: '#141615',
+    color: colors.text,
   },
   cardTime: {
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_500Medium',
-    color: '#8C928E',
+    color: colors.muted,
   },
   cardJobBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     alignSelf: 'flex-start',
-    backgroundColor: '#F0F7F4',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -1399,7 +1401,7 @@ const styles = StyleSheet.create({
   cardJobTitle: {
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_600SemiBold',
-    color: '#0D6847',
+    color: colors.primary,
   },
   cardBottomRow: {
     flexDirection: 'row',
@@ -1411,10 +1413,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontFamily: 'PlusJakartaSans_400Regular',
-    color: '#717673',
+    color: colors.muted,
   },
   unreadBadge: {
-    backgroundColor: '#0D6847',
+    backgroundColor: colors.primary,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
@@ -1440,7 +1442,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#EAF3EE',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
@@ -1449,12 +1451,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
-    color: '#141615',
+    color: colors.text,
   },
   emptyDesc: {
     fontSize: 12,
     fontFamily: 'PlusJakartaSans_400Regular',
-    color: '#717673',
+    color: colors.muted,
     textAlign: 'center',
     lineHeight: 18,
   },
@@ -1462,7 +1464,7 @@ const styles = StyleSheet.create({
   // Thread Header
   threadContainer: {
     flex: 1,
-    backgroundColor: '#F6F5F2',
+    backgroundColor: colors.bg,
   },
   threadLoadingContainer: {
     flexDirection: 'row',
@@ -1470,12 +1472,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 12,
-    backgroundColor: '#F0F7F4',
+    backgroundColor: colors.primarySoft,
   },
   threadLoadingText: {
     fontSize: 12,
     fontFamily: 'PlusJakartaSans_600SemiBold',
-    color: '#0D6847',
+    color: colors.primary,
   },
   threadHeader: {
     flexDirection: 'row',
@@ -1483,9 +1485,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#E8E6DF',
+    borderBottomColor: colors.borderLight,
     gap: 8,
   },
   backButton: {
@@ -1519,13 +1521,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
-    color: '#141615',
+    color: colors.text,
   },
   headerJobPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F0F7F4',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -1534,24 +1536,24 @@ const styles = StyleSheet.create({
   headerJobText: {
     fontSize: 10,
     fontFamily: 'PlusJakartaSans_600SemiBold',
-    color: '#0D6847',
+    color: colors.primary,
   },
   headerShareJobBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EAF3EE',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#C5DDD0',
+    borderColor: colors.border,
   },
   headerShareJobText: {
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
-    color: '#0D6847',
+    color: colors.primary,
   },
 
   messagesList: {
@@ -1572,7 +1574,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E2E0D8',
   },
   datePill: {
-    backgroundColor: '#EAE8E2',
+    backgroundColor: colors.cardSecondary,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1581,7 +1583,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'PlusJakartaSans_600SemiBold',
     fontWeight: '600',
-    color: '#5C615E',
+    color: colors.muted,
   },
   messageRow: {
     flexDirection: 'row',
@@ -1609,14 +1611,14 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   myBubble: {
-    backgroundColor: '#0D6847',
+    backgroundColor: colors.primary,
     borderBottomRightRadius: 4,
   },
   otherBubble: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: '#E8E6DF',
+    borderColor: colors.border,
   },
   quotedBubble: {
     padding: 6,
@@ -1629,19 +1631,19 @@ const styles = StyleSheet.create({
     borderLeftColor: '#A7F3D0',
   },
   quotedBubbleOther: {
-    backgroundColor: '#F6F5F2',
+    backgroundColor: colors.bg,
     borderLeftColor: '#0D6847',
   },
   quotedSender: {
     fontSize: 10,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
-    color: '#0D6847',
+    color: colors.primary,
   },
   quotedText: {
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_400Regular',
-    color: '#5C615E',
+    color: colors.muted,
   },
   messageText: {
     fontSize: 13,
@@ -1652,7 +1654,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   otherText: {
-    color: '#141615',
+    color: colors.text,
   },
   messageMetaRow: {
     flexDirection: 'row',
@@ -1669,7 +1671,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.75)',
   },
   otherTime: {
-    color: '#8C928E',
+    color: colors.muted,
   },
   editedLabel: {
     fontSize: 9,
@@ -1679,11 +1681,11 @@ const styles = StyleSheet.create({
 
   // İnteraktif İlan Kartı Widget'ı
   jobShareWidget: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#C5DDD0',
+    borderColor: colors.border,
     gap: 6,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
@@ -1700,7 +1702,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
-    color: '#0D6847',
+    color: colors.primary,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
@@ -1708,7 +1710,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'PlusJakartaSans_800ExtraBold',
     fontWeight: '800',
-    color: '#141615',
+    color: colors.text,
   },
   jobShareWidgetMetaRow: {
     flexDirection: 'row',
@@ -1719,8 +1721,8 @@ const styles = StyleSheet.create({
   jobShareWidgetWage: {
     fontSize: 12,
     fontFamily: 'PlusJakartaSans_700Bold',
-    color: '#0D6847',
-    backgroundColor: '#EAF3EE',
+    color: colors.primary,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1728,14 +1730,14 @@ const styles = StyleSheet.create({
   jobShareWidgetLoc: {
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_500Medium',
-    color: '#5C615E',
+    color: colors.muted,
   },
   jobShareWidgetBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#0D6847',
+    backgroundColor: colors.primary,
     paddingVertical: 8,
     borderRadius: 8,
     marginTop: 4,
@@ -1750,7 +1752,7 @@ const styles = StyleSheet.create({
   replyBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EAF3EE',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderTopWidth: 1,
@@ -1761,18 +1763,18 @@ const styles = StyleSheet.create({
     width: 3,
     height: 28,
     borderRadius: 1.5,
-    backgroundColor: '#0D6847',
+    backgroundColor: colors.primary,
   },
   replyBarSender: {
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
-    color: '#0D6847',
+    color: colors.primary,
   },
   replyBarText: {
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_400Regular',
-    color: '#5C615E',
+    color: colors.muted,
   },
 
   // Input Container
@@ -1781,23 +1783,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderTopWidth: 1,
     borderTopColor: '#E8E6DF',
     gap: 8,
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#F6F5F2',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#E2E0D8',
+    borderColor: colors.border,
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 8,
     maxHeight: 90,
     fontSize: 13,
     fontFamily: 'PlusJakartaSans_500Medium',
-    color: '#141615',
+    color: colors.text,
   },
   sendButton: {
     width: 36,
@@ -1807,7 +1809,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sendButtonActive: {
-    backgroundColor: '#0D6847',
+    backgroundColor: colors.primary,
   },
   sendButtonDisabled: {
     backgroundColor: '#C5DDD0',
@@ -1820,19 +1822,19 @@ const styles = StyleSheet.create({
   typingBubble: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
     alignSelf: 'flex-start',
     borderWidth: 1,
-    borderColor: '#E8E6DF',
+    borderColor: colors.border,
     gap: 6,
   },
   typingText: {
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_500Medium',
-    color: '#717673',
+    color: colors.muted,
   },
   typingDots: {
     flexDirection: 'row',
@@ -1842,7 +1844,7 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#0D6847',
+    backgroundColor: colors.primary,
   },
   dot1: { opacity: 0.4 },
   dot2: { opacity: 0.7 },
@@ -1859,7 +1861,7 @@ const styles = StyleSheet.create({
   actionModalContent: {
     width: '100%',
     maxWidth: 320,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: 16,
     padding: 16,
     gap: 4,
@@ -1872,12 +1874,12 @@ const styles = StyleSheet.create({
   actionModalTitle: {
     fontSize: 13,
     fontFamily: 'PlusJakartaSans_600SemiBold',
-    color: '#717673',
+    color: colors.muted,
     paddingBottom: 8,
   },
   actionDivider: {
     height: 1,
-    backgroundColor: '#EAE8E2',
+    backgroundColor: colors.cardSecondary,
     marginVertical: 4,
   },
   actionItem: {
@@ -1888,7 +1890,7 @@ const styles = StyleSheet.create({
   actionItemText: {
     fontSize: 14,
     fontFamily: 'PlusJakartaSans_600SemiBold',
-    color: '#141615',
+    color: colors.text,
   },
 
   // Elastic Search İlan Arama Modalı
@@ -1898,7 +1900,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   shareJobModalSheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 16,
@@ -1924,20 +1926,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'PlusJakartaSans_800ExtraBold',
     fontWeight: '800',
-    color: '#141615',
+    color: colors.text,
   },
   shareJobDesc: {
     fontSize: 12,
     fontFamily: 'PlusJakartaSans_400Regular',
-    color: '#717673',
+    color: colors.muted,
     marginTop: 2,
   },
   jobSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F6F5F2',
+    backgroundColor: colors.inputBg,
     borderWidth: 1,
-    borderColor: '#E2E0D8',
+    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     height: 42,
@@ -1947,7 +1949,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontFamily: 'PlusJakartaSans_500Medium',
-    color: '#141615',
+    color: colors.text,
     padding: 0,
   },
   jobFilterChipsScroll: {
@@ -1957,18 +1959,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 14,
-    backgroundColor: '#F6F5F2',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#E2E0D8',
+    borderColor: colors.border,
   },
   modalCategoryChipActive: {
-    backgroundColor: '#0D6847',
-    borderColor: '#0D6847',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   modalCategoryChipText: {
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_600SemiBold',
-    color: '#5C615E',
+    color: colors.muted,
   },
   modalCategoryChipTextActive: {
     color: '#FFFFFF',
@@ -1976,9 +1978,9 @@ const styles = StyleSheet.create({
   jobSearchCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FBFBFA',
+    backgroundColor: colors.cardSecondary,
     borderWidth: 1,
-    borderColor: '#EAE8E2',
+    borderColor: colors.border,
     borderRadius: 12,
     padding: 10,
     marginVertical: 4,
@@ -1988,7 +1990,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#EAF3EE',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1996,21 +1998,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'PlusJakartaSans_700Bold',
     fontWeight: '700',
-    color: '#141615',
+    color: colors.text,
   },
   jobSearchWage: {
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_700Bold',
-    color: '#0D6847',
+    color: colors.primary,
   },
   jobSearchLoc: {
     fontSize: 11,
     fontFamily: 'PlusJakartaSans_500Medium',
-    color: '#717673',
+    color: colors.muted,
     flex: 1,
   },
   jobShareBtnPill: {
-    backgroundColor: '#0D6847',
+    backgroundColor: colors.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
