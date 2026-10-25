@@ -1,9 +1,4 @@
-import type {
-  ApplicationStatus,
-  JobCategory,
-  JobStatus,
-  Urgency,
-} from "./api-types";
+import type { ApplicationStatus, JobCategory, JobStatus, Urgency } from "./types";
 
 export const CATEGORY_LABELS: Record<JobCategory, string> = {
   INSAAT: "İnşaat & Yapı",
@@ -39,13 +34,19 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   ACCEPTED: "Kabul edildi",
   REJECTED: "Reddedildi",
   COMPLETED: "Tamamlandı",
+  WITHDRAWN: "Geri çekildi",
+  NO_SHOW: "Gelmedi",
+  IN_PROGRESS: "Devam ediyor",
 };
 
-export const APPLICATION_STATUS_CLASSES: Record<ApplicationStatus, string> = {
-  PENDING: "bg-amber-100 text-amber-800",
-  ACCEPTED: "bg-emerald-100 text-emerald-800",
-  REJECTED: "bg-rose-100 text-rose-800",
-  COMPLETED: "bg-indigo-100 text-indigo-800",
+export const APPLICATION_STATUS_COLORS: Record<ApplicationStatus, string> = {
+  PENDING: "#b45309",
+  ACCEPTED: "#047857",
+  REJECTED: "#be123c",
+  COMPLETED: "#4338ca",
+  WITHDRAWN: "#6b7280",
+  NO_SHOW: "#dc2626",
+  IN_PROGRESS: "#2563eb",
 };
 
 export const URGENCY_LABELS: Record<Urgency, string> = {
@@ -56,20 +57,20 @@ export const URGENCY_LABELS: Record<Urgency, string> = {
   URGENT: "Acil",
 };
 
-export const URGENCY_CLASSES: Record<Urgency, string> = {
-  LOW: "bg-emerald-100 text-emerald-800",
-  MEDIUM: "bg-amber-100 text-amber-800",
-  HIGH: "bg-rose-100 text-rose-800",
-  NORMAL: "bg-emerald-100 text-emerald-800",
-  URGENT: "bg-rose-100 text-rose-800",
+export const URGENCY_COLORS: Record<Urgency, string> = {
+  LOW: "#047857",
+  MEDIUM: "#b45309",
+  HIGH: "#be123c",
+  NORMAL: "#047857",
+  URGENT: "#be123c",
 };
 
-export function formatWage(amount: number, wageType: string, currency = "TRY") {
+export function formatWage(amount: number, wageType: string, currency = "TRY"): string {
   const suffix = wageType === "HOURLY" ? "/saat" : "/gün";
   return `${amount.toLocaleString("tr-TR")} ₺${suffix}`;
 }
 
-export function formatDate(input: string | Date) {
+export function formatDate(input: string | Date): string {
   const d = typeof input === "string" ? new Date(input) : input;
   return d.toLocaleDateString("tr-TR", {
     day: "numeric",
@@ -78,12 +79,12 @@ export function formatDate(input: string | Date) {
   });
 }
 
-export function formatDateShort(input: string | Date) {
+export function formatDateShort(input: string | Date): string {
   const d = typeof input === "string" ? new Date(input) : input;
   return d.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
 }
 
-export function timeAgo(input: string | Date) {
+export function timeAgo(input: string | Date): string {
   const d = typeof input === "string" ? new Date(input) : input;
   const diff = Date.now() - d.getTime();
   const mins = Math.floor(diff / 60000);
@@ -96,8 +97,16 @@ export function timeAgo(input: string | Date) {
   return formatDateShort(d);
 }
 
-export function timeRange(start: string, end: string) {
+export function timeRange(start: string, end: string): string {
   return `${start.slice(0, 5)}–${end.slice(0, 5)}`;
+}
+
+/** 0.42 → "420 m", 3.5 → "3,5 km", 13 → "13 km" */
+export function formatDistance(km: number | null | undefined): string | null {
+  if (km == null || Number.isNaN(km)) return null;
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  if (km < 10) return `${km.toFixed(1).replace(".", ",")} km`;
+  return `${Math.round(km)} km`;
 }
 
 export function parseSkills(skills: string[] | string | null): string[] {
@@ -109,4 +118,20 @@ export function parseSkills(skills: string[] | string | null): string[] {
   } catch {
     return [];
   }
+}
+
+/** İki nokta arası kuş uçuşu mesafe (km). */
+export function haversineKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
 }

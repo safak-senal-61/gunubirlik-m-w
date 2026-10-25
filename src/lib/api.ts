@@ -1,4 +1,11 @@
+// Günübirlik backend client — tüm admin-dışı endpointler.
+// Mobil mirror of src/lib/api.ts.
+
 import axios, { AxiosError } from "axios";
+import * as FileSystem from "expo-file-system";
+import {
+  Platform,
+} from "react-native";
 import type {
   ApiApplication,
   ApiCategory,
@@ -6,15 +13,65 @@ import type {
   ApiJob,
   ApiMessage,
   ApiNotification,
+  ApiReview,
   ApiUser,
+  ApplicationStatus,
+  DeleteAccountStatus,
+  NotificationSettings,
+  NotificationSettingsPatch,
+  DepositRequest,
   GeocodeAddress,
+  GeocodeSuggestion,
   JobCategory,
   JobStatus,
   Pagination,
-} from "./api-types";
+  QrPayCode,
+  QrPayScanResult,
+  RatingSummary,
+  ReviewListResult,
+  ReviewType,
+  SecurityInfo,
+  SupportTicket,
+  TwoFactorSetup,
+  UserRole,
+  VerificationRequest,
+  VerificationStatus,
+  VerificationType,
+  WalletBalance,
+  WalletTransaction,
+  WalletTxType,
+  WithdrawRequest,
+} from "./types";
 
-export const API_BASE = "https://gunubirlik.space-z.ai/api/v1";
+import Constants from "expo-constants";
+
+/**
+ * Günübirlik canlı backend API adresi (https://gunubirlik.qrders.com.tr/api/v1).
+ * - Standalone APK (EAS Build / Production / Preview) varsayılan olarak canlı sunucuya bağlanır.
+ * - EXPO_PUBLIC_API_URL ortam değişkeni varsa onu kullanır.
+ * - EXPO_PUBLIC_USE_LOCAL="true" ve __DEV__ durumunda yerel IP'ye düşer.
+ */
+function resolveApiBase(): string {
+  if (process.env.EXPO_PUBLIC_API_URL) {
+    return process.env.EXPO_PUBLIC_API_URL.replace(/\/+$/, "");
+  }
+  if (__DEV__ && process.env.EXPO_PUBLIC_USE_LOCAL === "true") {
+    const hostUri = Constants.expoConfig?.hostUri;
+    if (hostUri) {
+      const ip = hostUri.split(":")[0];
+      if (ip && ip !== "localhost" && ip !== "127.0.0.1") {
+        return `http://${ip}:3000/api/v1`;
+      }
+    }
+    return "http://192.168.2.67:3000/api/v1";
+  }
+  // Standalone APK (EAS Build) ve varsayılan: Canlı Vercel sunucusu
+  return "https://gunubirlik.qrders.com.tr/api/v1";
+}
+
+export const API_BASE = resolveApiBase();
 const TOKEN_KEY = "gb_token";
+const USER_KEY = "gb_user";
 
 export class ApiError extends Error {
   status: number;
@@ -24,38 +81,116 @@ export class ApiError extends Error {
   }
 }
 
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+// ---------------- Token storage ----------------
+// Minimal, dependency-free storage wrapper. In Expo Go, AsyncStorage would be
+// ideal; SecureStore/AsyncStorage come with expo install. We keep an in-memory
+// cache + react-native AsyncStorage via a lazy import if available.
+
+let memoryToken: string | null = null;
+
+type MinimalStorage = {
+  getItem: (key: string) => Promise<string | null>;
+  setItem: (key: string, value: string) => Promise<void>;
+  removeItem: (key: string) => Promise<void>;
+};
+
+let storage: MinimalStorage | null = null;
+
+async function getStorage(): Promise<MinimalStorage> {
+  if (storage) return storage;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const asyncStorage = require("@react-native-async-storage/async-storage");
+    const resolved = (asyncStorage.default ?? asyncStorage) as MinimalStorage;
+    storage = resolved;
+    return resolved;
+  } catch {
+    // Fallback: in-memory only (token survives until app restart).
+    const fallback: MinimalStorage = {
+      getItem: async () => memoryToken,
+      setItem: async (_k, v) => {
+        memoryToken = v;
+      },
+      removeItem: async () => {
+        memoryToken = null;
+      },
+    };
+    storage = fallback;
+    return fallback;
+  }
 }
 
-export function setToken(token: string | null) {
-  if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
-  } else {
-    localStorage.removeItem(TOKEN_KEY);
+export async function getToken(): Promise<string | null> {
+  if (memoryToken) return memoryToken;
+  const s = await getStorage();
+  memoryToken = await s.getItem(TOKEN_KEY);
+  return memoryToken;
+}
+export async function setToken(token: string | null): Promise<void> {
+  memoryToken = token;
+  const s = await getStorage();
+  if (token) await s.setItem(TOKEN_KEY, token);
+  else await s.removeItem(TOKEN_KEY);
+}
+
+/** Cache user JSON for fast offline bootstrap (also used by AuthProvider). */
+export async function cacheUserForBootstrap(user: ApiUser | null): Promise<void> {
+  await cacheUser(user);
+}
+
+export async function getCachedUser(): Promise<ApiUser | null> {
+  const s = await getStorage();
+  const raw = await s.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as ApiUser;
+  } catch {
+    return null;
   }
+}
+
+async function cacheUser(user: ApiUser | null): Promise<void> {
+  const s = await getStorage();
+  if (user) await s.setItem(USER_KEY, JSON.stringify(user));
+  else await s.removeItem(USER_KEY);
 }
 
 export const api = axios.create({
   baseURL: API_BASE,
-  withCredentials: true,
   timeout: 20000,
 });
 
-api.interceptors.request.use((config) => {
-  const token = getToken();
+api.interceptors.request.use(async (config) => {
+  const token = await getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  // Web (Expo for web build) would need credentials; native does not.
+  if (Platform.OS === "web") {
+    config.withCredentials = true;
   }
   return config;
 });
 
 function toApiError(err: unknown): ApiError {
-  if (err instanceof AxiosError) {
-    const body = err.response?.data as { error?: string } | undefined;
+  if (axios.isAxiosError(err)) {
+    const errAxios = err as AxiosError<{ error?: string; message?: string }>;
+    const body = errAxios.response?.data;
+    if (body && (body.error || body.message)) {
+      return new ApiError(
+        body.error ?? body.message ?? "Bir hata oluştu.",
+        errAxios.response?.status ?? 0,
+      );
+    }
+    if (errAxios.code === "ECONNABORTED" || errAxios.message?.toLowerCase().includes("timeout")) {
+      return new ApiError("Sunucu yanıt vermedi, lütfen internet bağlantınızı kontrol edip tekrar deneyin.", 408);
+    }
+    if (!errAxios.response) {
+      return new ApiError("Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.", 0);
+    }
     return new ApiError(
-      body?.error ?? "Bir şeyler ters gitti. Lütfen tekrar dene.",
-      err.response?.status ?? 0,
+      "Sunucu ile iletişim kurulurken bir sorun oluştu. Lütfen tekrar deneyin.",
+      errAxios.response?.status ?? 0,
     );
   }
   return new ApiError(
@@ -70,6 +205,8 @@ export interface LoginResult {
   user?: ApiUser;
   token?: string;
   requiresTwoFactor?: boolean;
+  userId?: string;
+  message?: string;
 }
 
 export async function login(email: string, password: string, twoFactorCode?: string): Promise<LoginResult> {
@@ -79,14 +216,19 @@ export async function login(email: string, password: string, twoFactorCode?: str
       password,
       ...(twoFactorCode ? { twoFactorCode } : {}),
     });
-    // 2FA gerekliyse backend top-level { success:false, requiresTwoFactor:true, userId } döner (data yok).
     const body = res.data as {
       success?: boolean;
       data?: LoginResult;
       requiresTwoFactor?: boolean;
+      userId?: string;
+      message?: string;
     };
-    if (body?.requiresTwoFactor) {
-      return { requiresTwoFactor: true };
+    if (body?.requiresTwoFactor || (body as any)?.data?.requiresTwoFactor) {
+      return {
+        requiresTwoFactor: true,
+        userId: body?.userId ?? (body as any)?.data?.userId,
+        message: body?.message,
+      };
     }
     return body.data as LoginResult;
   } catch (err) {
@@ -99,7 +241,7 @@ export interface RegisterPayload {
   password: string;
   fullName: string;
   phone: string;
-  role: "WORKER" | "EMPLOYER";
+  role: UserRole;
   city: string;
   district: string;
   companyName?: string;
@@ -120,7 +262,9 @@ export async function logout(): Promise<void> {
   } catch {
     // token might already be invalid; ignore
   }
-  setToken(null);
+  await setToken(null);
+  await cacheUser(null);
+  clearApiCache();
 }
 
 export async function fetchMe(): Promise<ApiUser> {
@@ -147,7 +291,6 @@ export interface UpdateProfilePayload {
   longitude?: number | null;
 }
 
-/** PUT /auth/me — update profile fields. */
 export async function updateMe(payload: UpdateProfilePayload): Promise<ApiUser> {
   try {
     const res = await api.put("/auth/me", payload);
@@ -165,12 +308,82 @@ export async function changePassword(currentPassword: string, newPassword: strin
   }
 }
 
-export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
+export async function uploadAvatar(file: { uri: string; name: string; type: string }): Promise<{ avatarUrl: string }> {
   try {
-    const form = new FormData();
-    form.append("avatar", file);
-    const res = await api.post("/auth/avatar", form);
+    // Backend multipart DEĞİL, JSON bekliyor: { base64: "data:image/...;base64,...", mimeType }
+    // (bkz. api-doc POST /auth/avatar). Yerel dosyayı base64'e çevirip gönder.
+    const base64 = await FileSystem.readAsStringAsync(file.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const res = await api.post("/auth/avatar", {
+      base64: `data:${file.type || "image/jpeg"};base64,${base64}`,
+      mimeType: file.type || "image/jpeg",
+    });
     return res.data.data as { avatarUrl: string };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  try {
+    await api.post("/auth/forgot-password", { email });
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/**
+ * Şifre sıfırlama — backend gövdesi { code, newPassword } bekler (email BEKLEMEZ;
+ * kod EmailOtp/PasswordReset tablolarında e-postaya bağlı aranır — bkz. api-doc).
+ */
+export async function resetPassword(code: string, newPassword: string): Promise<void> {
+  try {
+    await api.post("/auth/reset-password", { code, newPassword });
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- E-posta OTP (doğrulama) ----------------
+
+export type OtpType =
+  | "EMAIL_ACTIVATION"
+  | "PASSWORD_RESET"
+  | "EMAIL_CHANGE"
+  | "LOGIN_VERIFY"
+  | "PHONE_VERIFY";
+
+/** 6 haneli tek kullanımlık kod gönderir (10 dk geçerli, max 5 yanlış deneme). */
+export async function sendOtp(
+  email: string,
+  type: OtpType = "EMAIL_ACTIVATION",
+): Promise<{ success?: boolean; message?: string }> {
+  try {
+    const res = await api.post("/auth/send-otp", { email, type });
+    return res.data.data as { success?: boolean; message?: string };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** E-posta aktivasyonu: send-otp EMAIL_ACTIVATION kodunu doğrular, emailVerified=true yapar. */
+export async function verifyEmail(
+  email: string,
+  code: string,
+): Promise<{ verified: boolean; userId?: string }> {
+  try {
+    const res = await api.post("/auth/verify-email", { email, code });
+    return res.data.data as { verified: boolean; userId?: string };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Doğrulanmamış hesaplara aktivasyon kodunu tekrar gönderir (zaten doğrulanmışsa hata döner). */
+export async function resendActivation(email: string): Promise<void> {
+  try {
+    await api.post("/auth/resend-activation", { email });
   } catch (err) {
     throw toApiError(err);
   }
@@ -178,16 +391,6 @@ export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
 
 // ---------------- 2FA ----------------
 
-export interface TwoFactorSetup {
-  /** data:image/png;base64,... QR code for authenticator apps. */
-  qrCode: string;
-  /** Base32 secret to enter manually. */
-  secret: string;
-  /** One-time backup codes. */
-  backupCodes: string[];
-}
-
-/** POST /auth/2fa/setup — generate secret + QR + backup codes. */
 export async function setup2fa(): Promise<TwoFactorSetup> {
   try {
     const res = await api.post("/auth/2fa/setup");
@@ -197,7 +400,6 @@ export async function setup2fa(): Promise<TwoFactorSetup> {
   }
 }
 
-/** POST /auth/2fa/verify — enable 2FA with a 6-digit TOTP code. */
 export async function verify2fa(code: string): Promise<{ enabled: boolean }> {
   try {
     const res = await api.post("/auth/2fa/verify", { code });
@@ -207,7 +409,6 @@ export async function verify2fa(code: string): Promise<{ enabled: boolean }> {
   }
 }
 
-/** POST /auth/2fa/disable — requires the current TOTP code. */
 export async function disable2fa(code: string): Promise<{ enabled: boolean }> {
   try {
     const res = await api.post("/auth/2fa/disable", { code });
@@ -217,22 +418,48 @@ export async function disable2fa(code: string): Promise<{ enabled: boolean }> {
   }
 }
 
+/** Kullanıcının güvenlik durumunu (2FA, şifre durumu, e-posta doğrulama) döner. */
+export async function fetchSecurityInfo(): Promise<SecurityInfo> {
+  try {
+    const res = await api.get("/auth/security-info");
+    return res.data.data as SecurityInfo;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
 // ---------------- Google ----------------
 
+export interface GoogleCompleteRegistrationPayload {
+  completeRegistration: boolean;
+  role: "WORKER" | "EMPLOYER";
+  fullName?: string;
+  phone?: string;
+  city?: string;
+  district?: string;
+  companyName?: string;
+  acceptedContracts?: boolean;
+}
+
 export interface GoogleLoginResult {
-  user?: ApiUser;
+  requiresRegistration?: boolean;
+  googleProfile?: {
+    email: string;
+    fullName: string;
+    avatarUrl?: string;
+  };
+  user?: ApiUser | null;
   token?: string;
   isNewUser?: boolean;
 }
 
-/**
- * POST /auth/google — exchange a Google ID token for a session.
- * The ID token comes from Google Identity Services on the client
- * (GoogleSignInButton renders the GIS script and returns credential).
- */
-export async function googleLogin(idToken: string): Promise<GoogleLoginResult> {
+/** idToken comes from Google Sign-In */
+export async function googleLogin(
+  idToken: string,
+  registrationData?: GoogleCompleteRegistrationPayload
+): Promise<GoogleLoginResult> {
   try {
-    const res = await api.post("/auth/google", { idToken });
+    const res = await api.post("/auth/google", { idToken, ...registrationData });
     return res.data.data as GoogleLoginResult;
   } catch (err) {
     throw toApiError(err);
@@ -241,7 +468,6 @@ export async function googleLogin(idToken: string): Promise<GoogleLoginResult> {
 
 // ---------------- Email change ----------------
 
-/** POST /auth/email-change/request — send a verification code to the current email. */
 export async function requestEmailChange(newEmail: string): Promise<void> {
   try {
     await api.post("/auth/email-change/request", { newEmail });
@@ -250,7 +476,6 @@ export async function requestEmailChange(newEmail: string): Promise<void> {
   }
 }
 
-/** POST /auth/email-change/confirm — verify with the code; backend uses the pending request. */
 export async function confirmEmailChange(code: string): Promise<{ email: string }> {
   try {
     const res = await api.post("/auth/email-change/confirm", { code });
@@ -264,6 +489,7 @@ export async function confirmEmailChange(code: string): Promise<{ email: string 
 
 export interface JobsQuery {
   page?: number;
+  pageSize?: number;
   limit?: number;
   category?: JobCategory;
   status?: JobStatus;
@@ -271,14 +497,32 @@ export interface JobsQuery {
   district?: string;
   mine?: boolean;
   search?: string;
-  /** Reference coordinates; server adds distanceKm to each job when sent. */
   lat?: number;
   lng?: number;
+  radiusKm?: number;
+  minWage?: number;
+  maxWage?: number;
+  workDateFrom?: string;
+  workDateTo?: string;
+  employerId?: string;
+  sortBy?: "NEWEST" | "OLDEST" | "WAGE_HIGH" | "WAGE_LOW" | "NEAREST" | "URGENT";
 }
 
 export async function fetchJobs(query: JobsQuery = {}): Promise<{ items: ApiJob[]; pagination: Pagination }> {
   try {
-    const res = await api.get("/jobs", { params: query });
+    const { limit, pageSize, mine, ...rest } = query;
+    const params: Record<string, any> = {
+      ...rest,
+      pageSize: pageSize ?? limit ?? 10,
+    };
+    if (mine) {
+      params.mine = "true";
+      const user = await getCachedUser();
+      if (user?.id) {
+        params.employerId = user.id;
+      }
+    }
+    const res = await api.get("/jobs", { params });
     return res.data.data as { items: ApiJob[]; pagination: Pagination };
   } catch (err) {
     throw toApiError(err);
@@ -360,6 +604,18 @@ export async function fetchSavedJobs(): Promise<ApiJob[]> {
   }
 }
 
+/**
+ * Kaydedilmiş iş ID'leri (cache'li). JobCard'daki ♡/✓ işaretinin doğru
+ * görünmesi ve tıklandığında gerçekten toggle etmesi için kullanılır.
+ */
+export async function fetchSavedJobIds(): Promise<string[]> {
+  const { data } = await cachedFetch("jobs:saved-ids", async () => {
+    const list = await fetchSavedJobs();
+    return list.map((j) => j.id);
+  });
+  return Array.isArray(data) ? data : [];
+}
+
 export async function fetchCategories(): Promise<ApiCategory[]> {
   try {
     const res = await api.get("/jobs/categories");
@@ -371,7 +627,6 @@ export async function fetchCategories(): Promise<ApiCategory[]> {
 
 // ---------------- Geocoding ----------------
 
-/** GET /geocode/reverse — resolve an address from GPS coordinates. */
 export async function reverseGeocode(lat: number, lng: number): Promise<GeocodeAddress> {
   try {
     const res = await api.get("/geocode/reverse", { params: { lat, lng } });
@@ -379,15 +634,6 @@ export async function reverseGeocode(lat: number, lng: number): Promise<GeocodeA
   } catch (err) {
     throw toApiError(err);
   }
-}
-
-export interface GeocodeSuggestion {
-  displayName: string;
-  lat: number;
-  lng: number;
-  city: string | null;
-  type: string;
-  importance: number;
 }
 
 async function geocodeList(url: string, q: string): Promise<GeocodeSuggestion[]> {
@@ -401,25 +647,12 @@ async function geocodeList(url: string, q: string): Promise<GeocodeSuggestion[]>
   }
 }
 
-/** GET /geocode/suggest — address autocomplete while typing. */
 export function suggestAddress(q: string) {
   return geocodeList("/geocode/suggest", q);
 }
 
-/** GET /geocode/search — full address search. */
 export function searchAddress(q: string) {
   return geocodeList("/geocode/search", q);
-}
-
-// ---------------- System ----------------
-
-export async function checkHealth(): Promise<boolean> {
-  try {
-    await api.get("/health");
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 // ---------------- Applications ----------------
@@ -436,9 +669,19 @@ export async function applyToJob(
   }
 }
 
-export async function fetchApplications(): Promise<ApiApplication[]> {
+export async function fetchApplications(status?: ApplicationStatus): Promise<ApiApplication[]> {
   try {
-    const res = await api.get("/applications");
+    const res = await api.get("/applications", { params: status ? { status } : undefined });
+    const data = res.data.data;
+    return (Array.isArray(data) ? data : data?.items ?? []) as ApiApplication[];
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+export async function fetchApplicationsByEmployer(status?: ApplicationStatus): Promise<ApiApplication[]> {
+  try {
+    const res = await api.get("/applications/by-employer", { params: status ? { status } : undefined });
     const data = res.data.data;
     return (Array.isArray(data) ? data : data?.items ?? []) as ApiApplication[];
   } catch (err) {
@@ -458,7 +701,7 @@ export async function fetchApplicationsByJob(jobId: string): Promise<ApiApplicat
 
 export async function updateApplicationStatus(
   id: string,
-  status: "ACCEPTED" | "REJECTED" | "COMPLETED",
+  status: ApplicationStatus,
   employerNote?: string,
 ): Promise<ApiApplication> {
   try {
@@ -469,9 +712,59 @@ export async function updateApplicationStatus(
   }
 }
 
+export async function withdrawApplication(id: string): Promise<ApiApplication> {
+  return updateApplicationStatus(id, "WITHDRAWN");
+}
+
 export async function rateApplication(id: string, rating: number, comment?: string): Promise<void> {
   try {
     await api.post(`/applications/${id}/rate`, { rating, ...(comment ? { comment } : {}) });
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- QR ile işe başlama / bitirme ----------------
+
+export type QrType = "CHECK_IN" | "CHECK_OUT";
+
+export interface QrCodeData {
+  token: string;
+  qrImageDataUrl: string;
+  expiresAt: string;
+}
+
+/** İşveren: application için CHECK_IN / CHECK_OUT QR'ı üretir (5 dk geçerli, tek kullanımlık). */
+export async function generateApplicationQr(id: string, type: QrType): Promise<QrCodeData> {
+  try {
+    const res = await api.post(`/applications/${id}/qr-code`, { type });
+    return res.data.data as QrCodeData;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** İşçi: işveren ekranındaki QR'ı taradığında token'ı backend'e gönderir. */
+export async function scanQr(token: string): Promise<{ message: string }> {
+  try {
+    const res = await api.post("/qr/scan", { token });
+    return res.data.data as { message: string };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+export interface QrStatusData {
+  hasActiveQr: boolean;
+  type?: QrType | null;
+  expiresAt?: string | null;
+  scannedAt?: string | null;
+}
+
+export async function fetchQrStatus(id: string): Promise<QrStatusData> {
+  try {
+    const res = await api.get(`/applications/${id}/qr-status`);
+    return res.data.data as QrStatusData;
   } catch (err) {
     throw toApiError(err);
   }
@@ -500,10 +793,14 @@ export async function fetchMessages(conversationId: string): Promise<ApiMessage[
 }
 
 export async function sendMessage(payload: {
-  recipientId: string;
-  jobId?: string;
+  recipientId?: string;
   conversationId?: string;
+  jobId?: string;
+  applicationId?: string;
   content: string;
+  /** Backend: "TEXT" | "IMAGE" | "LOCATION" | "SYSTEM" */
+  type?: string;
+  metadata?: any;
 }): Promise<ApiMessage> {
   try {
     const res = await api.post("/conversations", payload);
@@ -511,6 +808,12 @@ export async function sendMessage(payload: {
   } catch (err) {
     throw toApiError(err);
   }
+}
+
+export async function sendTypingStatus(conversationId: string, isTyping: boolean): Promise<void> {
+  try {
+    await api.post(`/conversations/${conversationId}/typing`, { isTyping });
+  } catch {}
 }
 
 export async function markConversationRead(conversationId: string): Promise<void> {
@@ -563,4 +866,612 @@ export async function deleteNotification(id: string): Promise<void> {
   } catch (err) {
     throw toApiError(err);
   }
+}
+
+/**
+ * Kullanıcının bildirim tercihlerini getirir. Kayıt yoksa backend hepsini açık
+ * (true) olarak otomatik oluşturur.
+ */
+export async function fetchNotificationSettings(): Promise<NotificationSettings> {
+  try {
+    const res = await api.get("/notifications/settings");
+    return res.data.data as NotificationSettings;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/**
+ * Bildirim ayarlarının cache'li okunması: sekmeye her girişte spinner yerine
+ * önce önbellekteki ayarlar gösterilir, arka planda tazelenir.
+ */
+export async function fetchNotificationSettingsCached(opts?: {
+  force?: boolean;
+  onUpdate?: (s: NotificationSettings) => void;
+}): Promise<{ settings: NotificationSettings; fromCache: boolean }> {
+  const { data, fromCache } = await cachedFetch("notifications:settings", fetchNotificationSettings, {
+    force: opts?.force,
+    onUpdate: opts?.onUpdate,
+  });
+  return { settings: data, fromCache };
+}
+
+/** Tek tek veya toplu güncelleme. Sadece boolean alanlar kabul edilir. */
+export async function updateNotificationSettings(
+  patch: NotificationSettingsPatch,
+): Promise<NotificationSettings> {
+  try {
+    const res = await api.put("/notifications/settings", patch);
+    return res.data.data as NotificationSettings;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Tüm bildirim ayarlarını varsayılana (hepsi açık) sıfırlar. */
+export async function resetNotificationSettings(): Promise<NotificationSettings> {
+  try {
+    const res = await api.post("/notifications/settings/reset");
+    return res.data.data as NotificationSettings;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- Cüzdan & Ödemeler ----------------
+// Para yatma/çekme talepleri elle (EFT/Havale + admin onayı) yürür.
+// Tutar ve IBAN doğrulaması backend'de de yapılır; mobil taraf sadece ön kontrol yapar.
+
+export const MIN_DEPOSIT = 50;
+export const MIN_WITHDRAW = 50;
+export const MIN_TRANSFER = 10;
+
+/** Türkiye IBAN'ı: TR + 2 hane + 1 alan kodu + 5 hane şube + 16 hane hesap (boşluksuz 26 karakter). */
+export function normalizeIban(raw: string): string {
+  return raw.replace(/\s+/g, "").toUpperCase();
+}
+
+export function isValidTrIban(raw: string): boolean {
+  const v = normalizeIban(raw);
+  return /^TR\d{26}$/.test(v);
+}
+
+function toItems<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  const d = data as { items?: unknown } | null;
+  return (d?.items ?? []) as T[];
+}
+
+export async function fetchWalletBalance(): Promise<WalletBalance> {
+  try {
+    const res = await api.get("/wallet/balance");
+    return res.data.data as WalletBalance;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/**
+ * Bakiyenin cache'li (stale-while-revalidate) okunması: cüzdana her girişte
+ * spinner görmemek için önce önbellekteki bakiye gösterilir, ağ tazelemesi
+ * bitince güncel değer yazılır. force=true pull-to-refresh içindir.
+ */
+export async function fetchWalletBalanceCached(opts?: {
+  force?: boolean;
+  onUpdate?: (b: WalletBalance) => void;
+}): Promise<{ balance: WalletBalance; fromCache: boolean }> {
+  const { data, fromCache } = await cachedFetch("wallet:balance", fetchWalletBalance, {
+    force: opts?.force,
+    onUpdate: opts?.onUpdate,
+  });
+  return { balance: data, fromCache };
+}
+
+/** Bakiye önbelleğini geçersiz kılar (yatırma/çekme/transfer sonrası çağır). */
+export function invalidateWalletBalanceCache(): void {
+  invalidateCacheKey("wallet:balance");
+}
+
+export async function fetchWalletTransactions(params?: {
+  type?: WalletTxType;
+  page?: number;
+  pageSize?: number;
+}): Promise<WalletTransaction[]> {
+  try {
+    const res = await api.get("/wallet/transactions", {
+      params: {
+        type: params?.type && params.type !== "ALL" ? params.type : undefined,
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 20,
+      },
+    });
+    return toItems<WalletTransaction>(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Para yatırma talebi: kullanıcı banka hesabından EFT/havale yapacak, admin onaylayacak. */
+export async function createDepositRequest(payload: {
+  amount: number;
+  senderName: string;
+  senderIban: string;
+  senderBank?: string;
+  senderNote?: string;
+}): Promise<{ id: string; status: string; amount: number; message?: string }> {
+  try {
+    const res = await api.post("/wallet/deposit-request", {
+      amount: payload.amount,
+      senderName: payload.senderName.trim(),
+      senderIban: normalizeIban(payload.senderIban),
+      ...(payload.senderBank?.trim() ? { senderBank: payload.senderBank.trim() } : {}),
+      ...(payload.senderNote?.trim() ? { senderNote: payload.senderNote.trim() } : {}),
+    });
+    const d = (res.data.data ?? {}) as Record<string, unknown>;
+    return {
+      id: String(d.id ?? ""),
+      status: String(d.status ?? "PENDING"),
+      amount: Number(d.amount ?? payload.amount),
+      message: typeof d.message === "string" ? d.message : res.data.message,
+    };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+export async function fetchDepositRequests(page = 1): Promise<DepositRequest[]> {
+  try {
+    const res = await api.get("/wallet/deposit-requests", { params: { page } });
+    return toItems<DepositRequest>(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Para çekme talebi: bakiye hemen emanete alınır, admin onaylayınca IBAN'a gönderilir. */
+export async function createWithdrawRequest(payload: {
+  amount: number;
+  recipientName: string;
+  recipientIban: string;
+  recipientBank?: string;
+  recipientNote?: string;
+}): Promise<{ id: string; status: string; amount: number; balanceAfter?: number; message?: string }> {
+  try {
+    const res = await api.post("/wallet/withdraw-request", {
+      amount: payload.amount,
+      recipientName: payload.recipientName.trim(),
+      recipientIban: normalizeIban(payload.recipientIban),
+      ...(payload.recipientBank?.trim() ? { recipientBank: payload.recipientBank.trim() } : {}),
+      ...(payload.recipientNote?.trim() ? { recipientNote: payload.recipientNote.trim() } : {}),
+    });
+    const d = (res.data.data ?? {}) as Record<string, unknown>;
+    const req = (d.request ?? d) as Record<string, unknown>;
+    return {
+      id: String(req.id ?? ""),
+      status: String(req.status ?? "PENDING"),
+      amount: Number(req.amount ?? payload.amount),
+      balanceAfter: d.balanceAfter != null ? Number(d.balanceAfter) : undefined,
+      message: typeof d.message === "string" ? d.message : res.data.message,
+    };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+export async function fetchWithdrawRequests(page = 1): Promise<WithdrawRequest[]> {
+  try {
+    const res = await api.get("/wallet/withdraw-requests", { params: { page } });
+    return toItems<WithdrawRequest>(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Başka bir kullanıcıya anında transfer (min 10 ₺). */
+export async function walletTransfer(payload: {
+  recipientId: string;
+  amount: number;
+  description?: string;
+  note?: string;
+}): Promise<{ message?: string; balanceAfter?: number }> {
+  try {
+    const res = await api.post("/wallet/transfer", {
+      recipientId: payload.recipientId,
+      amount: payload.amount,
+      ...(payload.description?.trim() ? { description: payload.description.trim() } : {}),
+      ...(payload.note?.trim() ? { note: payload.note.trim() } : {}),
+    });
+    const d = (res.data.data ?? {}) as Record<string, unknown>;
+    return {
+      message: typeof d.message === "string" ? d.message : res.data.message,
+      balanceAfter: d.balanceAfter != null ? Number(d.balanceAfter) : undefined,
+    };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** QR ile ödeme kodu üretir (5 dk geçerli, tek kullanımlık). İşveren → işçi. */
+export async function generateQrPay(payload: { amount: number; description?: string }): Promise<QrPayCode> {
+  try {
+    const res = await api.post("/wallet/qr-pay/generate", {
+      amount: payload.amount,
+      ...(payload.description?.trim() ? { description: payload.description.trim() } : {}),
+    });
+    return res.data.data as QrPayCode;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** QR ödeme kodunu tarar: para gönderenin bakiyesinden düşülüp alıcıya geçer. */
+export async function scanQrPay(token: string): Promise<QrPayScanResult> {
+  try {
+    const res = await api.post("/wallet/qr-pay/scan", { token });
+    return res.data.data as QrPayScanResult;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- Değerlendirme (Reviews) ----------------
+// Kaynak: api-doc → "Değerlendirme Sistemi"
+//   GET /users/{id}/reviews            — herkese açık yorum listesi + dağılım
+//   GET /users/{id}/rating-summary     — ortalama, sayı, son 30 gün trendi
+//   GET /users/me/reviews/received     — aldığım yorumlar
+//   GET /users/me/reviews/given        — verdiğim yorumlar
+//   GET /users/me/rating-summary       — kendi özetim
+
+interface ReviewQuery {
+  type?: ReviewType;
+  page?: number;
+  pageSize?: number;
+}
+
+function normalizeReviewList(data: unknown): ReviewListResult {
+  const d = (data ?? {}) as Partial<ReviewListResult> & { items?: unknown; distribution?: unknown };
+  const items = (Array.isArray(data) ? data : d.items ?? []) as ApiReview[];
+  const p = (d.pagination ?? {}) as Partial<Pagination>;
+  return {
+    items,
+    pagination: {
+      page: p.page ?? 1,
+      pageSize: p.pageSize ?? items.length,
+      total: p.total ?? items.length,
+      totalPages: p.totalPages ?? 1,
+      hasNext: p.hasNext ?? false,
+      hasPrev: p.hasPrev ?? false,
+    },
+    distribution: (d.distribution ?? null) as Record<string, number> | null,
+  };
+}
+
+/** Bir kullanıcının herkese açık profilini döner (GET /users/{id}). */
+export async function fetchUserProfile(userId: string): Promise<ApiUser> {
+  try {
+    const res = await api.get(`/users/${userId}`);
+    return res.data.data as ApiUser;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Bir kullanıcının aldığı yorumlar (herkese açık). */
+export async function fetchUserReviews(userId: string, query: ReviewQuery = {}): Promise<ReviewListResult> {
+  try {
+    const res = await api.get(`/users/${userId}/reviews`, { params: query });
+    return normalizeReviewList(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Bir kullanıcının puan özeti: ortalama, sayı, son 30 gün trendi (herkese açık). */
+export async function fetchUserRatingSummary(userId: string): Promise<RatingSummary> {
+  try {
+    const res = await api.get(`/users/${userId}/rating-summary`);
+    return res.data.data as RatingSummary;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Aldığım yorumlar. */
+export async function fetchMyReceivedReviews(query: ReviewQuery = {}): Promise<ReviewListResult> {
+  try {
+    const res = await api.get("/users/me/reviews/received", { params: query });
+    return normalizeReviewList(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Verdiğim yorumlar. */
+export async function fetchMyGivenReviews(query: ReviewQuery = {}): Promise<ReviewListResult> {
+  try {
+    const res = await api.get("/users/me/reviews/given", { params: query });
+    return normalizeReviewList(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Kendi puan özetim. */
+export async function fetchMyRatingSummary(): Promise<RatingSummary> {
+  try {
+    const res = await api.get("/users/me/rating-summary");
+    return res.data.data as RatingSummary;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- Doğrulama & Rozetler ----------------
+// Kaynak: api-doc → "Doğrulama & Rozetler"
+//   POST /users/me/verification-request — { type: COMPANY|IDENTITY|TAX, documentUrl: dataURL, documentNote }
+//   GET  /users/me/verification-request — talep geçmişim
+//   GET  /users/me/verification-status  — verified mi + PENDING talep + son karar
+
+/** Doğrulanmış rozet için belge yükle (base64 data URL). Aynı anda 1 PENDING olabilir. */
+export async function createVerificationRequest(payload: {
+  type: VerificationType;
+  documentUrl: string;
+  documentNote?: string;
+}): Promise<VerificationRequest> {
+  try {
+    const res = await api.post("/users/me/verification-request", {
+      type: payload.type,
+      documentUrl: payload.documentUrl,
+      ...(payload.documentNote?.trim() ? { documentNote: payload.documentNote.trim() } : {}),
+    });
+    return res.data.data as VerificationRequest;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Doğrulama talebi geçmişim. */
+export async function fetchVerificationRequests(): Promise<VerificationRequest[]> {
+  try {
+    const res = await api.get("/users/me/verification-request");
+    const d = res.data.data as { items?: VerificationRequest[] } | VerificationRequest[];
+    return Array.isArray(d) ? d : d.items ?? [];
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Aktif doğrulama durumu: verified mi, PENDING talep var mı, son karar. */
+export async function fetchVerificationStatus(): Promise<VerificationStatus> {
+  try {
+    const res = await api.get("/users/me/verification-status");
+    return res.data.data as VerificationStatus;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- Destek talepleri ----------------
+// Kaynak: api-doc → "Yardım & Destek"
+//   GET/POST /support/tickets — { category, subject, message, priority }
+
+export async function fetchSupportTickets(): Promise<SupportTicket[]> {
+  try {
+    const res = await api.get("/support/tickets");
+    return toItems<SupportTicket>(res.data.data);
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Yeni destek talebi — adminlere bildirim gider. */
+export async function createSupportTicket(payload: {
+  category: "COMPLAINT" | "SUGGESTION" | "BUG" | "ACCOUNT" | "PAYMENT" | "OTHER";
+  subject: string;
+  message: string;
+  priority?: "LOW" | "NORMAL" | "HIGH";
+}): Promise<SupportTicket> {
+  try {
+    const res = await api.post("/support/tickets", {
+      category: payload.category,
+      subject: payload.subject.trim(),
+      message: payload.message.trim(),
+      ...(payload.priority ? { priority: payload.priority } : { priority: "NORMAL" }),
+    });
+    return res.data.data as SupportTicket;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- Hesap silme ----------------
+// Kaynak: api-doc → delete-account
+//   GET  /auth/delete-account — talep durumu
+//   POST /auth/delete-account — { reason, feedback } (admin onayı sonrası cascade silme)
+
+export async function fetchDeleteAccountStatus(): Promise<DeleteAccountStatus> {
+  try {
+    const res = await api.get("/auth/delete-account");
+    return res.data.data as DeleteAccountStatus;
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+/** Hesap silme talebi oluştur — admin onaylayınca hesap ve tüm verileri silinir. */
+export async function requestDeleteAccount(payload: {
+  reason?: string;
+  feedback?: string;
+}): Promise<{ message?: string }> {
+  try {
+    const res = await api.post("/auth/delete-account", {
+      ...(payload.reason?.trim() ? { reason: payload.reason.trim() } : {}),
+      ...(payload.feedback?.trim() ? { feedback: payload.feedback.trim() } : {}),
+    });
+    return res.data as { message?: string };
+  } catch (err) {
+    throw toApiError(err);
+  }
+}
+
+// ---------------- Bakım modu ----------------
+
+export interface MaintenanceStatus {
+  maintenanceMode: boolean;
+  maintenanceTitle?: string | null;
+  maintenanceMessage?: string | null;
+  maintenanceEndTime?: string | null;
+  maintenanceStartedAt?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+  contactWhatsapp?: string | null;
+  contactInstagram?: string | null;
+  contactTwitter?: string | null;
+  contactWebsite?: string | null;
+  siteName?: string | null;
+  updatedAt?: string | null;
+}
+
+/** Herkese açık bakım durumu. Hata olursa { maintenanceMode:false } döner (uygulama açılır kalır). */
+export async function fetchMaintenanceStatus(): Promise<MaintenanceStatus> {
+  try {
+    const res = await api.get("/maintenance/status", { timeout: 3000 });
+    return res.data.data as MaintenanceStatus;
+  } catch {
+    // Bakım endpoint'i erişilemezse uygulamayı kilitleme.
+    return { maintenanceMode: false };
+  }
+}
+
+// ---------------- System ----------------
+
+export async function checkHealth(): Promise<boolean> {
+  try {
+    await api.get("/health");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------- Basit önbellek (stale-while-revalidate) ----------------
+// Liste uçlarını AsyncStorage'a yazar; uygulama açılışında anında eski veri
+// gösterilir, arka planda tazelenir. Böylece her ekranda "Yükleniyor…" dönmez.
+
+const CACHE_PREFIX = "gb_cache_";
+const CACHE_TTL = 5 * 60 * 1000; // 5 dk sonra arka plan yenilemesi zaten yapılır
+
+const memoryCache = new Map<string, { at: number; data: unknown }>();
+
+/** Bellekteki önbelleği anında (senkron) döner; ilk render'da boş ekran/spinner oluşmasını önler. */
+export function peekMemoryCache<T>(key: string): T | null {
+  const mem = memoryCache.get(key);
+  return mem ? (mem.data as T) : null;
+}
+
+async function readCache<T>(key: string): Promise<{ at: number; data: T } | null> {
+  const mem = memoryCache.get(key);
+  if (mem) return mem as { at: number; data: T };
+  try {
+    const s = await getStorage();
+    const raw = await s.getItem(CACHE_PREFIX + key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { at: number; data: T };
+    memoryCache.set(key, parsed);
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCache(key: string, data: unknown): Promise<void> {
+  const entry = { at: Date.now(), data };
+  memoryCache.set(key, entry);
+  try {
+    const s = await getStorage();
+    await s.setItem(CACHE_PREFIX + key, JSON.stringify(entry));
+  } catch {
+    // önbellek yazılamazsa sessiz geç
+  }
+}
+
+/** Tek bir cache anahtarını (bellek + AsyncStorage) geçersiz kılar. */
+export function invalidateCacheKey(key: string): void {
+  memoryCache.delete(key);
+  void (async () => {
+    try {
+      const s = await getStorage();
+      await s.removeItem(CACHE_PREFIX + key);
+    } catch {
+      // yok say
+    }
+  })();
+}
+
+export function clearApiCache(): void {
+  memoryCache.clear();
+  void (async () => {
+    try {
+      const s = await getStorage();
+      const raw = await s.getItem(CACHE_PREFIX + "__keys");
+      if (raw) {
+        const keys = JSON.parse(raw) as string[];
+        await Promise.all(keys.map((k) => s.removeItem(CACHE_PREFIX + k)));
+      }
+      await s.removeItem(CACHE_PREFIX + "__keys");
+    } catch {
+      // yok say
+    }
+  })();
+}
+
+async function registerCacheKey(key: string): Promise<void> {
+  try {
+    const s = await getStorage();
+    const raw = await s.getItem(CACHE_PREFIX + "__keys");
+    const keys = raw ? (JSON.parse(raw) as string[]) : [];
+    if (!keys.includes(key)) {
+      keys.push(key);
+      await s.setItem(CACHE_PREFIX + "__keys", JSON.stringify(keys));
+    }
+  } catch {
+    // yok say
+  }
+}
+
+/**
+ * stale-while-revalidate: önce önbellekteki veri döner (anında), sonra ağ tazelemesi yapılır.
+ * `force` ise (pull-to-refresh) doğrudan ağdan çeker. Arka plan yenilemesi bitince
+ * `onUpdate` ile ekran da taze veriyi alır.
+ */
+export async function cachedFetch<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  opts?: { force?: boolean; onUpdate?: (data: T) => void },
+): Promise<{ data: T; fromCache: boolean; cacheAge: number | null }> {
+  if (opts?.force) {
+    const data = await fetcher();
+    await writeCache(key, data);
+    void registerCacheKey(key);
+    return { data, fromCache: false, cacheAge: 0 };
+  }
+  const cached = await readCache<T>(key);
+  const fresh = cached != null && Date.now() - cached.at < CACHE_TTL;
+  if (fresh && cached) {
+    return { data: cached.data, fromCache: true, cacheAge: Date.now() - cached.at };
+  }
+  if (cached) {
+    // Eski veri hemen dönülür; ağ yenilemesi arka planda, bitince onUpdate çağrılır.
+    void fetcher()
+      .then(async (data) => {
+        await writeCache(key, data);
+        opts?.onUpdate?.(data);
+      })
+      .catch(() => {});
+    return { data: cached.data, fromCache: true, cacheAge: Date.now() - cached.at };
+  }
+  const data = await fetcher();
+  await writeCache(key, data);
+  void registerCacheKey(key);
+  return { data, fromCache: false, cacheAge: null };
 }

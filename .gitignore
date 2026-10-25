@@ -1,6 +1,7 @@
-.env.local
-node_modules
-dist
-src/convex/_generated
-.taste-skill/
-mobile/expo_qr.png
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+expo-env.d.ts
+.agents/
