@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { useTheme } from "./ui";
 import {
   BriefcaseIcon,
   BookmarkIcon,
@@ -34,6 +35,7 @@ function TabButton({
   onPress: () => void;
   badgeCount?: number;
 }) {
+  const { colors } = useTheme();
   const pressScale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -80,7 +82,8 @@ function TabButton({
         <Text
           style={[
             styles.tabLabel,
-            isActive ? styles.tabLabelActive : styles.tabLabelInactive,
+            { color: isActive ? colors.primary : colors.muted },
+            isActive && { fontWeight: "700" },
           ]}
           numberOfLines={1}
         >
@@ -97,34 +100,35 @@ export function AnimatedTabBar({
   isEmployer,
   unreadCount,
 }: AnimatedTabBarProps) {
+  const { colors } = useTheme();
   const tabs: TabItemConfig[] = isEmployer
     ? [
         {
           key: "jobs",
           label: "Panel",
           renderIcon: (active) => (
-            <BriefcaseIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
+            <BriefcaseIcon size={22} color={active ? colors.primary : colors.muted} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "applications",
           label: "Başvurular",
           renderIcon: (active) => (
-            <ApplicationsIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
+            <ApplicationsIcon size={22} color={active ? colors.primary : colors.muted} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "messages",
           label: "Mesajlar",
           renderIcon: (active) => (
-            <MessageIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
+            <MessageIcon size={22} color={active ? colors.primary : colors.muted} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "profile",
           label: "Hesap",
           renderIcon: (active) => (
-            <UserIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
+            <UserIcon size={22} color={active ? colors.primary : colors.muted} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
       ]
@@ -133,41 +137,41 @@ export function AnimatedTabBar({
           key: "jobs",
           label: "İşler",
           renderIcon: (active) => (
-            <BriefcaseIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
+            <BriefcaseIcon size={22} color={active ? colors.primary : colors.muted} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "saved",
           label: "Kayıtlı",
           renderIcon: (active) => (
-            <BookmarkIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
+            <BookmarkIcon size={22} color={active ? colors.primary : colors.muted} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "applications",
           label: "Başvurular",
           renderIcon: (active) => (
-            <ApplicationsIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
+            <ApplicationsIcon size={22} color={active ? colors.primary : colors.muted} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "messages",
           label: "Mesajlar",
           renderIcon: (active) => (
-            <MessageIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
+            <MessageIcon size={22} color={active ? colors.primary : colors.muted} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
         {
           key: "profile",
           label: "Hesap",
           renderIcon: (active) => (
-            <UserIcon size={22} color={active ? "#0D6847" : "#8C928E"} strokeWidth={active ? 2.2 : 1.8} />
+            <UserIcon size={22} color={active ? colors.primary : colors.muted} strokeWidth={active ? 2.2 : 1.8} />
           ),
         },
       ];
 
   return (
-    <View style={styles.tabBarContainer}>
+    <View style={[styles.tabBarContainer, { backgroundColor: colors.tabBarBg, borderTopColor: colors.border }]}>
       <View style={styles.tabBarInner}>
         {tabs.map((item) => (
           <TabButton

@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
-import { Card, C, PrimaryButton, SectionTitle } from "@/components/ui";
+import { Card, C, PrimaryButton, SectionTitle, useTheme } from "@/components/ui";
 import {
   fetchNotificationSettingsCached,
   resetNotificationSettings,
@@ -103,6 +103,7 @@ function PrefVectorIcon({
 }
 
 export default function NotificationSettingsScreen() {
+  const { colors } = useTheme();
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -221,7 +222,8 @@ export default function NotificationSettingsScreen() {
 
   return (
     <BrandRefreshScrollView
-      contentContainerStyle={styles.wrap}
+      style={{ backgroundColor: colors.bg }}
+      contentContainerStyle={[styles.wrap, { backgroundColor: colors.bg }]}
       refreshing={refreshing}
       onRefresh={() => load(true)}
     >
@@ -437,6 +439,7 @@ function PrefSwitch({
   onChange: (v: boolean) => void;
   master?: boolean;
 }) {
+  const { colors } = useTheme();
   const anim = useRef(new Animated.Value(value ? 1 : 0)).current;
   useEffect(() => {
     Animated.timing(anim, {
@@ -449,7 +452,7 @@ function PrefSwitch({
 
   const trackColor = anim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["#E2E0D8", "#0D6847"],
+    outputRange: [colors.border, colors.primary],
   });
 
   return (
@@ -461,12 +464,20 @@ function PrefSwitch({
       accessibilityHint={desc}
       style={({ pressed }) => [styles.prefRow, pressed && !disabled && styles.prefRowPressed]}
     >
-      <View style={[styles.prefIconBox, master && styles.prefIconBoxMaster]}>
-        <PrefVectorIcon name={iconName} size={18} color={master ? "#0D6847" : "#3D423F"} />
+      <View
+        style={[
+          styles.prefIconBox,
+          { backgroundColor: colors.cardSecondary },
+          master && [styles.prefIconBoxMaster, { backgroundColor: colors.primarySoft }],
+        ]}
+      >
+        <PrefVectorIcon name={iconName} size={18} color={master ? colors.primary : colors.muted} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.prefLabel, master && styles.prefLabelMaster]}>{label}</Text>
-        <Text style={styles.prefDesc}>{desc}</Text>
+        <Text style={[styles.prefLabel, { color: colors.text }, master && [styles.prefLabelMaster, { color: colors.primary }]]}>
+          {label}
+        </Text>
+        <Text style={[styles.prefDesc, { color: colors.muted }]}>{desc}</Text>
       </View>
       <Animated.View style={[styles.trackFake, { backgroundColor: trackColor }]}>
         <View style={[styles.knob, value && styles.knobOn]} />

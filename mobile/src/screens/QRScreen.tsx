@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Badge, Card, C, PrimaryButton, SectionTitle } from "@/components/ui";
+import { Badge, Card, C, PrimaryButton, SectionTitle, useTheme } from "@/components/ui";
 import { formatWage } from "@/lib/format";
 import {
   fetchQrStatus,
@@ -99,18 +99,20 @@ export default function QRScreen({
     }
   };
 
+  const { colors } = useTheme();
+
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
-      <View style={styles.page}>
-        <View style={styles.header}>
+      <View style={[styles.page, { backgroundColor: colors.bg }]}>
+        <View style={[styles.header, { backgroundColor: colors.headerBg, borderBottomColor: colors.border }]}>
           <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={styles.close}>✕</Text>
+            <Text style={[styles.close, { color: colors.muted }]}>✕</Text>
           </Pressable>
-          <Text style={styles.headerTitle}>QR ile İşe Başla / Bitir</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>QR ile İşe Başla / Bitir</Text>
           <View style={{ width: 24 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.body}>
+        <ScrollView contentContainerStyle={[styles.body, { backgroundColor: colors.bg }]}>
           <Card style={styles.qrCard}>
             <View style={styles.modeRow}>
               {MODES.map((m) => (
@@ -121,16 +123,20 @@ export default function QRScreen({
                     setQr(null);
                     setError(null);
                   }}
-                  style={[styles.modeChip, m.key === type && styles.modeChipActive]}
+                  style={[
+                    styles.modeChip,
+                    { backgroundColor: colors.card, borderColor: colors.border },
+                    m.key === type && [styles.modeChipActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
+                  ]}
                 >
-                  <Text style={[styles.modeChipText, m.key === type && styles.modeChipTextActive]}>
+                  <Text style={[styles.modeChipText, { color: colors.muted }, m.key === type && styles.modeChipTextActive]}>
                     {m.icon} {m.label}
                   </Text>
                 </Pressable>
               ))}
             </View>
 
-            <Text style={styles.modeDesc}>{meta.desc}</Text>
+            <Text style={[styles.modeDesc, { color: colors.muted }]}>{meta.desc}</Text>
 
             {isEmployer ? (
               <>
@@ -211,7 +217,7 @@ export default function QRScreen({
             <Text style={styles.flowStep}>2️⃣ İş günü işveren CHECK_IN QR'ı üretir ve gösterir; işçi tarar → IN_PROGRESS.</Text>
             <Text style={styles.flowStep}>3️⃣ İş bitiminde CHECK_OUT QR'ı üretilir ve taranır → COMPLETED + otomatik PENDING ödeme.</Text>
             <Text style={styles.flowStep}>4️⃣ Yönetim ödemeyi onaylar → işveren öder → işçi “aldım” onayı verir.</Text>
-            <Text style={styles.flowNote}>
+            <Text style={[styles.flowNote, { backgroundColor: colors.cardSecondary, color: colors.muted }]}>
               🔒 Güvenlik: Her QR 5 dakika geçerli, tek kullanımlıktır. Sadece ilgili işçi/işveren tarayabilir.
               QR sahteciliğini önler — fiziksel olarak iş başında olmayan tarayamaz.
             </Text>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
-import { Card, C, EmptyState, Loading } from "@/components/ui";
+import { Card, C, EmptyState, Loading, useTheme } from "@/components/ui";
 import { useCachedList } from "@/hooks/use-cached-list";
 import {
   getPermissionCached,
@@ -57,6 +57,7 @@ export default function NotificationsScreen({
   onOpenJob?: (jobId: string) => void;
   onOpenNotificationSettings?: () => void;
 }) {
+  const { colors } = useTheme();
   const [items, setItems] = useState<ApiNotification[]>([]);
   const [unread, setUnread] = useState(0);
   // null = henüz bilinmiyor (yanlışlıkla bant göstermemek için izin doğrulanana kadar bekle).
@@ -132,11 +133,11 @@ export default function NotificationsScreen({
   };
 
   return (
-    <View style={styles.flex}>
+    <View style={[styles.flex, { backgroundColor: colors.bg }]}>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.h1}>Bildirimler</Text>
-          <Text style={styles.sub}>
+          <Text style={[styles.h1, { color: colors.text }]}>Bildirimler</Text>
+          <Text style={[styles.sub, { color: colors.muted }]}>
             {unread > 0 ? `${unread} okunmamış bildirimin var` : "Tüm bildirimler okundu"}
           </Text>
         </View>
@@ -150,19 +151,20 @@ export default function NotificationsScreen({
           onPress={onOpenNotificationSettings}
           style={({ pressed }) => [styles.permBanner, pressed && { opacity: 0.85 }]}
         >
-          <View style={styles.permIconBox}>
-            <BellIcon size={18} color={C.primary} />
+          <View style={[styles.permIconBox, { backgroundColor: colors.primarySoft }]}>
+            <BellIcon size={18} color={colors.primary} />
           </View>
           <View style={styles.permBannerTextWrap}>
-            <Text style={styles.permBannerTitle}>Bildirimler kapalı, lütfen açın</Text>
-            <Text style={styles.permBannerSub}>Dokun → Bildirim Ayarları</Text>
+            <Text style={[styles.permBannerTitle, { color: colors.text }]}>Bildirimler kapalı, lütfen açın</Text>
+            <Text style={[styles.permBannerSub, { color: colors.muted }]}>Dokun → Bildirim Ayarları</Text>
           </View>
           <Text style={styles.permBannerChevron}>›</Text>
         </Pressable>
       )}
 
       <BrandRefreshScrollView
-        contentContainerStyle={styles.list}
+        style={[styles.flex, { backgroundColor: colors.bg }]}
+        contentContainerStyle={[styles.list, { backgroundColor: colors.bg }]}
         refreshing={refreshing}
         onRefresh={async () => {
           await refreshNotifs();
@@ -173,13 +175,19 @@ export default function NotificationsScreen({
           <Loading />
         ) : items.length === 0 ? (
           <EmptyState
-            icon={<BellIcon size={32} color={C.muted} />}
+            icon={<BellIcon size={32} color={colors.muted} />}
             title="Bildirim yok"
             subtitle="Başvuru durumu, yeni mesaj ve iş hatırlatmaları burada görünür."
           />
         ) : (
           items.map((n) => (
-            <Card key={n.id} style={[styles.item, !n.isRead && styles.itemUnread]}>
+            <Card
+              key={n.id}
+              style={[
+                styles.item,
+                !n.isRead && { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+              ]}
+            >
               <Pressable
                 style={styles.itemBody}
                 onPress={() => {
@@ -193,19 +201,19 @@ export default function NotificationsScreen({
                   if (jobId && onOpenJob) onOpenJob(jobId);
                 }}
               >
-                <View style={styles.iconBox}>
+                <View style={[styles.iconBox, { backgroundColor: colors.primarySoft }]}>
                   {getNotificationIcon(n.type)}
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.titleRow}>
-                    <Text style={styles.title}>{n.title}</Text>
+                    <Text style={[styles.title, { color: colors.text }]}>{n.title}</Text>
                     {!n.isRead && <View style={styles.dot} />}
                   </View>
-                  <Text style={styles.bodyText}>{n.body}</Text>
-                  <Text style={styles.time}>{timeAgo(n.createdAt)}</Text>
+                  <Text style={[styles.bodyText, { color: colors.muted }]}>{n.body}</Text>
+                  <Text style={[styles.time, { color: colors.muted }]}>{timeAgo(n.createdAt)}</Text>
                 </View>
                 <Pressable onPress={() => remove(n.id)} hitSlop={8} style={styles.deleteHit}>
-                  <TrashIcon size={16} color={C.muted} />
+                  <TrashIcon size={16} color={colors.muted} />
                 </Pressable>
               </Pressable>
             </Card>

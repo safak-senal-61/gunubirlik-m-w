@@ -22,6 +22,7 @@ import {
 } from "@/lib/api";
 import { getIdTokenFromGoogle } from "@/lib/google-auth";
 import { BriefcaseIcon, UsersIcon } from "@/components/icons";
+import { useTheme, C } from "@/components/ui";
 
 const LOGO = require("../../assets/logo-wordmark.png");
 
@@ -68,18 +69,6 @@ const COUNTRIES: Country[] = [
   },
 ];
 
-const C = {
-  primary: "#0D6847",
-  primarySoft: "#E8F5EE",
-  text: "#141615",
-  muted: "#5C615E",
-  border: "#E2E0D8",
-  bg: "#F6F5F2",
-  card: "#FFFFFF",
-  danger: "#DC2626",
-  success: "#0D6847",
-};
-
 export default function AuthScreen({
   onDone,
   onBrowseGuest,
@@ -87,6 +76,7 @@ export default function AuthScreen({
   onDone: () => void;
   onBrowseGuest?: () => void;
 }) {
+  const { colors, isDark } = useTheme();
   const { login, register, loginWithGoogle } = useAuth();
   const [mode, setMode] = useState<Mode>("login");
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -406,15 +396,15 @@ export default function AuthScreen({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={styles.flex}
+      style={[styles.flex, { backgroundColor: colors.bg }]}
     >
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { backgroundColor: colors.bg }]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.hero}>
           <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
-          <Text style={styles.tagline}>
+          <Text style={[styles.tagline, { color: colors.muted }]}>
             {mode === "google_onboarding"
               ? "Google ile kaydı tamamlamak için bilgilerinizi doldurun."
               : mode === "register"
@@ -423,8 +413,8 @@ export default function AuthScreen({
           </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.title}>{title}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
 
           {mode === "verify" && (
             <>

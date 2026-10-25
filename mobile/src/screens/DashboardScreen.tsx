@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Badge, Card, C, EmptyState, Loading, PrimaryButton } from "@/components/ui";
+import { Badge, Card, C, EmptyState, Loading, PrimaryButton, useTheme } from "@/components/ui";
 import { useCachedList } from "@/hooks/use-cached-list";
 import { createJob, deleteJob, fetchCategories, fetchJobs } from "@/lib/api";
 import type { ApiCategory, ApiJob, JobCategory } from "@/lib/types";
@@ -42,6 +42,7 @@ export default function DashboardScreen({
   onNavigateApplications?: () => void;
 }) {
   const { user } = useAuth();
+  const { colors, isDark } = useTheme();
   const [viewMode, setViewMode] = useState<"ALL" | "MINE">("ALL");
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -104,32 +105,32 @@ export default function DashboardScreen({
 
   return (
     <BrandRefreshScrollView
-      style={styles.flex}
-      contentContainerStyle={styles.wrap}
+      style={[styles.flex, { backgroundColor: colors.bg }]}
+      contentContainerStyle={[styles.wrap, { backgroundColor: colors.bg }]}
       refreshing={isRefreshing}
       onRefresh={handleRefresh}
     >
       <View style={styles.headerBox}>
         <View style={styles.headerTop}>
-          <View style={styles.employerBadge}>
-            <Text style={styles.employerBadgeText}>İŞVEREN PANELİ</Text>
+          <View style={[styles.employerBadge, { backgroundColor: colors.primarySoft }]}>
+            <Text style={[styles.employerBadgeText, { color: colors.primary }]}>İŞVEREN PANELİ</Text>
           </View>
-          <View style={styles.quickStatPill}>
+          <View style={[styles.quickStatPill, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
             <View style={styles.livePulseDot} />
-            <Text style={styles.quickStatPillText}>Piyasa Canlı</Text>
+            <Text style={[styles.quickStatPillText, { color: colors.textSecondary }]}>Piyasa Canlı</Text>
           </View>
         </View>
-        <Text style={styles.h1}>
+        <Text style={[styles.h1, { color: colors.text }]}>
           Hoş Geldiniz{user?.companyName ? `, ${user.companyName}` : user?.fullName ? `, ${user.fullName}` : ""}
         </Text>
-        <Text style={styles.sub}>
+        <Text style={[styles.sub, { color: colors.muted }]}>
           Piyasadaki işleri inceleyin, ilanlarınızı ve başvuruları kolayca yönetin.
         </Text>
       </View>
 
       <View style={styles.statRow}>
         <EmployerMetricCard
-          iconNode={<BriefcaseIcon size={16} color="#0D6847" />}
+          iconNode={<BriefcaseIcon size={16} color={colors.primary} />}
           label="Açık Piyasa"
           value={totalOpenMarket}
           badgeText="Canlı"
@@ -138,7 +139,7 @@ export default function DashboardScreen({
           onPress={() => setViewMode("ALL")}
         />
         <EmployerMetricCard
-          iconNode={<BriefcaseIcon size={16} color="#059669" />}
+          iconNode={<BriefcaseIcon size={16} color={colors.primary} />}
           label="İlanlarım"
           value={myJobs.length}
           badgeText="Yayında"
@@ -147,7 +148,7 @@ export default function DashboardScreen({
           onPress={() => setViewMode("MINE")}
         />
         <EmployerMetricCard
-          iconNode={<ApplicationsIcon size={16} color="#D97706" />}
+          iconNode={<ApplicationsIcon size={16} color={colors.amber} />}
           label="Başvurular"
           value={totalMyApps}
           badgeText={totalMyApps > 0 ? "Yeni" : undefined}
@@ -165,6 +166,7 @@ export default function DashboardScreen({
       <Pressable
         style={({ pressed }) => [
           styles.createJobBtn,
+          { backgroundColor: colors.primary },
           pressed && styles.createJobBtnPressed,
         ]}
         onPress={() => setCreateOpen(true)}
@@ -173,38 +175,45 @@ export default function DashboardScreen({
         <Text style={styles.createJobBtnText}>Yeni İlan Yayınla</Text>
       </Pressable>
 
-      <View style={styles.segmentContainer}>
+      <View style={[styles.segmentContainer, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
         <Pressable
-          style={[styles.segmentBtn, viewMode === "ALL" && styles.segmentBtnActive]}
+          style={[styles.segmentBtn, viewMode === "ALL" && [styles.segmentBtnActive, { backgroundColor: colors.card }]]}
           onPress={() => setViewMode("ALL")}
         >
-          <Text style={[styles.segmentText, viewMode === "ALL" && styles.segmentTextActive]}>
+          <Text style={[styles.segmentText, { color: colors.muted }, viewMode === "ALL" && { color: colors.text }]}>
             Piyasa İlanları ({allJobs.length})
           </Text>
         </Pressable>
         <Pressable
-          style={[styles.segmentBtn, viewMode === "MINE" && styles.segmentBtnActive]}
+          style={[styles.segmentBtn, viewMode === "MINE" && [styles.segmentBtnActive, { backgroundColor: colors.card }]]}
           onPress={() => setViewMode("MINE")}
         >
-          <Text style={[styles.segmentText, viewMode === "MINE" && styles.segmentTextActive]}>
+          <Text style={[styles.segmentText, { color: colors.muted }, viewMode === "MINE" && { color: colors.text }]}>
             İlanlarım ({myJobs.length})
           </Text>
         </Pressable>
       </View>
 
       <TextInput
-        style={styles.searchInput}
+        style={[
+          styles.searchInput,
+          {
+            backgroundColor: colors.inputBg,
+            color: colors.text,
+            borderColor: colors.border,
+          },
+        ]}
         value={search}
         onChangeText={setSearch}
         placeholder={viewMode === "ALL" ? "Piyasadaki ilanlarda ara (başlık, ilçe)…" : "İlanlarımda ara…"}
-        placeholderTextColor={C.muted}
+        placeholderTextColor={colors.muted}
       />
 
       {isLoading ? (
         <Loading />
       ) : filteredJobs.length === 0 ? (
         <EmptyState
-          icon={viewMode === "ALL" ? <SearchIcon size={24} color={C.muted} /> : <BriefcaseIcon size={24} color={C.muted} />}
+          icon={viewMode === "ALL" ? <SearchIcon size={24} color={colors.muted} /> : <BriefcaseIcon size={24} color={colors.muted} />}
           title={viewMode === "ALL" ? "İlan bulunamadı" : "Henüz yayında ilanınız yok"}
           subtitle={
             viewMode === "ALL"
@@ -287,33 +296,46 @@ function EmployerMetricCard({
   active?: boolean;
   onPress?: () => void;
 }) {
+  const { colors, isDark } = useTheme();
   const t = METRIC_THEMES[theme];
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.metricCard,
+        {
+          backgroundColor: isDark ? colors.card : "#FFFFFF",
+          borderColor: isDark ? colors.border : "#E2E0D8",
+        },
         active && {
           borderColor: t.activeBorder,
-          backgroundColor: t.activeBg,
+          backgroundColor: isDark ? colors.cardSecondary : t.activeBg,
         },
         pressed && styles.metricCardPressed,
       ]}
     >
       <View style={styles.metricTopRow}>
-        <View style={[styles.metricIconWrap, { backgroundColor: t.iconBg, borderColor: t.iconBorder }]}>
+        <View
+          style={[
+            styles.metricIconWrap,
+            {
+              backgroundColor: isDark ? colors.primarySoft : t.iconBg,
+              borderColor: isDark ? colors.border : t.iconBorder,
+            },
+          ]}
+        >
           {iconNode}
         </View>
         {badgeText && (
-          <View style={[styles.metricPill, { backgroundColor: t.badgeBg }]}>
+          <View style={[styles.metricPill, { backgroundColor: isDark ? colors.primarySoft : t.badgeBg }]}>
             <View style={[styles.liveDot, { backgroundColor: t.accent }]} />
-            <Text style={[styles.metricPillText, { color: t.badgeText }]}>{badgeText}</Text>
+            <Text style={[styles.metricPillText, { color: isDark ? colors.accent : t.badgeText }]}>{badgeText}</Text>
           </View>
         )}
       </View>
       <View style={styles.metricBottomGroup}>
-        <Text style={styles.metricValue}>{value}</Text>
-        <Text style={styles.metricLabel}>{label}</Text>
+        <Text style={[styles.metricValue, { color: colors.text }]}>{value}</Text>
+        <Text style={[styles.metricLabel, { color: colors.muted }]}>{label}</Text>
       </View>
     </Pressable>
   );
@@ -330,6 +352,7 @@ function EmployerJobCard({
   onChanged: () => void;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
   const [busy, setBusy] = useState(false);
   const isOwner = job.employerId === currentUserId;
 
@@ -355,38 +378,38 @@ function EmployerJobCard({
   };
 
   return (
-    <Card style={styles.jobCard}>
+    <Card style={[styles.jobCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <Pressable onPress={onPress}>
         <View style={styles.topRow}>
-          <View style={styles.catIconWrap}>
-            {getCategoryIconComponent(job.category, 20, C.primary)}
+          <View style={[styles.catIconWrap, { backgroundColor: colors.primarySoft }]}>
+            {getCategoryIconComponent(job.category, 20, colors.primary)}
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title} numberOfLines={1}>{job.title}</Text>
+            <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{job.title}</Text>
             <View style={styles.cardMetaRow}>
-              <CalendarIcon size={12} color={C.primary} />
-              <Text style={styles.meta}>
+              <CalendarIcon size={12} color={colors.primary} />
+              <Text style={[styles.meta, { color: colors.muted }]}>
                 {new Date(job.workDate).toLocaleDateString("tr-TR")} · {job.startTime.slice(0, 5)}–{job.endTime.slice(0, 5)} · {job.district}
               </Text>
             </View>
           </View>
           <Badge
             label={JOB_STATUS_LABELS[job.status]}
-            color={job.status === "OPEN" ? C.emerald : job.status === "FILLED" ? C.indigo : C.stone}
-            bg={job.status === "OPEN" ? C.emeraldBg : job.status === "FILLED" ? C.indigoBg : C.stoneBg}
+            color={job.status === "OPEN" ? colors.emerald : job.status === "FILLED" ? colors.indigo : colors.stone}
+            bg={job.status === "OPEN" ? colors.emeraldBg : job.status === "FILLED" ? colors.indigoBg : colors.stoneBg}
           />
         </View>
-        <View style={styles.jobBottomRow}>
-          <Text style={styles.wageText}>
+        <View style={[styles.jobBottomRow, { borderTopColor: colors.borderLight }]}>
+          <Text style={[styles.wageText, { color: colors.primary }]}>
             {formatWage(job.wageAmount, job.wageType)}
           </Text>
-          <Text style={styles.metaSmall}>
+          <Text style={[styles.metaSmall, { color: colors.muted }]}>
             {job.applicationCount} başvuru · {timeAgo(job.createdAt)}
           </Text>
         </View>
       </Pressable>
       {isOwner && (
-        <View style={styles.actions}>
+        <View style={[styles.actions, { borderTopColor: colors.borderLight }]}>
           <PrimaryButton label="İlanı Sil" variant="ghost" disabled={busy} onPress={remove} />
         </View>
       )}
@@ -403,6 +426,7 @@ function CreateJobSheet({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { colors, isDark } = useTheme();
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -533,37 +557,38 @@ function CreateJobSheet({
 
   return (
     <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View style={styles.sheetPage}>
-        <View style={styles.sheetHeader}>
-          <Text style={styles.sheetTitle}>Yeni Günübirlik İlan</Text>
+      <View style={[styles.sheetPage, { backgroundColor: colors.bg }]}>
+        <View style={[styles.sheetHeader, { backgroundColor: colors.headerBg, borderBottomColor: colors.border }]}>
+          <Text style={[styles.sheetTitle, { color: colors.text }]}>Yeni Günübirlik İlan</Text>
           <Pressable onPress={onClose} hitSlop={8}>
-            <Text style={styles.sheetClose}>✕</Text>
+            <Text style={[styles.sheetClose, { color: colors.muted }]}>✕</Text>
           </Pressable>
         </View>
 
         <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
-          <View style={styles.sheetWizardCard}>
+          <View style={[styles.sheetWizardCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
             <View style={styles.sheetWizardTopRow}>
               <View style={styles.sheetWizardBadgeRow}>
-                <View style={styles.sheetWizardStepBadge}>
+                <View style={[styles.sheetWizardStepBadge, { backgroundColor: colors.primary }]}>
                   <Text style={styles.sheetWizardStepBadgeText}>{jobStep}</Text>
                 </View>
-                <Text style={styles.sheetWizardTitleText}>
+                <Text style={[styles.sheetWizardTitleText, { color: colors.primary }]}>
                   {jobStep === 1 && "1. Adım: Başlık ve Kategori"}
                   {jobStep === 2 && "2. Adım: Çalışma Saatleri & Ücret"}
                   {jobStep === 3 && "3. Adım: Konum & Kontenjan"}
                 </Text>
               </View>
-              <View style={styles.sheetXpPill}>
-                <Text style={styles.sheetXpPillText}>Adım {jobStep} / 3</Text>
+              <View style={[styles.sheetXpPill, { backgroundColor: colors.primarySoft, borderColor: colors.border }]}>
+                <Text style={[styles.sheetXpPillText, { color: colors.primary }]}>Adım {jobStep} / 3</Text>
               </View>
             </View>
 
-            <View style={styles.sheetProgressBarTrack}>
+            <View style={[styles.sheetProgressBarTrack, { backgroundColor: colors.border }]}>
               <View
                 style={[
                   styles.sheetProgressBarFill,
                   {
+                    backgroundColor: colors.primary,
                     width: jobStep === 1 ? "33.3%" : jobStep === 2 ? "66.6%" : "100%",
                   },
                 ]}
@@ -572,15 +597,15 @@ function CreateJobSheet({
 
             <View style={styles.sheetStepChipsRow}>
               <Pressable onPress={() => setJobStep(1)} style={styles.sheetStepChipItem}>
-                <View style={[styles.sheetStepDot, jobStep >= 1 && styles.sheetStepDotActive]}>
+                <View style={[styles.sheetStepDot, { backgroundColor: colors.border }, jobStep >= 1 && [styles.sheetStepDotActive, { backgroundColor: colors.primary }]]}>
                   <Text style={[styles.sheetStepDotText, jobStep >= 1 && styles.sheetStepDotTextActive]}>
                     {jobStep > 1 ? "✓" : "1"}
                   </Text>
                 </View>
-                <Text style={[styles.sheetStepLabel, jobStep >= 1 && styles.sheetStepLabelActive]}>İlan</Text>
+                <Text style={[styles.sheetStepLabel, { color: colors.muted }, jobStep >= 1 && [styles.sheetStepLabelActive, { color: colors.primary }]]}>İlan</Text>
               </Pressable>
 
-              <View style={[styles.sheetStepConnector, jobStep >= 2 && styles.sheetStepConnectorActive]} />
+              <View style={[styles.sheetStepConnector, { backgroundColor: colors.border }, jobStep >= 2 && [styles.sheetStepConnectorActive, { backgroundColor: colors.primary }]]} />
 
               <Pressable
                 onPress={() => {
@@ -589,15 +614,15 @@ function CreateJobSheet({
                 }}
                 style={styles.sheetStepChipItem}
               >
-                <View style={[styles.sheetStepDot, jobStep >= 2 && styles.sheetStepDotActive]}>
+                <View style={[styles.sheetStepDot, { backgroundColor: colors.border }, jobStep >= 2 && [styles.sheetStepDotActive, { backgroundColor: colors.primary }]]}>
                   <Text style={[styles.sheetStepDotText, jobStep >= 2 && styles.sheetStepDotTextActive]}>
                     {jobStep > 2 ? "✓" : "2"}
                   </Text>
                 </View>
-                <Text style={[styles.sheetStepLabel, jobStep >= 2 && styles.sheetStepLabelActive]}>Ücret</Text>
+                <Text style={[styles.sheetStepLabel, { color: colors.muted }, jobStep >= 2 && [styles.sheetStepLabelActive, { color: colors.primary }]]}>Ücret</Text>
               </Pressable>
 
-              <View style={[styles.sheetStepConnector, jobStep >= 3 && styles.sheetStepConnectorActive]} />
+              <View style={[styles.sheetStepConnector, { backgroundColor: colors.border }, jobStep >= 3 && [styles.sheetStepConnectorActive, { backgroundColor: colors.primary }]]} />
 
               <Pressable
                 onPress={() => {
@@ -605,12 +630,12 @@ function CreateJobSheet({
                 }}
                 style={styles.sheetStepChipItem}
               >
-                <View style={[styles.sheetStepDot, jobStep >= 3 && styles.sheetStepDotActive]}>
+                <View style={[styles.sheetStepDot, { backgroundColor: colors.border }, jobStep >= 3 && [styles.sheetStepDotActive, { backgroundColor: colors.primary }]]}>
                   <Text style={[styles.sheetStepDotText, jobStep >= 3 && styles.sheetStepDotTextActive]}>
                     3
                   </Text>
                 </View>
-                <Text style={[styles.sheetStepLabel, jobStep >= 3 && styles.sheetStepLabelActive]}>Detay</Text>
+                <Text style={[styles.sheetStepLabel, { color: colors.muted }, jobStep >= 3 && [styles.sheetStepLabelActive, { color: colors.primary }]]}>Detay</Text>
               </Pressable>
             </View>
           </View>
@@ -834,15 +859,24 @@ function SheetField(props: {
   multiline?: boolean;
   keyboardType?: "default" | "number-pad";
 }) {
+  const { colors } = useTheme();
   return (
     <View style={styles.fieldWrap}>
-      <Text style={styles.sheetLabel}>{props.label}</Text>
+      <Text style={[styles.sheetLabel, { color: colors.text }]}>{props.label}</Text>
       <TextInput
-        style={[styles.input, props.multiline && styles.textArea]}
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.inputBg,
+            color: colors.text,
+            borderColor: colors.border,
+          },
+          props.multiline && styles.textArea,
+        ]}
         value={props.value}
         onChangeText={props.onChangeText}
         placeholder={props.placeholder}
-        placeholderTextColor={C.muted}
+        placeholderTextColor={colors.muted}
         multiline={props.multiline}
         keyboardType={props.keyboardType ?? "default"}
       />
@@ -859,9 +893,19 @@ function Pill({
   label: string;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
   return (
-    <Pressable style={[styles.pill, active && styles.pillActive]} onPress={onPress}>
-      <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>
+    <Pressable
+      style={[
+        styles.pill,
+        {
+          backgroundColor: active ? colors.primary : colors.card,
+          borderColor: active ? colors.primary : colors.border,
+        },
+      ]}
+      onPress={onPress}
+    >
+      <Text style={[styles.pillText, { color: active ? "#FFFFFF" : colors.muted }]}>{label}</Text>
     </Pressable>
   );
 }

@@ -27,7 +27,7 @@ import NotificationsScreen from "@/screens/NotificationsScreen";
 import ProfileScreen from "@/screens/ProfileScreen";
 import QRScreen from "@/screens/QRScreen";
 import QrScannerScreen from "@/screens/QrScannerScreen";
-import { Card, C, EmptyState, PrimaryButton } from "@/components/ui";
+import { Card, C, EmptyState, PrimaryButton, ThemeProvider, useTheme } from "@/components/ui";
 import { BookmarkIcon, QrScanIcon } from "@/components/icons";
 import { useCachedList } from "@/hooks/use-cached-list";
 import AnimatedSplashScreen from "@/components/AnimatedSplashScreen";
@@ -100,12 +100,13 @@ export default function App() {
   return (
     <AppErrorBoundary>
       <SafeAreaProvider style={styles.flex}>
-        <StatusBar style="dark" />
-        <MaintenanceGate>
-          <AuthProvider>
-            <Root fontsReady={fontsLoaded} />
-          </AuthProvider>
-        </MaintenanceGate>
+        <ThemeProvider>
+          <MaintenanceGate>
+            <AuthProvider>
+              <Root fontsReady={fontsLoaded} />
+            </AuthProvider>
+          </MaintenanceGate>
+        </ThemeProvider>
       </SafeAreaProvider>
     </AppErrorBoundary>
   );
@@ -199,6 +200,7 @@ function MaintenanceGate({ children }: { children: ReactNode }) {
 
 function Root({ fontsReady }: { fontsReady: boolean }) {
   const { user, isLoading, isAuthenticated } = useAuth();
+  const { isDark, colors } = useTheme();
   const [guestBrowsing, setGuestBrowsing] = useState(false);
   const [splashFinished, setSplashFinished] = useState(false);
   const handleSplashFinish = useCallback(() => setSplashFinished(true), []);
@@ -206,18 +208,18 @@ function Root({ fontsReady }: { fontsReady: boolean }) {
   const showAuth = (!isAuthenticated || !user) && !guestBrowsing;
 
   return (
-    <View style={styles.flex}>
+    <View style={[styles.flex, { backgroundColor: colors.bg }]}>
       {showAuth ? (
-        <SafeAreaView style={styles.flex} edges={["top", "bottom"]}>
-          <StatusBar style="dark" />
+        <SafeAreaView style={[styles.flex, { backgroundColor: colors.bg }]} edges={["top", "bottom"]}>
+          <StatusBar style={isDark ? "light" : "dark"} />
           <AuthScreen
             onDone={() => setGuestBrowsing(false)}
             onBrowseGuest={() => setGuestBrowsing(true)}
           />
         </SafeAreaView>
       ) : (
-        <SafeAreaView style={styles.flex} edges={["top", "bottom"]}>
-          <StatusBar style="dark" />
+        <SafeAreaView style={[styles.flex, { backgroundColor: colors.bg }]} edges={["top", "bottom"]}>
+          <StatusBar style={isDark ? "light" : "dark"} />
           <MainTabs onRequestLogin={() => setGuestBrowsing(false)} />
         </SafeAreaView>
       )}
@@ -236,6 +238,7 @@ function Root({ fontsReady }: { fontsReady: boolean }) {
 
 function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const isEmployer = user?.role === "EMPLOYER";
   const [tab, setTab] = useState<Tab>(isEmployer ? "jobs" : "jobs");
   const [openJobId, setOpenJobId] = useState<string | null>(null);
@@ -435,7 +438,7 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
           onPressNotifications={() => handleTabPress("notifications")}
         />
       )}
-      <View style={styles.content}>
+      <View style={[styles.content, { backgroundColor: colors.bg }]}>
         {tab === "jobs" &&
           (isEmployer ? (
             <DashboardScreen
@@ -546,6 +549,7 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
 }
 
 function SavedScreen({ onOpenJob, refreshKey }: { onOpenJob: (job: ApiJob) => void; refreshKey: number }) {
+  const { colors } = useTheme();
   const savedFetcher = useCallback(() => fetchSavedJobs(), []);
   const {
     data: jobsData,
@@ -565,15 +569,15 @@ function SavedScreen({ onOpenJob, refreshKey }: { onOpenJob: (job: ApiJob) => vo
   }, [refreshKey, reload]);
 
   return (
-    <View style={styles.savedScreenContainer}>
+    <View style={[styles.savedScreenContainer, { backgroundColor: colors.bg }]}>
       <BrandRefreshScrollView
         style={styles.flex}
         contentContainerStyle={styles.savedWrap}
         refreshing={refreshing}
         onRefresh={refreshSaved}
       >
-        <Text style={styles.h1}>Kaydedilenler</Text>
-        <Text style={styles.sub}>Daha sonra başvurmak için kaydettiğin ilanlar.</Text>
+        <Text style={[styles.h1, { color: colors.text }]}>Kaydedilenler</Text>
+        <Text style={[styles.sub, { color: colors.muted }]}>Daha sonra başvurmak için kaydettiğin ilanlar.</Text>
         {loading ? (
           <ActivityIndicator style={{ marginTop: 30 }} color={C.primary} />
         ) : jobs.length === 0 ? (

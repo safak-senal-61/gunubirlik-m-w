@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { Badge, Card, C, Chip, EmptyState, Loading, PrimaryButton, SectionTitle } from "@/components/ui";
+import { Badge, Card, C, Chip, EmptyState, Loading, PrimaryButton, SectionTitle, useTheme } from "@/components/ui";
 import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
 import { useCachedList } from "@/hooks/use-cached-list";
 import { fetchApplications, fetchApplicationsByEmployer, rateApplication, updateApplicationStatus } from "@/lib/api";
@@ -35,6 +35,7 @@ export default function ApplicationsScreen({
   onScanQR?: () => void;
 }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const [apps, setApps] = useState<ApiApplication[]>([]);
   const [filter, setFilter] = useState<Filter>("ALL");
   const isEmployer = user?.role === "EMPLOYER";
@@ -70,13 +71,13 @@ export default function ApplicationsScreen({
 
   return (
     <BrandRefreshScrollView
-      style={styles.flex}
-      contentContainerStyle={styles.wrap}
+      style={[styles.flex, { backgroundColor: colors.bg }]}
+      contentContainerStyle={[styles.wrap, { backgroundColor: colors.bg }]}
       refreshing={refreshing}
       onRefresh={refreshApps}
     >
-      <Text style={styles.h1}>{isEmployer ? "Gelen Başvurular" : "Başvurularım"}</Text>
-      <Text style={styles.sub}>
+      <Text style={[styles.h1, { color: colors.text }]}>{isEmployer ? "Gelen Başvurular" : "Başvurularım"}</Text>
+      <Text style={[styles.sub, { color: colors.muted }]}>
         {isEmployer
           ? "İlanlarınıza yapılan başvuruları inceleyin, onaylayın veya yanıtlayın."
           : "Gönderdiğiniz başvuruların durumunu buradan güncel olarak takip edebilirsiniz."}
@@ -133,6 +134,7 @@ function ApplicationCard({
   onShowQR?: (app: ApiApplication) => void;
   onScanQR?: () => void;
 }) {
+  const { colors } = useTheme();
   const [busy, setBusy] = useState(false);
   const [ratingOpen, setRatingOpen] = useState(false);
   const ratedMap = useRatedMap();
@@ -161,44 +163,48 @@ function ApplicationCard({
     <Card>
       <View style={styles.topRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.jobTitle} numberOfLines={1}>{jobTitle}</Text>
+          <Text style={[styles.jobTitle, { color: colors.text }]} numberOfLines={1}>{jobTitle}</Text>
           <View style={styles.otherRow}>
-            <Text style={styles.other}>{other}</Text>
+            <Text style={[styles.other, { color: colors.muted }]}>{other}</Text>
             {app.worker?.ratingAvg ? (
               <View style={styles.ratingBadge}>
                 <StarIcon size={12} color="#D97706" />
                 <Text style={styles.ratingText}>{app.worker.ratingAvg.toFixed(1)}</Text>
               </View>
             ) : null}
-            {isEmployer && app.worker?.phone ? <Text style={styles.otherMeta}>· {app.worker.phone}</Text> : null}
-            {!isEmployer && app.job ? <Text style={styles.otherMeta}>· {app.job.district}, {app.job.city}</Text> : null}
+            {isEmployer && app.worker?.phone ? <Text style={[styles.otherMeta, { color: colors.muted }]}>· {app.worker.phone}</Text> : null}
+            {!isEmployer && app.job ? <Text style={[styles.otherMeta, { color: colors.muted }]}>· {app.job.district}, {app.job.city}</Text> : null}
           </View>
         </View>
         <Badge
           label={APPLICATION_STATUS_LABELS[app.status]}
           color={APPLICATION_STATUS_COLORS[app.status]}
           bg={
-            app.status === "PENDING" ? C.amberBg
-            : app.status === "ACCEPTED" ? C.emeraldBg
-            : app.status === "REJECTED" ? C.roseBg
-            : C.indigoBg
+            app.status === "PENDING" ? colors.amberBg
+            : app.status === "ACCEPTED" ? colors.emeraldBg
+            : app.status === "REJECTED" ? colors.roseBg
+            : colors.indigoBg
           }
         />
       </View>
 
       {app.job?.workDate && (
         <View style={styles.metaRow}>
-          <CalendarIcon size={13} color={C.primary} />
-          <Text style={styles.meta}>
+          <CalendarIcon size={13} color={colors.primary} />
+          <Text style={[styles.meta, { color: colors.muted }]}>
             {new Date(app.job.workDate).toLocaleDateString("tr-TR")} · {app.job.startTime?.slice(0, 5)}–{app.job.endTime?.slice(0, 5)}
             {!isEmployer && app.job ? ` · ${formatWage(app.job.wageAmount, app.job.wageType)}` : ""}
           </Text>
         </View>
       )}
-      {app.message ? <Text style={styles.quote}>“{app.message}”</Text> : null}
-      {app.proposedWage ? <Text style={styles.proposal}>Teklif Edilen Ücret: {app.proposedWage.toLocaleString("tr-TR")} ₺</Text> : null}
-      {app.employerNote ? <Text style={styles.note}>İşveren Notu: {app.employerNote}</Text> : null}
-      <Text style={styles.time}>{timeAgo(app.createdAt)}</Text>
+      {app.message ? (
+        <Text style={[styles.quote, { backgroundColor: colors.cardSecondary, borderColor: colors.border, color: colors.text }]}>
+          “{app.message}”
+        </Text>
+      ) : null}
+      {app.proposedWage ? <Text style={[styles.proposal, { color: colors.primary }]}>Teklif Edilen Ücret: {app.proposedWage.toLocaleString("tr-TR")} ₺</Text> : null}
+      {app.employerNote ? <Text style={[styles.note, { color: colors.muted }]}>İşveren Notu: {app.employerNote}</Text> : null}
+      <Text style={[styles.time, { color: colors.muted }]}>{timeAgo(app.createdAt)}</Text>
 
       {app.status === "ACCEPTED" && onStartChat && app.job && (
         <View style={styles.chatRow}>
@@ -298,6 +304,7 @@ function RatingModal({
   onClose: () => void;
   onSubmit: (rating: number, comment?: string) => Promise<void>;
 }) {
+  const { colors } = useTheme();
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
@@ -305,22 +312,32 @@ function RatingModal({
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
+        <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SectionTitle>İşi Değerlendir</SectionTitle>
-          <Text style={styles.modalDesc}>Tamamlanan iş süreci için 1–5 arası puanlama yapın ve deneyiminizi paylaşın.</Text>
+          <Text style={[styles.modalDesc, { color: colors.muted }]}>
+            Tamamlanan iş süreci için 1–5 arası puanlama yapın ve deneyiminizi paylaşın.
+          </Text>
           <View style={styles.stars}>
             {[1, 2, 3, 4, 5].map((n) => (
               <Pressable key={n} onPress={() => setRating(n)} hitSlop={6} style={styles.starBtn}>
-                <StarIcon size={30} color={n <= rating ? "#D97706" : "#D1D5DB"} />
+                <StarIcon size={30} color={n <= rating ? "#D97706" : colors.border} />
               </Pressable>
             ))}
           </View>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.inputBg,
+                color: colors.text,
+                borderColor: colors.border,
+              },
+              styles.textArea,
+            ]}
             value={comment}
             onChangeText={setComment}
             placeholder="Görüş ve değerlendirmeleriniz (isteğe bağlı)…"
-            placeholderTextColor={C.muted}
+            placeholderTextColor={colors.muted}
             multiline
           />
           <View style={styles.modalActions}>

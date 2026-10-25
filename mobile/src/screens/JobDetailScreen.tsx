@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Badge, Card, C, Loading, PrimaryButton, SectionTitle } from "@/components/ui";
+import { Badge, Card, C, Loading, PrimaryButton, SectionTitle, useTheme } from "@/components/ui";
 import LeafletMap from "@/components/LeafletMap";
 import { applyToJob, deleteJob, fetchJob } from "@/lib/api";
 import { toggleSaved, useSavedIds } from "@/lib/saved-store";
@@ -59,6 +59,7 @@ export default function JobDetailScreen({
   onScanQR?: () => void;
 }) {
   const { user } = useAuth();
+  const { colors } = useTheme();
   const [job, setJob] = useState<ApiJob | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -128,53 +129,53 @@ export default function JobDetailScreen({
   const skills = parseSkills(job.requiredSkills);
 
   return (
-    <ScrollView style={styles.flex} contentContainerStyle={styles.wrap}>
+    <ScrollView style={[styles.flex, { backgroundColor: colors.bg }]} contentContainerStyle={[styles.wrap, { backgroundColor: colors.bg }]}>
       <Pressable onPress={onBack} hitSlop={8} style={styles.backButton}>
-        <ArrowLeftIcon size={16} color={C.muted} />
-        <Text style={styles.back}>Tüm ilanlar</Text>
+        <ArrowLeftIcon size={16} color={colors.muted} />
+        <Text style={[styles.back, { color: colors.muted }]}>Tüm ilanlar</Text>
       </Pressable>
 
       <Card>
         <View style={styles.headRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>{job.title}</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{job.title}</Text>
             <View style={styles.employerRowInline}>
-              <Text style={styles.employer}>
+              <Text style={[styles.employer, { color: colors.muted }]}>
                 {job.employer.companyName ?? job.employer.fullName}
               </Text>
               {job.employer.isVerified && (
-                <View style={styles.verifiedBadge}>
-                  <VerifiedCheckIcon size={14} color={C.primary} />
-                  <Text style={styles.verifiedText}>Doğrulanmış</Text>
+                <View style={[styles.verifiedBadge, { backgroundColor: colors.primarySoft }]}>
+                  <VerifiedCheckIcon size={14} color={colors.primary} />
+                  <Text style={[styles.verifiedText, { color: colors.primary }]}>Doğrulanmış</Text>
                 </View>
               )}
             </View>
           </View>
-          <View style={styles.catBox}>
-            {getCategoryIconComponent(job.category, 24, C.primary)}
+          <View style={[styles.catBox, { backgroundColor: colors.primarySoft }]}>
+            {getCategoryIconComponent(job.category, 24, colors.primary)}
           </View>
         </View>
 
         <View style={styles.badgeRow}>
-          <Badge label={JOB_STATUS_LABELS[job.status]} color={C.stone} bg={C.stoneBg} />
+          <Badge label={JOB_STATUS_LABELS[job.status]} color={colors.stone} bg={colors.stoneBg} />
           {job.urgency !== "LOW" && (
             <Badge
               label={URGENCY_LABELS[job.urgency]}
               color={URGENCY_COLORS[job.urgency]}
-              bg={URGENCY_COLORS[job.urgency] === C.rose ? C.roseBg : URGENCY_COLORS[job.urgency] === C.amber ? C.amberBg : C.emeraldBg}
+              bg={URGENCY_COLORS[job.urgency] === colors.rose ? colors.roseBg : URGENCY_COLORS[job.urgency] === colors.amber ? colors.amberBg : colors.emeraldBg}
             />
           )}
-          {isOwner && <Badge label="Senin ilanın" color={C.primary} bg={C.primarySoft} />}
+          {isOwner && <Badge label="Senin ilanın" color={colors.primary} bg={colors.primarySoft} />}
         </View>
 
         <View style={styles.tiles}>
           <Tile
-            icon={<CalendarIcon size={15} color={C.primary} />}
+            icon={<CalendarIcon size={15} color={colors.primary} />}
             label="İş günü"
             value={new Date(job.workDate).toLocaleDateString("tr-TR")}
           />
           <Tile
-            icon={<ClockIcon size={15} color={C.primary} />}
+            icon={<ClockIcon size={15} color={colors.primary} />}
             label="Saatler"
             value={`${job.startTime.slice(0, 5)}–${job.endTime.slice(0, 5)} (${job.durationHours} sa)`}
           />
@@ -390,13 +391,14 @@ function StatusBanner({ status, workDate }: { status: ApiApplication["status"]; 
 }
 
 function Tile({ icon, label, value }: { icon: ReactNode; value: string; label: string }) {
+  const { colors } = useTheme();
   return (
-    <View style={styles.tile}>
+    <View style={[styles.tile, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
       <View style={styles.tileHeader}>
         {icon}
-        <Text style={styles.tileLabel}>{label}</Text>
+        <Text style={[styles.tileLabel, { color: colors.muted }]}>{label}</Text>
       </View>
-      <Text style={styles.tileValue} numberOfLines={1}>{value}</Text>
+      <Text style={[styles.tileValue, { color: colors.text }]} numberOfLines={1}>{value}</Text>
     </View>
   );
 }
@@ -412,6 +414,7 @@ function ApplyModal({
   onClose: () => void;
   onApplied: () => void;
 }) {
+  const { colors } = useTheme();
   const [message, setMessage] = useState("");
   const [wage, setWage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -442,17 +445,25 @@ function ApplyModal({
   return (
     <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
-        <View style={styles.modalSheet}>
-          <Text style={styles.modalTitle}>Başvuru Gönder</Text>
-          <Text style={styles.modalDesc}>
+        <View style={[styles.modalSheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.modalTitle, { color: colors.text }]}>Başvuru Gönder</Text>
+          <Text style={[styles.modalDesc, { color: colors.muted }]}>
             İşverene kısa bir bilgilendirme mesajı iletin veya dilerseniz ücret teklifinizi belirtin.
           </Text>
           <TextInput
-            style={[styles.input, styles.textArea]}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.inputBg,
+                color: colors.text,
+                borderColor: colors.border,
+              },
+              styles.textArea,
+            ]}
             value={message}
             onChangeText={setMessage}
             placeholder="Merhaba, bu iş için uygunum, detayları konuşabilir miyiz?"
-            placeholderTextColor={C.muted}
+            placeholderTextColor={colors.muted}
             multiline
             numberOfLines={4}
           />
@@ -460,25 +471,36 @@ function ApplyModal({
             {QUICK_TEMPLATES.map((tpl) => (
               <Pressable
                 key={tpl}
-                style={({ pressed }) => [styles.quickChip, pressed && styles.quickChipPressed]}
+                style={({ pressed }) => [
+                  styles.quickChip,
+                  { backgroundColor: colors.primarySoft, borderColor: colors.border },
+                  pressed && styles.quickChipPressed,
+                ]}
                 onPress={() => setMessage(tpl)}
               >
-                <Text style={styles.quickText}>{tpl}</Text>
+                <Text style={[styles.quickText, { color: colors.primary }]}>{tpl}</Text>
               </Pressable>
             ))}
           </View>
-          <View style={styles.spamNote}>
-            <InfoIcon size={14} color={C.amber} />
-            <Text style={styles.spamText}>
+          <View style={[styles.spamNote, { backgroundColor: colors.amberBg, borderColor: colors.border }]}>
+            <InfoIcon size={14} color={colors.amber} />
+            <Text style={[styles.spamText, { color: colors.amber }]}>
               Telefon, e-posta ve hesap bilgileri güvenlik amacıyla filtrelenmektedir. Tüm iletişimi güvenli mesajlaşma üzerinden yürütünüz.
             </Text>
           </View>
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.inputBg,
+                color: colors.text,
+                borderColor: colors.border,
+              },
+            ]}
             value={wage}
             onChangeText={(v) => setWage(v.replace(/\D/g, ""))}
             placeholder={`Ücret teklifiniz (₺) (opsiyonel, örn. ${job.wageAmount})`}
-            placeholderTextColor={C.muted}
+            placeholderTextColor={colors.muted}
             keyboardType="number-pad"
           />
           {error ? <Text style={styles.error}>{error}</Text> : null}

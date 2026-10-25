@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Badge, Card, Chip, C, EmptyState, Loading, PrimaryButton } from "@/components/ui";
+import { Badge, Card, Chip, C, EmptyState, Loading, PrimaryButton, useTheme } from "@/components/ui";
 import { BrandRefreshFlatList } from "@/components/BrandPullToRefresh";
 import { useCachedList } from "@/hooks/use-cached-list";
 import { fetchCategories, fetchJobs, suggestAddress } from "@/lib/api";
@@ -66,6 +66,7 @@ export default function JobsScreen({
   onOpenJob: (job: ApiJob) => void;
   refreshKey: number;
 }) {
+  const { colors, isDark } = useTheme();
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [jobs, setJobs] = useState<ApiJob[]>([]);
   const [pagination, setPagination] = useState({ page: 1, total: 0, hasNext: false });
@@ -209,19 +210,27 @@ export default function JobsScreen({
     <BrandRefreshFlatList
       data={visible}
       keyExtractor={({ job }) => job.id}
-      contentContainerStyle={styles.list}
+      style={{ backgroundColor: colors.bg }}
+      contentContainerStyle={[styles.list, { backgroundColor: colors.bg }]}
       refreshing={refreshing}
       onRefresh={refreshJobs}
       ListHeaderComponent={
         <View style={styles.header}>
-          <Text style={styles.h1}>Günlük İş İlanları</Text>
-          <Text style={styles.sub}>Konumuna göre sıralanan acil ve günübirlik işler</Text>
+          <Text style={[styles.h1, { color: colors.text }]}>Günlük İş İlanları</Text>
+          <Text style={[styles.sub, { color: colors.muted }]}>Konumuna göre sıralanan acil ve günübirlik işler</Text>
 
           {/* Adres + GPS */}
           <View style={styles.locRow}>
             <View style={{ flex: 1 }}>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.inputBg,
+                    color: colors.text,
+                    borderColor: colors.border,
+                  },
+                ]}
                 value={locQuery}
                 onChangeText={(v) => {
                   setLocQuery(v);
@@ -231,14 +240,14 @@ export default function JobsScreen({
                   }
                 }}
                 placeholder="Adres, mahalle, ilçe ara…"
-                placeholderTextColor={C.muted}
+                placeholderTextColor={colors.muted}
               />
               {suggestions.length > 0 && (
-                <View style={styles.suggestBox}>
+                <View style={[styles.suggestBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   {suggestions.map((s) => (
                     <Pressable
                       key={`${s.lat},${s.lng}`}
-                      style={styles.suggestItem}
+                      style={[styles.suggestItem, { borderBottomColor: colors.border }]}
                       onPress={() => {
                         setLocCoords({ lat: s.lat, lng: s.lng });
                         setLocLabel(s.displayName.split(",").slice(0, 2).join(",").trim());
@@ -249,8 +258,8 @@ export default function JobsScreen({
                       }}
                     >
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <MapPinIcon size={14} color={C.primary} />
-                        <Text style={styles.suggestText} numberOfLines={1}>
+                        <MapPinIcon size={14} color={colors.primary} />
+                        <Text style={[styles.suggestText, { color: colors.text }]} numberOfLines={1}>
                           {s.displayName.split(",").slice(0, 3).join(", ")}
                         </Text>
                       </View>
@@ -259,13 +268,17 @@ export default function JobsScreen({
                 </View>
               )}
             </View>
-            <Pressable style={styles.gpsBtn} onPress={useMyGps} disabled={locating}>
+            <Pressable
+              style={[styles.gpsBtn, { backgroundColor: colors.primarySoft }]}
+              onPress={useMyGps}
+              disabled={locating}
+            >
               {locating ? (
-                <ActivityIndicator size="small" color={C.primary} />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <MapPinIcon size={13} color={C.primary} />
-                  <Text style={styles.gpsText}>GPS</Text>
+                  <MapPinIcon size={13} color={colors.primary} />
+                  <Text style={[styles.gpsText, { color: colors.primary }]}>GPS</Text>
                 </View>
               )}
             </Pressable>
@@ -276,8 +289,8 @@ export default function JobsScreen({
             <>
               <View style={styles.filterRow}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 5, flex: 1 }}>
-                  <MapPinIcon size={14} color={C.primary} />
-                  <Text style={styles.locLabel} numberOfLines={1}>
+                  <MapPinIcon size={14} color={colors.primary} />
+                  <Text style={[styles.locLabel, { color: colors.primary }]} numberOfLines={1}>
                     {locLabel ?? "Konumum"} {locCoords ? "" : "(GPS)"}
                   </Text>
                 </View>
@@ -291,24 +304,24 @@ export default function JobsScreen({
                     setPage(1);
                   }}
                 >
-                  <Text style={styles.clearText}>✕ Temizle</Text>
+                  <Text style={[styles.clearText, { color: colors.muted }]}>✕ Temizle</Text>
                 </Pressable>
               </View>
               {locDetail ? (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: -4 }}>
-                  <MapPinIcon size={12} color={C.muted} />
-                  <Text style={styles.locDetail}>{locDetail}</Text>
+                  <MapPinIcon size={12} color={colors.muted} />
+                  <Text style={[styles.locDetail, { color: colors.muted }]}>{locDetail}</Text>
                 </View>
               ) : null}
               <View style={styles.filterRow}>
-                <Text style={styles.filterLabel}>Yarıçap:</Text>
+                <Text style={[styles.filterLabel, { color: colors.muted }]}>Yarıçap:</Text>
                 <Chip active={radiusKm == null} label="Tümü" onPress={() => setRadiusKm(null)} />
                 {RADIUS_OPTIONS.map((r) => (
                   <Chip key={r} active={radiusKm === r} label={`${r} km`} onPress={() => setRadiusKm(r)} />
                 ))}
               </View>
               <View style={styles.filterRow}>
-                <Text style={styles.filterLabel}>Sırala:</Text>
+                <Text style={[styles.filterLabel, { color: colors.muted }]}>Sırala:</Text>
                 <Chip active={sortBy === "distance"} label="Mesafe" onPress={() => setSortBy("distance")} />
                 <Chip active={sortBy === "new"} label="Yeni" onPress={() => setSortBy("new")} />
               </View>
@@ -317,14 +330,22 @@ export default function JobsScreen({
 
           {/* Metin arama */}
           <TextInput
-            style={[styles.input, styles.searchInput]}
+            style={[
+              styles.input,
+              styles.searchInput,
+              {
+                backgroundColor: colors.inputBg,
+                color: colors.text,
+                borderColor: colors.border,
+              },
+            ]}
             value={search}
             onChangeText={(v) => {
               setSearch(v);
               setPage(1);
             }}
             placeholder="İlan başlığı veya açıklamada ara…"
-            placeholderTextColor={C.muted}
+            placeholderTextColor={colors.muted}
           />
 
           {/* Kategoriler — modern kart görünümü (yatay kaydırmalı, gölgeli ikon kutuları) */}
@@ -334,7 +355,7 @@ export default function JobsScreen({
             contentContainerStyle={styles.catRow}
           >
             <CategoryTile
-              icon={<BriefcaseIcon size={20} color={category === "ALL" ? "#FFFFFF" : C.primary} />}
+              icon={<BriefcaseIcon size={20} color={category === "ALL" ? "#FFFFFF" : colors.primary} />}
               label="Tümü"
               active={category === "ALL"}
               onPress={() => { setCategory("ALL"); setPage(1); }}
@@ -342,7 +363,7 @@ export default function JobsScreen({
             {categories.map((c) => (
               <CategoryTile
                 key={c.value}
-                icon={getCategoryIconComponent(c.value, 20, category === c.value ? "#FFFFFF" : C.primary)}
+                icon={getCategoryIconComponent(c.value, 20, category === c.value ? "#FFFFFF" : colors.primary)}
                 label={c.label.split(" &")[0]}
                 active={category === c.value}
                 onPress={() => { setCategory(c.value); setPage(1); }}
@@ -353,21 +374,21 @@ export default function JobsScreen({
           {loading && visible.length === 0 ? (
             <View style={styles.skeletonWrap}>
               {[0, 1, 2].map((i) => (
-                <View key={i} style={styles.skeletonCard}>
+                <View key={i} style={[styles.skeletonCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
                   <View style={styles.skeletonRow}>
-                    <View style={styles.skeletonIcon} />
+                    <View style={[styles.skeletonIcon, { backgroundColor: colors.cardSecondary }]} />
                     <View style={{ flex: 1, gap: 6 }}>
-                      <View style={[styles.skeletonLine, { width: "70%" }]} />
-                      <View style={[styles.skeletonLine, { width: "45%" }]} />
+                      <View style={[styles.skeletonLine, { width: "70%", backgroundColor: colors.cardSecondary }]} />
+                      <View style={[styles.skeletonLine, { width: "45%", backgroundColor: colors.cardSecondary }]} />
                     </View>
                   </View>
-                  <View style={[styles.skeletonLine, { width: "35%", marginTop: 10 }]} />
+                  <View style={[styles.skeletonLine, { width: "35%", marginTop: 10, backgroundColor: colors.cardSecondary }]} />
                 </View>
               ))}
-              <Text style={styles.skeletonHint}>İlanlar yükleniyor…</Text>
+              <Text style={[styles.skeletonHint, { color: colors.muted }]}>İlanlar yükleniyor…</Text>
             </View>
           ) : (
-            <Text style={styles.count}>{visible.length} ilan</Text>
+            <Text style={[styles.count, { color: colors.muted }]}>{visible.length} ilan</Text>
           )}
         </View>
       }
@@ -451,6 +472,7 @@ function CategoryTile({
   active: boolean;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
   return (
     <Pressable
@@ -459,10 +481,27 @@ function CategoryTile({
       onPressOut={() => Animated.spring(scale, { toValue: 1, friction: 4, tension: 220, useNativeDriver: true }).start()}
       style={styles.catTileWrap}
     >
-      <Animated.View style={[styles.catTile, active && styles.catTileActive, { transform: [{ scale }] }]}>
+      <Animated.View
+        style={[
+          styles.catTile,
+          {
+            backgroundColor: active ? colors.primary : colors.card,
+            borderColor: active ? colors.primary : colors.border,
+          },
+          { transform: [{ scale }] },
+        ]}
+      >
         {icon}
       </Animated.View>
-      <Text style={[styles.catTileLabel, active && styles.catTileLabelActive]} numberOfLines={1}>{label}</Text>
+      <Text
+        style={[
+          styles.catTileLabel,
+          { color: active ? colors.primary : colors.muted },
+        ]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -482,96 +521,111 @@ export function JobCard({
   onPress: () => void;
   onSave?: () => void;
 }) {
+  const { colors } = useTheme();
   const dist = formatDistance(distanceKm);
   return (
-    <Card style={styles.jobCard}>
+    <Card style={[styles.jobCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <Pressable onPress={onPress}>
         <View style={styles.jobTop}>
-          <View style={styles.jobIconBox}>
-            {getCategoryIconComponent(job.category, 22, C.primary)}
+          <View style={[styles.jobIconBox, { backgroundColor: colors.primarySoft }]}>
+            {getCategoryIconComponent(job.category, 22, colors.primary)}
           </View>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Text style={[styles.jobTitle, { flexShrink: 1 }]} numberOfLines={1}>{job.title}</Text>
-              <View style={styles.catCodeBadge}>
-                <Text style={styles.catCodeText}>{CATEGORY_CODES[job.category] ?? "GNL"}</Text>
+              <Text style={[styles.jobTitle, { color: colors.text, flexShrink: 1 }]} numberOfLines={1}>
+                {job.title}
+              </Text>
+              <View style={[styles.catCodeBadge, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}>
+                <Text style={[styles.catCodeText, { color: colors.textSecondary }]}>
+                  {CATEGORY_CODES[job.category] ?? "GNL"}
+                </Text>
               </View>
             </View>
             <View style={styles.employerRow}>
-              <Text style={styles.jobEmployer} numberOfLines={1}>
+              <Text style={[styles.jobEmployer, { color: colors.muted }]} numberOfLines={1}>
                 {job.employer.companyName ?? job.employer.fullName}
               </Text>
               {job.employer.isVerified ? (
-                <VerifiedCheckIcon size={13} color={C.primary} />
+                <VerifiedCheckIcon size={13} color={colors.primary} />
               ) : null}
             </View>
           </View>
           {onSave && (
             <Pressable onPress={onSave} disabled={saving} hitSlop={10} style={styles.saveHit}>
               {isSaved ? (
-                <BookmarkFilledIcon size={22} color={C.primary} />
+                <BookmarkFilledIcon size={22} color={colors.primary} />
               ) : (
-                <BookmarkIcon size={22} color="#8C928E" />
+                <BookmarkIcon size={22} color={colors.muted} />
               )}
             </Pressable>
           )}
         </View>
 
         <View style={styles.badgeRow}>
-          <View style={styles.locationBadge}>
-            <MapPinIcon size={12} color={C.primary} />
-            <Text style={styles.locationBadgeText}>{job.district}, {job.city}</Text>
+          <View style={[styles.locationBadge, { backgroundColor: colors.primarySoft }]}>
+            <MapPinIcon size={12} color={colors.primary} />
+            <Text style={[styles.locationBadgeText, { color: colors.primary }]}>
+              {job.district}, {job.city}
+            </Text>
           </View>
           {dist ? (
-            <View style={styles.distBadge}>
-              <Text style={styles.distBadgeText}>{dist}</Text>
+            <View style={[styles.distBadge, { backgroundColor: colors.cardSecondary }]}>
+              <Text style={[styles.distBadgeText, { color: colors.muted }]}>{dist}</Text>
             </View>
           ) : null}
           {job.urgency !== "LOW" && (
             <Badge
               label={URGENCY_LABELS[job.urgency]}
               color={URGENCY_COLORS[job.urgency]}
-              bg={URGENCY_COLORS[job.urgency] === C.rose ? C.roseBg : URGENCY_COLORS[job.urgency] === C.amber ? C.amberBg : C.emeraldBg}
+              bg={URGENCY_COLORS[job.urgency] === colors.rose ? colors.roseBg : URGENCY_COLORS[job.urgency] === colors.amber ? colors.amberBg : colors.emeraldBg}
             />
           )}
         </View>
 
-        <View style={styles.metaRow}>
+        <View style={[styles.metaRow, { borderTopColor: colors.borderLight }]}>
           <View style={styles.metaItem}>
-            <CalendarIcon size={13} color="#656D67" />
-            <Text style={styles.metaText}>{new Date(job.workDate).toLocaleDateString("tr-TR")}</Text>
+            <CalendarIcon size={13} color={colors.muted} />
+            <Text style={[styles.metaText, { color: colors.muted }]}>
+              {new Date(job.workDate).toLocaleDateString("tr-TR")}
+            </Text>
           </View>
           <View style={styles.metaItem}>
-            <ClockIcon size={13} color="#656D67" />
-            <Text style={styles.metaText}>{job.startTime.slice(0, 5)}–{job.endTime.slice(0, 5)}</Text>
+            <ClockIcon size={13} color={colors.muted} />
+            <Text style={[styles.metaText, { color: colors.muted }]}>
+              {job.startTime.slice(0, 5)}–{job.endTime.slice(0, 5)}
+            </Text>
           </View>
           {job.openingsTotal > 1 ? (
             <View style={styles.metaItem}>
-              <UsersIcon size={13} color="#656D67" />
-              <Text style={styles.metaText}>{job.openingsFilled}/{job.openingsTotal}</Text>
+              <UsersIcon size={13} color={colors.muted} />
+              <Text style={[styles.metaText, { color: colors.muted }]}>
+                {job.openingsFilled}/{job.openingsTotal}
+              </Text>
             </View>
           ) : null}
         </View>
 
-        <View style={styles.jobFooter}>
-          <View style={styles.wageBox}>
-            <Text style={styles.wage}>{formatWage(job.wageAmount, job.wageType)}</Text>
+        <View style={[styles.jobFooter, { borderTopColor: colors.borderLight }]}>
+          <View style={[styles.wageBox, { backgroundColor: colors.primarySoft }]}>
+            <Text style={[styles.wage, { color: colors.primary }]}>
+              {formatWage(job.wageAmount, job.wageType)}
+            </Text>
           </View>
           <View style={styles.detailButton}>
-            <Text style={styles.detailLink}>İncele</Text>
-            <ChevronRightIcon size={14} color={C.primary} />
+            <Text style={[styles.detailLink, { color: colors.primary }]}>İncele</Text>
+            <ChevronRightIcon size={14} color={colors.primary} />
           </View>
         </View>
 
         {job.employer.ratingAvg > 0 ? (
           <View style={styles.ratingRow}>
             <StarIcon size={13} color="#D97706" />
-            <Text style={styles.rating}>
+            <Text style={[styles.rating, { color: colors.muted }]}>
               {job.employer.ratingAvg.toFixed(1)} ({job.employer.ratingCount}) · {timeAgo(job.createdAt)}
             </Text>
           </View>
         ) : (
-          <Text style={styles.timeAgoSingle}>{timeAgo(job.createdAt)}</Text>
+          <Text style={[styles.timeAgoSingle, { color: colors.muted }]}>{timeAgo(job.createdAt)}</Text>
         )}
       </Pressable>
     </Card>

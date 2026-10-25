@@ -27,7 +27,7 @@ import {
 } from '../lib/api';
 import type { ApiConversation, ApiMessage, ApiJob } from '../lib/types';
 import { subscribeToConversation, sendRealtimeMessage, TypingUser } from '../lib/socket';
-import { Avatar } from '../components/ui';
+import { Avatar, useTheme } from '../components/ui';
 import {
   ArrowLeftIcon,
   SendIcon,
@@ -132,6 +132,7 @@ export function MessagesScreen({
   autoFocusReply,
   onAutoFocusReplyHandled,
 }: MessagesScreenProps) {
+  const { colors, isDark } = useTheme();
   const targetId = openConversationId || initialConversationId;
 
   // Ana State'ler
@@ -628,15 +629,15 @@ export function MessagesScreen({
     const wageAmount = (selected.job as any)?.wageAmount;
 
     return (
-      <View style={styles.threadContainer}>
+      <View style={[styles.threadContainer, { backgroundColor: colors.bg }]}>
         {/* Üst Başlık Çubuğu */}
-        <View style={styles.threadHeader}>
+        <View style={[styles.threadHeader, { backgroundColor: colors.headerBg, borderBottomColor: colors.border }]}>
           <TouchableOpacity
             onPress={() => handleSelectConversation(null)}
             style={styles.backButton}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <ArrowLeftIcon size={20} color="#141615" strokeWidth={2.2} />
+            <ArrowLeftIcon size={20} color={colors.text} strokeWidth={2.2} />
           </TouchableOpacity>
 
           <View style={styles.headerAvatarContainer}>
@@ -646,15 +647,15 @@ export function MessagesScreen({
 
           <View style={styles.headerInfo}>
             <View style={styles.titleRow}>
-              <Text style={styles.headerTitle} numberOfLines={1}>
+              <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>
                 {displayName}
               </Text>
-              {isVerified && <VerifiedCheckIcon size={14} color="#0D6847" />}
+              {isVerified && <VerifiedCheckIcon size={14} color={colors.primary} />}
             </View>
             {jobTitle && (
-              <View style={styles.headerJobPill}>
-                <BriefcaseIcon size={10} color="#0D6847" />
-                <Text style={styles.headerJobText} numberOfLines={1}>
+              <View style={[styles.headerJobPill, { backgroundColor: colors.primarySoft }]}>
+                <BriefcaseIcon size={10} color={colors.primary} />
+                <Text style={[styles.headerJobText, { color: colors.primary }]} numberOfLines={1}>
                   {jobTitle} {wageAmount ? `· ₺${wageAmount.toLocaleString('tr-TR')}` : ''}
                 </Text>
               </View>
@@ -664,11 +665,11 @@ export function MessagesScreen({
           {/* İlan Paylaş Butonu (Elastic Search Modalı Açar) */}
           <TouchableOpacity
             onPress={handleOpenShareJobModal}
-            style={styles.headerShareJobBtn}
+            style={[styles.headerShareJobBtn, { backgroundColor: colors.primarySoft }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <BriefcaseIcon size={14} color="#0D6847" />
-            <Text style={styles.headerShareJobText}>İlan Paylaş</Text>
+            <BriefcaseIcon size={14} color={colors.primary} />
+            <Text style={[styles.headerShareJobText, { color: colors.primary }]}>İlan Paylaş</Text>
           </TouchableOpacity>
         </View>
 
@@ -740,7 +741,9 @@ export function MessagesScreen({
                     <View
                       style={[
                         styles.messageBubble,
-                        isMe ? styles.myBubble : styles.otherBubble,
+                        isMe
+                          ? styles.myBubble
+                          : [styles.otherBubble, { backgroundColor: colors.card, borderColor: colors.border }],
                         parsedJob ? styles.jobCardWrapperBubble : null,
                       ]}
                     >
@@ -872,14 +875,21 @@ export function MessagesScreen({
           )}
 
           {/* Mesaj Yazma Alanı */}
-          <View style={styles.inputContainer}>
+          <View style={[styles.inputContainer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
             <TextInput
               ref={textInputRef}
-              style={styles.textInput}
+              style={[
+                styles.textInput,
+                {
+                  backgroundColor: colors.inputBg,
+                  color: colors.text,
+                  borderColor: colors.border,
+                },
+              ]}
               value={inputText}
               onChangeText={handleTextChange}
               placeholder="Mesajınızı yazın…"
-              placeholderTextColor="#8C928E"
+              placeholderTextColor={colors.muted}
               multiline
               maxLength={1000}
             />
@@ -889,6 +899,7 @@ export function MessagesScreen({
               disabled={!inputText.trim()}
               style={[
                 styles.sendButton,
+                { backgroundColor: colors.primary },
                 inputText.trim() ? styles.sendButtonActive : styles.sendButtonDisabled,
               ]}
             >
@@ -1076,22 +1087,22 @@ export function MessagesScreen({
 
   // ================= 2. GELEN KUTUSU LİSTESİ (INBOX VIEW) =================
   return (
-    <View style={styles.listContainer}>
-      <View style={styles.inboxHeader}>
+    <View style={[styles.listContainer, { backgroundColor: colors.bg }]}>
+      <View style={[styles.inboxHeader, { backgroundColor: colors.headerBg, borderBottomColor: colors.border }]}>
         <View style={styles.inboxTitleRow}>
-          <Text style={styles.inboxTitle}>Mesajlar</Text>
-          <View style={styles.activeConvCountPill}>
-            <Text style={styles.activeConvCountText}>{conversations.length} Sohbet</Text>
+          <Text style={[styles.inboxTitle, { color: colors.text }]}>Mesajlar</Text>
+          <View style={[styles.activeConvCountPill, { backgroundColor: colors.primarySoft }]}>
+            <Text style={[styles.activeConvCountText, { color: colors.primary }]}>{conversations.length} Sohbet</Text>
           </View>
         </View>
 
         {/* Arama Çubuğu */}
-        <View style={styles.searchBar}>
-          <SearchIcon size={16} color="#717673" />
+        <View style={[styles.searchBar, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+          <SearchIcon size={16} color={colors.muted} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder="Kişi veya iş ilanlarında ara…"
-            placeholderTextColor="#8C928E"
+            placeholderTextColor={colors.muted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -1100,26 +1111,38 @@ export function MessagesScreen({
         {/* Filtre Butonları */}
         <View style={styles.filterRow}>
           <Pressable
-            style={[styles.filterChip, filterTab === 'all' && styles.filterChipActive]}
+            style={[
+              styles.filterChip,
+              { backgroundColor: colors.card, borderColor: colors.border },
+              filterTab === 'all' && [styles.filterChipActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
+            ]}
             onPress={() => setFilterTab('all')}
           >
-            <Text style={[styles.filterChipText, filterTab === 'all' && styles.filterChipTextActive]}>
+            <Text style={[styles.filterChipText, { color: filterTab === 'all' ? '#FFFFFF' : colors.muted }]}>
               Tümü
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.filterChip, filterTab === 'jobs' && styles.filterChipActive]}
+            style={[
+              styles.filterChip,
+              { backgroundColor: colors.card, borderColor: colors.border },
+              filterTab === 'jobs' && [styles.filterChipActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
+            ]}
             onPress={() => setFilterTab('jobs')}
           >
-            <Text style={[styles.filterChipText, filterTab === 'jobs' && styles.filterChipTextActive]}>
+            <Text style={[styles.filterChipText, { color: filterTab === 'jobs' ? '#FFFFFF' : colors.muted }]}>
               İş Görüşmeleri
             </Text>
           </Pressable>
           <Pressable
-            style={[styles.filterChip, filterTab === 'unread' && styles.filterChipActive]}
+            style={[
+              styles.filterChip,
+              { backgroundColor: colors.card, borderColor: colors.border },
+              filterTab === 'unread' && [styles.filterChipActive, { backgroundColor: colors.primary, borderColor: colors.primary }],
+            ]}
             onPress={() => setFilterTab('unread')}
           >
-            <Text style={[styles.filterChipText, filterTab === 'unread' && styles.filterChipTextActive]}>
+            <Text style={[styles.filterChipText, { color: filterTab === 'unread' ? '#FFFFFF' : colors.muted }]}>
               Okunmamış
             </Text>
           </Pressable>
@@ -1129,16 +1152,16 @@ export function MessagesScreen({
       <FlatList
         data={filteredConversations}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.conversationsScroll}
+        contentContainerStyle={[styles.conversationsScroll, { backgroundColor: colors.bg }]}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconBox}>
-              <SearchIcon size={24} color="#0D6847" />
+            <View style={[styles.emptyIconBox, { backgroundColor: colors.primarySoft }]}>
+              <SearchIcon size={24} color={colors.primary} />
             </View>
-            <Text style={styles.emptyTitle}>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
               {searchQuery ? 'Aramayla eşleşen sohbet bulunamadı' : 'Henüz mesajınız yok'}
             </Text>
-            <Text style={styles.emptyDesc}>
+            <Text style={[styles.emptyDesc, { color: colors.muted }]}>
               {searchQuery
                 ? 'Farklı bir arama kelimesi deneyebilir veya filtreyi temizleyebilirsiniz.'
                 : 'İş ilanlarına başvurduğunuzda veya ilan verdiğinizde burada mesajlaşabilirsiniz.'}
@@ -1161,7 +1184,7 @@ export function MessagesScreen({
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => void handleSelectConversation(item)}
-              style={styles.conversationCard}
+              style={[styles.conversationCard, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
               <View style={styles.cardAvatarContainer}>
                 <Avatar name={name} size={46} />
@@ -1171,25 +1194,25 @@ export function MessagesScreen({
               <View style={styles.cardCenter}>
                 <View style={styles.cardHeaderRow}>
                   <View style={styles.cardNameRow}>
-                    <Text style={styles.cardName} numberOfLines={1}>
+                    <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>
                       {name}
                     </Text>
-                    {isVerified && <VerifiedCheckIcon size={14} color="#0D6847" />}
+                    {isVerified && <VerifiedCheckIcon size={14} color={colors.primary} />}
                   </View>
-                  {time ? <Text style={styles.cardTime}>{time}</Text> : null}
+                  {time ? <Text style={[styles.cardTime, { color: colors.muted }]}>{time}</Text> : null}
                 </View>
 
                 {item.job && (
-                  <View style={styles.cardJobBadge}>
-                    <BriefcaseIcon size={10} color="#0D6847" />
-                    <Text style={styles.cardJobTitle} numberOfLines={1}>
+                  <View style={[styles.cardJobBadge, { backgroundColor: colors.primarySoft }]}>
+                    <BriefcaseIcon size={10} color={colors.primary} />
+                    <Text style={[styles.cardJobTitle, { color: colors.primary }]} numberOfLines={1}>
                       {item.job.title}
                     </Text>
                   </View>
                 )}
 
                 <View style={styles.cardBottomRow}>
-                  <Text style={styles.cardLastMsg} numberOfLines={1}>
+                  <Text style={[styles.cardLastMsg, { color: colors.muted }]} numberOfLines={1}>
                     {lastMsg.includes('[JOB_CARD]') || lastMsg.includes('[İş İlanı]')
                       ? '💼 Paylaşılan İş İlanı'
                       : lastMsg}

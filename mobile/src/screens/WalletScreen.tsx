@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { Badge, C, Card, Chip, EmptyState, PrimaryButton, SectionTitle } from "@/components/ui";
+import { Badge, C, Card, Chip, EmptyState, PrimaryButton, SectionTitle, useTheme } from "@/components/ui";
 import { BrandRefreshScrollView } from "@/components/BrandPullToRefresh";
 import { timeAgo } from "@/lib/format";
 import {
@@ -87,6 +87,7 @@ const REQ_STATUS: Record<string, { label: string; color: string; bg: string }> =
 type SheetType = "deposit" | "withdraw" | null;
 
 export default function WalletScreen({ user }: { user: ApiUser }) {
+  const { colors } = useTheme();
   const isEmployer = user.role === "EMPLOYER";
   const isAdmin = user.role === "ADMIN";
   const isWorker = !isEmployer && !isAdmin;
@@ -215,10 +216,10 @@ export default function WalletScreen({ user }: { user: ApiUser }) {
   ].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
 
   return (
-    <View style={styles.flex}>
+    <View style={[styles.flex, { backgroundColor: colors.bg }]}>
       <BrandRefreshScrollView
-        style={styles.flex}
-        contentContainerStyle={styles.wrap}
+        style={[styles.flex, { backgroundColor: colors.bg }]}
+        contentContainerStyle={[styles.wrap, { backgroundColor: colors.bg }]}
         refreshing={refreshing}
         onRefresh={() => {
           setRefreshing(true);

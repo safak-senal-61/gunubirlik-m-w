@@ -19,7 +19,7 @@ import {
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { Badge, Card, C, PrimaryButton, SectionTitle, StatCard } from "@/components/ui";
+import { Badge, Card, C, PrimaryButton, SectionTitle, StatCard, useTheme } from "@/components/ui";
 import {
   changePassword,
   confirmEmailChange,
@@ -78,6 +78,8 @@ import {
   HourglassIcon,
   XIcon,
   ExternalLinkIcon,
+  SunIcon,
+  MoonIcon,
 } from "@/components/icons";
 
 type SettingsTab = "account" | "wallet" | "security" | "notifications" | "policies" | "about";
@@ -134,6 +136,7 @@ export default function ProfileScreen({
   onOpenTabHandled?: () => void;
 }) {
   const { user, logout } = useAuth();
+  const { colors, isDark } = useTheme();
   const [tab, setTab] = useState<SettingsTab>("account");
 
   // Dışarıdan (ör. bildirimler ekranı / push deep link) istenen sekmeyi uygula.
@@ -162,8 +165,13 @@ export default function ProfileScreen({
   if (!user) return null;
 
   return (
-    <View style={styles.flex}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabStrip} contentContainerStyle={styles.tabStripInner}>
+    <View style={[styles.flex, { backgroundColor: colors.bg }]}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={[styles.tabStrip, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+        contentContainerStyle={styles.tabStripInner}
+      >
         {TABS.map((t) => (
           <SettingsTabButton key={t.key} icon={t.icon(tab === t.key)} label={t.label} active={tab === t.key} onPress={() => setTab(t.key)} />
         ))}
@@ -174,7 +182,7 @@ export default function ProfileScreen({
       {tab === "wallet" ? (
         <WalletScreen user={user} />
       ) : (
-      <ScrollView style={styles.flex} contentContainerStyle={styles.wrap}>
+      <ScrollView style={[styles.flex, { backgroundColor: colors.bg }]} contentContainerStyle={[styles.wrap, { backgroundColor: colors.bg }]}>
         <Animated.View
           style={{
             gap: 12,
@@ -353,11 +361,137 @@ function AccountTab({ user, refreshKey }: { user: ApiUser; refreshKey: number })
         ) : null}
       </Card>
 
+      <ThemeSettingsSection />
+
       <EditProfileSection user={user} onSaved={refreshUser} />
 
       {!isEmployer && <WorkerStatsSection refreshKey={refreshKey} />}
       <VerificationSection />
     </>
+  );
+}
+
+function ThemeSettingsSection() {
+  const { themeMode, setThemeMode, isDark, colors } = useTheme();
+
+  return (
+    <Card style={{ gap: 12 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              backgroundColor: colors.primarySoft,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {isDark ? <MoonIcon size={18} color={colors.primary} /> : <SunIcon size={18} color="#F59E0B" />}
+          </View>
+          <View>
+            <Text style={{ fontSize: 14, fontWeight: "800", color: colors.text }}>Görünüm ve Tema</Text>
+            <Text style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>
+              {themeMode === "dark"
+                ? "Karanlık Mod (Göz dostu gece teması)"
+                : themeMode === "light"
+                ? "Aydınlık Mod (Klasik beyaz tema)"
+                : "Sistem teması ile otomatik eşitlenir"}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+        <Pressable
+          style={[
+            {
+              flex: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              paddingVertical: 10,
+              borderRadius: 12,
+              borderWidth: 1.5,
+              backgroundColor: themeMode === "light" ? colors.primarySoft : colors.cardSecondary,
+              borderColor: themeMode === "light" ? colors.primary : colors.border,
+            },
+          ]}
+          onPress={() => setThemeMode("light")}
+        >
+          <SunIcon size={15} color={themeMode === "light" ? colors.primary : colors.muted} />
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: "700",
+              color: themeMode === "light" ? colors.primary : colors.muted,
+            }}
+          >
+            Aydınlık
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={[
+            {
+              flex: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              paddingVertical: 10,
+              borderRadius: 12,
+              borderWidth: 1.5,
+              backgroundColor: themeMode === "dark" ? colors.primarySoft : colors.cardSecondary,
+              borderColor: themeMode === "dark" ? colors.primary : colors.border,
+            },
+          ]}
+          onPress={() => setThemeMode("dark")}
+        >
+          <MoonIcon size={15} color={themeMode === "dark" ? colors.primary : colors.muted} />
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: "700",
+              color: themeMode === "dark" ? colors.primary : colors.muted,
+            }}
+          >
+            Karanlık
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={[
+            {
+              flex: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              paddingVertical: 10,
+              borderRadius: 12,
+              borderWidth: 1.5,
+              backgroundColor: themeMode === "system" ? colors.primarySoft : colors.cardSecondary,
+              borderColor: themeMode === "system" ? colors.primary : colors.border,
+            },
+          ]}
+          onPress={() => setThemeMode("system")}
+        >
+          <Text style={{ fontSize: 13 }}>⚙️</Text>
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: "700",
+              color: themeMode === "system" ? colors.primary : colors.muted,
+            }}
+          >
+            Sistem
+          </Text>
+        </Pressable>
+      </View>
+    </Card>
   );
 }
 

@@ -10,6 +10,7 @@ import {
   Text,
   View,
   type FlatListProps,
+  type GestureResponderEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   type ScrollViewProps,
@@ -17,7 +18,7 @@ import {
 import Svg, { Circle, Path, Polyline } from "react-native-svg";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const TRIGGER_DISTANCE = 65;
+const TRIGGER_DISTANCE = 70;
 
 // Kompakt & İkonik Rota Eğrisi (46x14 viewBox)
 const COMPACT_ROUTE = "M 4 10 C 14 3, 22 12, 32 5 S 38 9, 42 4";
@@ -31,7 +32,7 @@ function getCompactPinCoordinates(t: number) {
 }
 
 // -------------------------------------------------------------
-// Özel Vektör İkonlar (Yapay zeka emojileri içermez, saf SVG'dir)
+// Özel Vektör İkonlar (Yapay zeka emojisi içermez, saf SVG)
 // -------------------------------------------------------------
 function RewindRouteIcon({ size = 12, color = "#38bdf8" }: { size?: number; color?: string }) {
   return (
@@ -68,8 +69,9 @@ interface RoutePullIndicatorProps {
 
 /**
  * Ultra-Sleek & İkonik Rota Geriye Sarma (Rewind) Kapsülü
- * - Dairesel (circular) hiçbir spinner veya yapay emoji içermez.
- * - Saf SVG vektör ikonları ve mikro rota yolu kullanır.
+ * - Dairesel hiçbir spinner içermez.
+ * - Çekerken parmakla eş zamanlı olarak rotayı ve pini geriye sarar (Rewind: 100% -> 0%).
+ * - Bırakılınca 60 FPS hızla rotayı ileri günceller (0% -> 100%).
  * - Sadece 32px yüksekliğinde, Dynamic-Island / HUD tarzı cam kapsül.
  */
 export function RoutePullIndicator({ progress, refreshing }: RoutePullIndicatorProps) {
@@ -86,7 +88,6 @@ export function RoutePullIndicator({ progress, refreshing }: RoutePullIndicatorP
     if (refreshing) {
       setShowSuccess(false);
 
-      // İkon dönüş animasyonu
       Animated.loop(
         Animated.timing(spinAnim, {
           toValue: 1,
@@ -129,7 +130,9 @@ export function RoutePullIndicator({ progress, refreshing }: RoutePullIndicatorP
   const isVisible = refreshing || p > 0.05 || showSuccess;
   if (!isVisible) return null;
 
-  // Çekerken Geriye Sarma: Rota hedeften başa geriye sarılır
+  // ÇEKERKEN GERİYE SARMA (Rewind):
+  // Kullanıcı parmağıyla aşağı çektikçe rota sondan başa doğru (1.0 -> 0.0) geriye sarılır!
+  // Refresh başladığında ise döngüsel olarak baştan sona (0.0 -> 1.0) ileri akar.
   const activeT = refreshing
     ? animProgress
     : showSuccess
@@ -223,8 +226,8 @@ export function RoutePullIndicator({ progress, refreshing }: RoutePullIndicatorP
             : refreshing
             ? "Güncelleniyor…"
             : p >= 1
-            ? "Bırakın"
-            : "Rotayı Yenile"}
+            ? "Bırakın, Yenilensin!"
+            : `Geri Sar: %${Math.round(p * 100)}`}
         </Text>
       </View>
     </View>
@@ -235,9 +238,9 @@ export const BrandPullIndicator = RoutePullIndicator;
 
 /**
  * BrandRefreshScrollView:
- * - Native Android SwipeRefreshLayout ve dairesel spinner -9999 offset ile ekran dışına atılarak tamamen gizlenir.
+ * - Aşağı çekerken rotayı ve konumu parmak hareketiyle birebir geriye sarar (Rewind).
+ * - Native Android SwipeRefreshLayout dairesel spinner'ı -9999 offset ile gizlenir.
  * - Native scroll mekanizması bozulmaz, takılma ve bug yaşanmaz.
- * - Üstte 32px şık rota kapsülü oynar.
  */
 export function BrandRefreshScrollView({
   refreshing,
@@ -252,21 +255,56 @@ export function BrandRefreshScrollView({
   onRefresh: () => void;
 }) {
   const [dragProgress, setDragProgress] = useState(0);
+  const touchStartY = useRef<number | null>(null);
+  const scrollYRef = useRef(0);
+
+  const handleTouchStart = (e: GestureResponderEvent) => {
+    if (scrollYRef.current <= 2) {
+      touchStartY.current = e.nativeEvent.pageY;
+    } else {
+      touchStartY.current = null;
+    }
+  };
+
+  const handleTouchMove = (e: GestureResponderEvent) => {
+    if (touchStartY.current !== null && !refreshing) {
+      const diff = e.nativeEvent.pageY - touchStartY.current;
+      if (diff > 2 && scrollYRef.current <= 2) {
+        const p = Math.min(1, Math.max(0, diff / TRIGGER_DISTANCE));
+        setDragProgress(p);
+      } else if (diff <= 0 && dragProgress > 0) {
+        setDragProgress(0);
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartY.current = null;
+    if (!refreshing) {
+      setDragProgress(0);
+    }
+  };
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
+    scrollYRef.current = y;
     if (y < 0) {
       const p = Math.min(1, Math.abs(y) / TRIGGER_DISTANCE);
       setDragProgress(p);
-    } else if (dragProgress > 0) {
+    } else if (dragProgress > 0 && touchStartY.current === null) {
       setDragProgress(0);
     }
     onScroll?.(e);
   };
 
   return (
-    <View style={[styles.flex, style]}>
-      {/* Üstte sabit ikonik rota kapsülü */}
+    <View
+      style={[styles.flex, style]}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+    >
       <View style={styles.headerAnchor} pointerEvents="none">
         <RoutePullIndicator progress={dragProgress} refreshing={refreshing} />
       </View>
@@ -296,8 +334,8 @@ export function BrandRefreshScrollView({
 
 /**
  * BrandRefreshFlatList:
- * - FlatList için İkonik Rota Pull-to-Refresh bileşeni.
- * - Native gesture korunur, TextInput ve butonlar asla kilitlenmez.
+ * - FlatList için İkonik Rota Geriye Sarma (Rewind) Pull-to-Refresh bileşeni.
+ * - Çekerken parmakla eş zamanlı rotayı geriye sarar.
  * - Circular spinner sıfırlanmıştır.
  */
 export function BrandRefreshFlatList<T>({
@@ -311,20 +349,56 @@ export function BrandRefreshFlatList<T>({
   onRefresh: () => void;
 }) {
   const [dragProgress, setDragProgress] = useState(0);
+  const touchStartY = useRef<number | null>(null);
+  const scrollYRef = useRef(0);
+
+  const handleTouchStart = (e: GestureResponderEvent) => {
+    if (scrollYRef.current <= 2) {
+      touchStartY.current = e.nativeEvent.pageY;
+    } else {
+      touchStartY.current = null;
+    }
+  };
+
+  const handleTouchMove = (e: GestureResponderEvent) => {
+    if (touchStartY.current !== null && !refreshing) {
+      const diff = e.nativeEvent.pageY - touchStartY.current;
+      if (diff > 2 && scrollYRef.current <= 2) {
+        const p = Math.min(1, Math.max(0, diff / TRIGGER_DISTANCE));
+        setDragProgress(p);
+      } else if (diff <= 0 && dragProgress > 0) {
+        setDragProgress(0);
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStartY.current = null;
+    if (!refreshing) {
+      setDragProgress(0);
+    }
+  };
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
+    scrollYRef.current = y;
     if (y < 0) {
       const p = Math.min(1, Math.abs(y) / TRIGGER_DISTANCE);
       setDragProgress(p);
-    } else if (dragProgress > 0) {
+    } else if (dragProgress > 0 && touchStartY.current === null) {
       setDragProgress(0);
     }
     onScroll?.(e);
   };
 
   return (
-    <View style={[styles.flex, style]}>
+    <View
+      style={[styles.flex, style]}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+    >
       <View style={styles.headerAnchor} pointerEvents="none">
         <RoutePullIndicator progress={dragProgress} refreshing={refreshing} />
       </View>

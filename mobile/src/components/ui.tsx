@@ -1,36 +1,40 @@
 import { type ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  activeThemeColors,
+  darkColors,
+  lightColors,
+  useTheme,
+  ThemeProvider,
+  type ThemeColors,
+  type ThemeMode,
+} from "@/lib/theme";
 
-export const C = {
-  primary: "#0D6847",
-  primaryDark: "#095237",
-  primarySoft: "#EAF3EE",
-  accent: "#5CD6A5",
-  text: "#141615",
-  muted: "#5C615E",
-  border: "#E2E0D8",
-  borderLight: "#ECEAE4",
-  bg: "#F6F5F2",
-  card: "#FFFFFF",
-  danger: "#C84B31",
-  dangerSoft: "#FCEBE8",
-  success: "#0D6847",
-  successSoft: "#EAF3EE",
-  amber: "#D97706",
-  amberBg: "#FEF3C7",
-  indigo: "#0D6847",
-  indigoBg: "#EAF3EE",
-  emerald: "#0D6847",
-  emeraldBg: "#EAF3EE",
-  rose: "#C84B31",
-  roseBg: "#FCEBE8",
-  stone: "#5C615E",
-  stoneBg: "#ECEAE4",
-};
+export { useTheme, ThemeProvider, type ThemeColors, type ThemeMode };
+
+/**
+ * Dinamik Renk Paleti Proxy'si
+ * - Hem aydınlık hem karanlık temada anlık olarak aktif tema renklerini döner.
+ */
+export const C: ThemeColors = new Proxy(lightColors, {
+  get(target, prop: keyof ThemeColors) {
+    return activeThemeColors[prop] ?? target[prop];
+  },
+});
 
 export function Card({ children, style }: { children: ReactNode; style?: object }) {
+  const { colors } = useTheme();
   return (
-    <View style={[styles.card, style]}>
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+        },
+        style,
+      ]}
+    >
       {children}
     </View>
   );
@@ -51,15 +55,17 @@ export function PrimaryButton(props: {
   disabled?: boolean;
   variant?: "primary" | "outline" | "ghost" | "danger";
 }) {
+  const { colors } = useTheme();
   const variant = props.variant ?? "primary";
   const bg =
-    variant === "primary" ? C.primary
-    : variant === "danger" ? C.danger
+    variant === "primary" ? colors.primary
+    : variant === "danger" ? colors.danger
     : "transparent";
   const fg =
     variant === "primary" || variant === "danger" ? "#fff"
-    : variant === "outline" ? C.primary
-    : C.muted;
+    : variant === "outline" ? colors.primary
+    : colors.muted;
+
   return (
     <Pressable
       onPress={props.onPress}
@@ -67,7 +73,7 @@ export function PrimaryButton(props: {
       style={({ pressed }) => [
         styles.btn,
         { backgroundColor: bg },
-        variant === "outline" && styles.btnOutline,
+        variant === "outline" && { borderWidth: 1, borderColor: colors.primary },
         (props.disabled || props.loading) && styles.btnDisabled,
         pressed && styles.pressed,
       ]}
@@ -90,16 +96,27 @@ export function Chip({
   label: string;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
-        active && styles.chipActive,
+        {
+          backgroundColor: active ? colors.chipActiveBg : colors.chipBg,
+          borderColor: active ? colors.chipActiveBg : colors.border,
+        },
         pressed && styles.pressed,
       ]}
     >
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+      <Text
+        style={[
+          styles.chipText,
+          { color: active ? colors.chipActiveText : colors.muted },
+        ]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -115,29 +132,32 @@ export function EmptyState({
   title: string;
   subtitle?: string;
 }) {
+  const { colors } = useTheme();
   return (
     <View style={styles.empty}>
       {icon ? (
-        <View style={styles.emptyIconBox}>{icon}</View>
+        <View style={[styles.emptyIconBox, { backgroundColor: colors.primarySoft }]}>{icon}</View>
       ) : emoji ? (
         <Text style={styles.emptyEmoji}>{emoji}</Text>
       ) : null}
-      <Text style={styles.emptyTitle}>{title}</Text>
-      {subtitle ? <Text style={styles.emptySub}>{subtitle}</Text> : null}
+      <Text style={[styles.emptyTitle, { color: colors.text }]}>{title}</Text>
+      {subtitle ? <Text style={[styles.emptySub, { color: colors.muted }]}>{subtitle}</Text> : null}
     </View>
   );
 }
 
 export function Loading() {
+  const { colors } = useTheme();
   return (
     <View style={styles.loading}>
-      <ActivityIndicator size="large" color={C.primary} />
+      <ActivityIndicator size="large" color={colors.primary} />
     </View>
   );
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {
-  return <Text style={styles.sectionTitle}>{children}</Text>;
+  const { colors } = useTheme();
+  return <Text style={[styles.sectionTitle, { color: colors.text }]}>{children}</Text>;
 }
 
 export function StatCard({
@@ -151,24 +171,36 @@ export function StatCard({
   label: string;
   value: string;
 }) {
+  const { colors } = useTheme();
   return (
-    <View style={styles.stat}>
+    <View
+      style={[
+        styles.stat,
+        {
+          backgroundColor: colors.card,
+          borderColor: colors.border,
+        },
+      ]}
+    >
       <View style={styles.statTop}>
         {icon ? (
-          <View style={styles.statIconBox}>{icon}</View>
+          <View style={[styles.statIconBox, { backgroundColor: colors.primarySoft }]}>{icon}</View>
         ) : emoji ? (
-          <View style={styles.statEmojiWrap}>
+          <View style={[styles.statEmojiWrap, { backgroundColor: colors.cardSecondary }]}>
             <Text style={styles.statEmoji}>{emoji}</Text>
           </View>
         ) : null}
-        <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
+        <Text style={[styles.statLabel, { color: colors.muted }]} numberOfLines={1}>
+          {label}
+        </Text>
       </View>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
     </View>
   );
 }
 
 export function Avatar({ name, size = 40 }: { name?: string; size?: number; url?: string | null }) {
+  const { colors } = useTheme();
   const initial = (name || "?").charAt(0).toUpperCase();
   return (
     <View
@@ -176,59 +208,51 @@ export function Avatar({ name, size = 40 }: { name?: string; size?: number; url?
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: "#EBE9E1",
+        backgroundColor: colors.cardSecondary,
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
-        borderColor: "#D2D0C8",
+        borderColor: colors.border,
       }}
     >
-      <Text style={{ fontSize: size * 0.42, fontWeight: "700", color: "#0C0E0D" }}>{initial}</Text>
+      <Text style={{ fontSize: size * 0.42, fontWeight: "700", color: colors.text }}>{initial}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: C.card,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: C.border,
   },
   badge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, alignSelf: "flex-start" },
   badgeText: { fontSize: 11, fontWeight: "700" },
   btn: { borderRadius: 12, paddingVertical: 13, alignItems: "center", paddingHorizontal: 14 },
-  btnOutline: { borderWidth: 1, borderColor: C.primary },
   btnDisabled: { opacity: 0.55 },
   btnText: { fontWeight: "700", fontSize: 14 },
   pressed: { opacity: 0.85 },
-  chip: { borderRadius: 999, borderWidth: 1, borderColor: C.border, backgroundColor: C.card, paddingHorizontal: 14, paddingVertical: 8 },
-  chipActive: { backgroundColor: C.primary, borderColor: C.primary },
-  chipText: { fontSize: 12, fontWeight: "600", color: C.muted },
-  chipTextActive: { color: "#fff" },
+  chip: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 8 },
+  chipText: { fontSize: 12, fontWeight: "600" },
   empty: { alignItems: "center", paddingVertical: 40, paddingHorizontal: 24 },
   emptyIconBox: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: C.primarySoft,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
   },
   emptyEmoji: { fontSize: 40, marginBottom: 10 },
-  emptyTitle: { fontSize: 16, fontWeight: "700", color: C.text },
-  emptySub: { fontSize: 13, color: C.muted, marginTop: 6, textAlign: "center", lineHeight: 19 },
+  emptyTitle: { fontSize: 16, fontWeight: "700" },
+  emptySub: { fontSize: 13, marginTop: 6, textAlign: "center", lineHeight: 19 },
   loading: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 40 },
-  sectionTitle: { fontSize: 16, fontWeight: "800", color: C.text },
+  sectionTitle: { fontSize: 16, fontWeight: "800" },
   stat: {
     flex: 1,
-    backgroundColor: C.card,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1.5,
-    borderColor: "#f1f5f9",
     shadowColor: "#0f172a",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.05,
@@ -240,7 +264,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: C.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -248,11 +271,10 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: "#f8fafc",
     alignItems: "center",
     justifyContent: "center",
   },
-  statLabel: { fontSize: 12, fontWeight: "600", color: C.muted, flex: 1 },
+  statLabel: { fontSize: 12, fontWeight: "600", flex: 1 },
   statEmoji: { fontSize: 14 },
-  statValue: { fontSize: 24, fontWeight: "800", color: C.text, marginTop: 8, fontVariant: ["tabular-nums"] },
+  statValue: { fontSize: 24, fontWeight: "800", marginTop: 8, fontVariant: ["tabular-nums"] },
 });
