@@ -30,7 +30,11 @@ import QrScannerScreen from "@/screens/QrScannerScreen";
 import { Card, C, EmptyState, PrimaryButton, ThemeProvider, useTheme, lightColors, type ThemeColors } from "@/components/ui";
 import { BookmarkIcon, QrScanIcon, ApplicationsIcon, BellIcon, MessageIcon, UserIcon } from "@/components/icons";
 import { GuestGate } from "@/components/GuestGate";
+import { AppDialogProvider, installAppDialog } from "@/components/AppDialog";
 import { useCachedList } from "@/hooks/use-cached-list";
+
+// Tüm uygulama genelinde standart Alert çağrılarını modern popup diyalog penceresine bağla
+installAppDialog();
 import AnimatedSplashScreen from "@/components/AnimatedSplashScreen";
 import { AnimatedTabBar } from "@/components/AnimatedTabBar";
 import { AppHeader } from "@/components/AppHeader";
@@ -105,6 +109,7 @@ export default function App() {
           <MaintenanceGate>
             <AuthProvider>
               <Root fontsReady={fontsLoaded} />
+              <AppDialogProvider />
             </AuthProvider>
           </MaintenanceGate>
         </ThemeProvider>
@@ -415,12 +420,14 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
             setScannerOpen(true);
           }}
         />
-        <AnimatedTabBar
-          currentTab={tab}
-          onPressTab={handleTabPress}
-          isEmployer={!!isEmployer}
-          unreadCount={unread}
-        />
+        {user && (
+          <AnimatedTabBar
+            currentTab={tab}
+            onPressTab={handleTabPress}
+            isEmployer={!!isEmployer}
+            unreadCount={unread}
+          />
+        )}
         {qrTarget && (
           <QRScreen
             applicationId={qrTarget.app.id}
@@ -546,7 +553,7 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
             />
           ))}
       </View>
-      {!isInsideChat && (
+      {user && !isInsideChat && (
         <AnimatedTabBar
           currentTab={tab}
           onPressTab={handleTabPress}
