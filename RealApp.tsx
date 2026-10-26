@@ -32,7 +32,6 @@ import { BookmarkIcon, QrScanIcon, ApplicationsIcon, BellIcon, MessageIcon, User
 import { GuestGate } from "@/components/GuestGate";
 import { AppDialogProvider, installAppDialog } from "@/components/AppDialog";
 import { useCachedList } from "@/hooks/use-cached-list";
-import { OfflineHub } from "@/components/OfflineHub";
 import { BlogWebViewModal } from "@/components/BlogWebViewModal";
 
 // Tüm uygulama genelinde standart Alert çağrılarını modern popup diyalog penceresine bağla
@@ -505,13 +504,6 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
   if (openJobId) {
     return (
       <View style={styles.flex}>
-        <OfflineHub
-          onNavigateTab={(targetTab) => {
-            setOpenJobId(null);
-            handleTabPress(targetTab);
-          }}
-          onOpenBlog={() => setBlogModalOpen(true)}
-        />
         <JobDetailScreen
           jobId={openJobId}
           onBack={() => { setOpenJobId(null); bumpRefresh(); }}
@@ -560,10 +552,6 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
           onRequestLogin={!user ? onRequestLogin : undefined}
         />
       )}
-      <OfflineHub
-        onNavigateTab={handleTabPress}
-        onOpenBlog={() => setBlogModalOpen(true)}
-      />
       <View style={[styles.content, { backgroundColor: colors.bg }]}>
         {tab === "jobs" &&
           (isEmployer ? (

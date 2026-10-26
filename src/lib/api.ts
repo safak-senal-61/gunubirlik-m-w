@@ -2,7 +2,7 @@
 // Mobil mirror of src/lib/api.ts.
 
 import axios, { AxiosError } from "axios";
-import { setNetworkStatus } from "./network-status";
+
 import * as FileSystem from "expo-file-system";
 import {
   Platform,
@@ -173,19 +173,6 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-api.interceptors.response.use(
-  (response) => {
-    setNetworkStatus(true);
-    return response;
-  },
-  (error) => {
-    if (axios.isAxiosError(error) && (!error.response || error.code === "ECONNABORTED")) {
-      setNetworkStatus(false);
-    }
-    return Promise.reject(error);
-  }
-);
-
 function toApiError(err: unknown): ApiError {
   if (axios.isAxiosError(err)) {
     const errAxios = err as AxiosError<{ error?: string; message?: string }>;
@@ -200,7 +187,6 @@ function toApiError(err: unknown): ApiError {
       return new ApiError("Sunucu yanıt vermedi, lütfen internet bağlantınızı kontrol edip tekrar deneyin.", 408);
     }
     if (!errAxios.response) {
-      setNetworkStatus(false);
       return new ApiError("Sunucuya bağlanılamadı. Lütfen internet bağlantınızı kontrol edin.", 0);
     }
     return new ApiError(
