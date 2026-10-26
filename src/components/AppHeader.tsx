@@ -81,7 +81,8 @@ export function AppHeader({
             )}
           </Pressable>
 
-          {onPressNotifications && (
+          {/* Bildirim zili sadece giriş yapmış kullanıcılar için görünür, misafir modunda gizlenir */}
+          {user && onPressNotifications && (
             <Pressable
               style={({ pressed }) => [
                 styles.iconButton,

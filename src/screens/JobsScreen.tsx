@@ -16,6 +16,7 @@ import { Badge, Card, Chip, C, EmptyState, Loading, PrimaryButton, useTheme, typ
 import { BrandRefreshFlatList } from "@/components/BrandPullToRefresh";
 import { useCachedList } from "@/hooks/use-cached-list";
 import { useAuth } from "@/hooks/use-auth";
+import { BlogCarousel } from "@/components/BlogCarousel";
 import { fetchCategories, fetchJobs, suggestAddress } from "@/lib/api";
 import { toggleSaved, useSavedIds } from "@/lib/saved-store";
 import type { ApiCategory, ApiJob, GeocodeSuggestion, JobCategory } from "@/lib/types";
@@ -386,6 +387,9 @@ export default function JobsScreen({
               />
             ))}
           </ScrollView>
+
+          {/* Günübirlik Blog & Saha Rehberi (Görseller ve Yazılar) */}
+          <BlogCarousel />
 
           {loading && visible.length === 0 ? (
             <View style={styles.skeletonWrap}>

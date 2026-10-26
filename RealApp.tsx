@@ -449,7 +449,7 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
       {!isInsideChat && (
         <AppHeader
           unreadCount={unread}
-          onPressNotifications={() => handleTabPress("notifications")}
+          onPressNotifications={user ? () => handleTabPress("notifications") : undefined}
           onRequestLogin={!user ? onRequestLogin : undefined}
         />
       )}

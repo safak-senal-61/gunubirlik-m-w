@@ -60,6 +60,7 @@ import { formatDate } from "@/lib/format";
 import { useAuth } from "@/hooks/use-auth";
 import WalletScreen from "@/screens/WalletScreen";
 import NotificationSettingsScreen from "@/screens/NotificationSettingsScreen";
+import { BlogWebViewModal } from "@/components/BlogWebViewModal";
 import {
   UserIcon,
   WalletIcon,
@@ -1757,12 +1758,25 @@ function PoliciesTab() {
 
 function AboutTab({ onLogout }: { onLogout: () => void }) {
   const { colors } = useTheme();
+  const [blogModalOpen, setBlogModalOpen] = useState(false);
   return (
     <>
       <Card style={{ alignItems: "center", gap: 8 }}>
         <Text style={{ fontSize: 20, fontWeight: "800", color: colors.text }}>Günübirlik</Text>
         <Text style={styles.desc}>Günlük iş bulma ve işçi bulma platformu</Text>
         <Badge label="Mobil v1.4.0" color={colors.primary} bg={colors.primarySoft} />
+      </Card>
+
+      <Card style={{ gap: 10 }}>
+        <SectionTitle>Saha Rehberi & Blog</SectionTitle>
+        <Text style={styles.desc}>
+          2026 günlük yevmiye tarifeleri, öğrenci ek iş rehberleri ve çalışan hakları üzerine güncel saha analizleri.
+        </Text>
+        <PrimaryButton
+          label="Günübirlik Blog & Rehberini Oku"
+          variant="outline"
+          onPress={() => setBlogModalOpen(true)}
+        />
       </Card>
 
       <Card style={{ gap: 10 }}>
@@ -1785,6 +1799,15 @@ function AboutTab({ onLogout }: { onLogout: () => void }) {
       <DeleteAccountSection />
 
       <PrimaryButton label="Oturumu Kapat" variant="danger" onPress={onLogout} />
+
+      {blogModalOpen && (
+        <BlogWebViewModal
+          visible={blogModalOpen}
+          url="https://gunubirlik.qrders.com.tr/blog"
+          title="Günübirlik Rehber & Blog"
+          onClose={() => setBlogModalOpen(false)}
+        />
+      )}
     </>
   );
 }
