@@ -14,6 +14,7 @@ import {
   Modal,
   Alert,
   Linking,
+  BackHandler,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
@@ -392,6 +393,17 @@ export function MessagesScreen({
       unsubscribe();
     };
   }, [selected?.id, currentUserId, scrollToBottom]);
+
+  // Sohbet içindeyken fiziksel geri tuşuna basıldığında sohbet listesine dön
+  useEffect(() => {
+    if (!selected) return;
+    const onBackPress = () => {
+      void handleSelectConversation(null);
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [selected, handleSelectConversation]);
 
   // Yazıyor Durumu Tetikleyici
   const handleTextChange = (text: string) => {

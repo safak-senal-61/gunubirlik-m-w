@@ -1,7 +1,7 @@
 // EN ÖNEMLİ IMPORT: crash reporter tüm modül kodundan ÖNCE kurulmalı.
 import "@/lib/crash-reporter";
-import { Component, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ActivityIndicator, Alert, BackHandler, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, ToastAndroid, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
@@ -248,6 +248,9 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
   styles = useMemo(() => createStyles(colors), [colors]);
   const isEmployer = user?.role === "EMPLOYER";
   const [tab, setTab] = useState<Tab>(isEmployer ? "jobs" : "jobs");
+  // Kullanıcının gezdiği sekmelerin geçmiş yığını (geri tuşunda bir öncekine dönmek için)
+  const [tabHistory, setTabHistory] = useState<Tab[]>([]);
+  const lastBackPressRef = useRef<number>(0);
   const [openJobId, setOpenJobId] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -338,15 +341,21 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
   }, []);
 
   // Alt menüye her basışta açık detay kartı KAPANIR + veriler sessizce tazelenir.
-  // (Önceden sadece sekme değişiyor, detay kartı ekranda kalıyordu.)
+  // Gezilen sekmeler geçmiş yığınına eklenir.
   const handleTabPress = useCallback(
     (t: Tab) => {
       setOpenJobId(null);
       setIsInsideChat(false);
+      if (t !== tab) {
+        setTabHistory((prev) => {
+          const next = prev.filter((item) => item !== t);
+          return [...next, tab];
+        });
+      }
       setTab(t);
       bumpRefresh();
     },
-    [bumpRefresh],
+    [tab, bumpRefresh],
   );
 
   // Sohbete başlama: nötr karşılama mesajı.
@@ -401,6 +410,93 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
   const showAppQR = useCallback((app: ApiApplication) => {
     setQrTarget({ app });
   }, []);
+
+  // Android donanım / kaydırma geri tuşu yönetimi:
+  // 1. Varsa açık modal / detay / sohbet kapatılır.
+  // 2. Sekme geçmişi varsa bir önceki sekmeye döner.
+  // 3. Ana sayfadaysa: tek basışta sayfayı yeniler ve uyarır, 2 saniyede ikinci kez basılırsa çıkar.
+  useEffect(() => {
+    const onBackPress = () => {
+      // 1. Hedef QR modalı açıksa kapat
+      if (qrTarget) {
+        setQrTarget(null);
+        return true;
+      }
+
+      // 2. QR tarayıcı açıksa kapat
+      if (scannerOpen) {
+        setScannerOpen(false);
+        return true;
+      }
+
+      // 3. İlan detayı açıksa kapat ve listeye dön
+      if (openJobId) {
+        setOpenJobId(null);
+        bumpRefresh();
+        return true;
+      }
+
+      // 4. Sohbet penceresi içindeyse sohbet listesine dön
+      if (isInsideChat) {
+        setIsInsideChat(false);
+        setOpenConversationId(null);
+        return true;
+      }
+
+      // 5. Profil alt sekmesi açıksa ana profil ekranına dön
+      if (profileSub || profileOpenTab) {
+        setProfileSub(null);
+        setProfileOpenTab(null);
+        return true;
+      }
+
+      // 6. Gezilen sekmeler geçmişinde kayıt varsa bir önceki sekmeye dön
+      if (tabHistory.length > 0) {
+        const historyCopy = [...tabHistory];
+        const prevTab = historyCopy.pop()!;
+        setTabHistory(historyCopy);
+        setTab(prevTab);
+        bumpRefresh();
+        return true;
+      }
+
+      // 7. Eğer şu anki sekme 'jobs' değilse ana sayfaya dön
+      if (tab !== "jobs") {
+        setTab("jobs");
+        bumpRefresh();
+        return true;
+      }
+
+      // 8. Ana sayfadayız ('jobs' ve gezilen başka sekme yok):
+      // Tek basış: Sayfayı yenile ve "Çıkmak için tekrar basın" uyarısı ver;
+      // 2 saniye içinde tekrar basılırsa uygulamadan çık.
+      const now = Date.now();
+      if (now - lastBackPressRef.current < 2000) {
+        BackHandler.exitApp();
+        return true;
+      }
+
+      lastBackPressRef.current = now;
+      bumpRefresh(); // Sayfayı yenile
+      if (Platform.OS === "android") {
+        ToastAndroid.show("Çıkmak için tekrar basın", ToastAndroid.SHORT);
+      }
+      return true;
+    };
+
+    const backSub = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => backSub.remove();
+  }, [
+    qrTarget,
+    scannerOpen,
+    openJobId,
+    isInsideChat,
+    profileSub,
+    profileOpenTab,
+    tabHistory,
+    tab,
+    bumpRefresh,
+  ]);
 
   if (openJobId) {
     return (

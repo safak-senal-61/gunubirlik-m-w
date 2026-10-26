@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -12,6 +12,7 @@ import {
   Text,
   TextInput,
   View,
+  BackHandler,
 } from "react-native";
 import { useAuth, TwoFactorRequiredError } from "@/hooks/use-auth";
 import {
@@ -107,6 +108,25 @@ export default function AuthScreen({
     avatarUrl?: string;
   } | null>(null);
   const [acceptedContracts, setAcceptedContracts] = useState(false);
+
+  // Android geri tuşu: Kayıt/şifre unuttum/doğrulama modundaysa girişe dön; girişteyse misafir moduna geç
+  useEffect(() => {
+    const onBackPress = () => {
+      if (mode !== "login") {
+        setMode("login");
+        setError(null);
+        setInfo(null);
+        return true;
+      }
+      if (onBrowseGuest) {
+        onBrowseGuest();
+        return true;
+      }
+      return false;
+    };
+    const sub = BackHandler.addEventListener("hardwareBackPress", onBackPress);
+    return () => sub.remove();
+  }, [mode, onBrowseGuest]);
 
   const submitLogin = async () => {
     setLoading(true);
