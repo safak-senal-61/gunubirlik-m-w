@@ -57,6 +57,7 @@ interface MessagesScreenProps {
   refreshKey?: number;
   autoFocusReply?: boolean;
   onAutoFocusReplyHandled?: () => void;
+  onOpenJob?: (jobId: string) => void;
 }
 
 // In-Memory Global Önbellek: Sekmeler ve konuşmalar arası geçişte 0 ms anında açılış
@@ -64,6 +65,18 @@ let inMemoryConversations: ApiConversation[] = [];
 let inMemoryUserId: string | null = null;
 let inMemoryAllJobsCache: ApiJob[] = [];
 const inMemoryMessagesMap = new Map<string, (ApiMessage & { tempId?: string; replyTo?: any; isEdited?: boolean })[]>();
+
+// Disk önbelleğini arka planda anında RAM'e çek (0 ms beklemesiz açılış)
+void AsyncStorage.getItem('gb_conversations_cache').then((cachedRaw) => {
+  if (cachedRaw) {
+    try {
+      const parsed = JSON.parse(cachedRaw);
+      if (Array.isArray(parsed) && inMemoryConversations.length === 0) {
+        inMemoryConversations = parsed;
+      }
+    } catch {}
+  }
+}).catch(() => {});
 
 // ================= YARDIMCI: İLAN KARTI AYRIŞTIRICI =================
 interface ParsedJobCard {
@@ -134,6 +147,7 @@ export function MessagesScreen({
   refreshKey,
   autoFocusReply,
   onAutoFocusReplyHandled,
+  onOpenJob,
 }: MessagesScreenProps) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -150,6 +164,44 @@ export function MessagesScreen({
   const [loading, setLoading] = useState(inMemoryConversations.length === 0);
   const [currentUserId, setCurrentUserId] = useState<string | null>(inMemoryUserId);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
+
+  // Disk önbelleğini anında yükle (Asla ilk açılışta donma veya boş ekran olmasın)
+  useEffect(() => {
+    let active = true;
+    void AsyncStorage.getItem('gb_conversations_cache').then((raw) => {
+      if (raw && active) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            inMemoryConversations = parsed;
+            setConversations(parsed);
+            setLoading(false);
+          }
+        } catch {}
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleOpenJob = useCallback(
+    (parsed: ParsedJobCard) => {
+      let jobId = parsed.id;
+      if (!jobId && parsed.link) {
+        const match = parsed.link.match(/\/jobs\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+          jobId = match[1];
+        }
+      }
+      if (jobId && onOpenJob) {
+        onOpenJob(jobId);
+      } else if (parsed.link) {
+        void Linking.openURL(parsed.link);
+      }
+    },
+    [onOpenJob]
+  );
 
   // Mesaj Yanıtlama & Düzenleme Durumları
   const [replyingMessage, setReplyingMessage] = useState<ApiMessage | null>(null);
@@ -220,10 +272,11 @@ export function MessagesScreen({
 
       if (!conv) {
         setMessages([]);
+        setThreadLoading(false);
         return;
       }
 
-      // 1. Adım: Hafıza önbelleğinden anında yükle (0 ms)
+      // 1. Adım: Hafıza önbelleğinden anında yükle (0 ms beklemesiz açılış)
       const memCached = inMemoryMessagesMap.get(conv.id);
       if (memCached && memCached.length > 0) {
         setMessages(memCached);
@@ -232,7 +285,7 @@ export function MessagesScreen({
         return;
       }
 
-      // 2. Adım: Disk önbelleğinden oku (Asla beyaz boş ekran kalmasın!)
+      // 2. Adım: Disk önbelleğinden oku (Asla donma hissettirme)
       try {
         const diskRaw = await AsyncStorage.getItem(`gb_chat_msgs_${conv.id}`);
         if (diskRaw) {
@@ -247,7 +300,8 @@ export function MessagesScreen({
         }
       } catch {}
 
-      // Önbellek tamamen boşsa yükleniyor durumuna geç
+      // Önbellek henüz boşsa sessizce yükleniyor durumuna geç
+      setMessages([]);
       setThreadLoading(true);
     },
     [onSelectConversation, onActiveThreadChange, scrollToBottom]
@@ -257,7 +311,7 @@ export function MessagesScreen({
     loadUserAndConversations();
   }, [refreshKey, targetId]);
 
-  // Kullanıcı ve Konuşmaları Yükle + Disk Önbelleğini Toplu Olarak RAM'e Çek (MultiGet)
+  // Kullanıcı ve Konuşmaları Yükle + Disk Önbelleğini Toplu Olarak RAM'e Çek (MultiGet) + Arka Plan Mesaj Ön Yükleme
   const loadUserAndConversations = async () => {
     try {
       if (!inMemoryUserId) {
@@ -270,6 +324,7 @@ export function MessagesScreen({
       const data = await fetchConversations();
       inMemoryConversations = data;
       setConversations(data);
+      void AsyncStorage.setItem('gb_conversations_cache', JSON.stringify(data));
 
       // Tüm konuşmaların geçmiş mesajlarını RAM'e tek seferde önceden yükle
       if (Array.isArray(data) && data.length > 0) {
@@ -288,6 +343,19 @@ export function MessagesScreen({
             }
           }
         } catch {}
+
+        // Arka planda konuşmaların mesajlarını sessizce önceden çek (Kullanıcı tıkladığında 0 ms beklemesiz açılsın)
+        void Promise.allSettled(
+          data.slice(0, 8).map(async (c: ApiConversation) => {
+            try {
+              const freshMsgs = await fetchMessages(c.id);
+              if (Array.isArray(freshMsgs)) {
+                inMemoryMessagesMap.set(c.id, freshMsgs);
+                void AsyncStorage.setItem(`gb_chat_msgs_${c.id}`, JSON.stringify(freshMsgs));
+              }
+            } catch {}
+          })
+        );
       }
 
       // Arka planda tüm ilanları önbelleğe al (Elastic Search için)
@@ -625,12 +693,60 @@ export function MessagesScreen({
     );
   };
 
-  // Yükleme durumu
+  // Yükleme durumu - Skeleton göster (Asla ekranı kilitleyen tam ekran ActivityIndicator gösterme)
   if (loading && conversations.length === 0) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#0D6847" />
-        <Text style={styles.loadingText}>Sohbetler hazırlanıyor…</Text>
+      <View style={[styles.listContainer, { backgroundColor: colors.bg }]}>
+        <View style={styles.inboxHeader}>
+          <View style={styles.inboxTitleRow}>
+            <Text style={styles.inboxTitle}>Mesajlar</Text>
+          </View>
+          <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <SearchIcon size={16} color={colors.muted} />
+            <Text style={[styles.searchInput, { color: colors.muted, paddingTop: 10 }]}>Sohbetler hazırlanıyor…</Text>
+          </View>
+        </View>
+        <View style={{ padding: 16, gap: 14 }}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <View
+              key={i}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                paddingVertical: 8,
+                opacity: 0.5,
+              }}
+            >
+              <View
+                style={{
+                  width: 50,
+                  height: 50,
+                  borderRadius: 25,
+                  backgroundColor: colors.borderLight,
+                }}
+              />
+              <View style={{ flex: 1, gap: 8 }}>
+                <View
+                  style={{
+                    width: '55%',
+                    height: 13,
+                    borderRadius: 6,
+                    backgroundColor: colors.borderLight,
+                  }}
+                />
+                <View
+                  style={{
+                    width: '85%',
+                    height: 10,
+                    borderRadius: 5,
+                    backgroundColor: colors.borderLight,
+                  }}
+                />
+              </View>
+            </View>
+          ))}
+        </View>
       </View>
     );
   }
@@ -667,12 +783,21 @@ export function MessagesScreen({
               {isVerified && <VerifiedCheckIcon size={14} color={colors.primary} />}
             </View>
             {jobTitle && (
-              <View style={[styles.headerJobPill, { backgroundColor: colors.primarySoft }]}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  if (selected.job?.id && onOpenJob) {
+                    onOpenJob(selected.job.id);
+                  }
+                }}
+                disabled={!selected.job?.id || !onOpenJob}
+                style={[styles.headerJobPill, { backgroundColor: colors.primarySoft }]}
+              >
                 <BriefcaseIcon size={10} color={colors.primary} />
                 <Text style={[styles.headerJobText, { color: colors.primary }]} numberOfLines={1}>
                   {jobTitle} {wageAmount ? `· ₺${wageAmount.toLocaleString('tr-TR')}` : ''}
                 </Text>
-              </View>
+              </TouchableOpacity>
             )}
           </View>
 
@@ -693,13 +818,6 @@ export function MessagesScreen({
           style={{ flex: 1 }}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
         >
-          {threadLoading && messages.length === 0 ? (
-            <View style={styles.threadLoadingContainer}>
-              <ActivityIndicator size="small" color="#0D6847" />
-              <Text style={styles.threadLoadingText}>Mesajlar yükleniyor…</Text>
-            </View>
-          ) : null}
-
           <FlatList
             ref={flatListRef}
             data={messages}
@@ -708,6 +826,25 @@ export function MessagesScreen({
             initialNumToRender={100}
             maxToRenderPerBatch={100}
             windowSize={31}
+            ListEmptyComponent={
+              threadLoading ? (
+                <View style={styles.emptyThreadContainer}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[styles.emptyThreadSubtitle, { color: colors.muted, marginTop: 8 }]}>
+                    Mesajlar yükleniyor…
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.emptyThreadContainer}>
+                  <Text style={[styles.emptyThreadTitle, { color: colors.text }]}>
+                    Henüz mesajınız yok
+                  </Text>
+                  <Text style={[styles.emptyThreadSubtitle, { color: colors.muted }]}>
+                    İlk mesajı yazarak veya yukarıdaki "İlan Paylaş" butonu ile görüşmeyi başlatın.
+                  </Text>
+                </View>
+              )
+            }
             onLayout={() => {
               scrollToBottom(false);
             }}
@@ -783,7 +920,11 @@ export function MessagesScreen({
 
                       {/* İnteraktif Zengin İlan Kartı */}
                       {parsedJob ? (
-                        <View style={[styles.jobShareWidget, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <TouchableOpacity
+                          activeOpacity={0.88}
+                          onPress={() => handleOpenJob(parsedJob)}
+                          style={[styles.jobShareWidget, { backgroundColor: colors.card, borderColor: colors.border }]}
+                        >
                           <View style={styles.jobShareWidgetHeader}>
                             <BriefcaseIcon size={14} color={colors.primary} />
                             <Text style={[styles.jobShareWidgetBadge, { color: colors.primary }]}>Günübirlik İş İlanı</Text>
@@ -804,14 +945,15 @@ export function MessagesScreen({
                               </View>
                             )}
                           </View>
-                          <TouchableOpacity
+                          <View
                             style={[styles.jobShareWidgetBtn, { backgroundColor: colors.primary }]}
-                            onPress={() => void Linking.openURL(parsedJob.link)}
                           >
                             <Text style={styles.jobShareWidgetBtnText}>İlanı İncele & Başvur</Text>
-                            <ExternalLinkIcon size={13} color="#FFFFFF" />
-                          </TouchableOpacity>
-                        </View>
+                            <View style={{ transform: [{ rotate: '180deg' }] }}>
+                              <ArrowLeftIcon size={13} color="#FFFFFF" />
+                            </View>
+                          </View>
+                        </TouchableOpacity>
                       ) : (
                         <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>
                           {item.content}
@@ -1477,6 +1619,24 @@ const createStyles = (colors: ThemeColors) =>
   threadContainer: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  emptyThreadContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  emptyThreadTitle: {
+    fontSize: 15,
+    fontFamily: 'PlusJakartaSans_700Bold',
+    fontWeight: '700',
+  },
+  emptyThreadSubtitle: {
+    fontSize: 13,
+    fontFamily: 'PlusJakartaSans_500Medium',
+    textAlign: 'center',
+    lineHeight: 18,
   },
   threadLoadingContainer: {
     flexDirection: 'row',

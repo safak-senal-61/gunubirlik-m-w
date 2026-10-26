@@ -32,6 +32,8 @@ import { BookmarkIcon, QrScanIcon, ApplicationsIcon, BellIcon, MessageIcon, User
 import { GuestGate } from "@/components/GuestGate";
 import { AppDialogProvider, installAppDialog } from "@/components/AppDialog";
 import { useCachedList } from "@/hooks/use-cached-list";
+import { OfflineHub } from "@/components/OfflineHub";
+import { BlogWebViewModal } from "@/components/BlogWebViewModal";
 
 // Tüm uygulama genelinde standart Alert çağrılarını modern popup diyalog penceresine bağla
 installAppDialog();
@@ -267,6 +269,8 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
   const [isInsideChat, setIsInsideChat] = useState(false);
   // Push bildirimi "Yanıtla" butonundan geldiyse mesaj kutusuna otomatik odaklan
   const [autoFocusReply, setAutoFocusReply] = useState(false);
+  // Çevrimdışı ve genel kullanım için Günübirlik Blog & Rehber webview modalı
+  const [blogModalOpen, setBlogModalOpen] = useState(false);
 
   // Bildirim sayacı (giriş yapılmışsa 30 sn'de bir sorgular, misafir modunda 401 üretmez)
   useEffect(() => {
@@ -501,6 +505,13 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
   if (openJobId) {
     return (
       <View style={styles.flex}>
+        <OfflineHub
+          onNavigateTab={(targetTab) => {
+            setOpenJobId(null);
+            handleTabPress(targetTab);
+          }}
+          onOpenBlog={() => setBlogModalOpen(true)}
+        />
         <JobDetailScreen
           jobId={openJobId}
           onBack={() => { setOpenJobId(null); bumpRefresh(); }}
@@ -549,6 +560,10 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
           onRequestLogin={!user ? onRequestLogin : undefined}
         />
       )}
+      <OfflineHub
+        onNavigateTab={handleTabPress}
+        onOpenBlog={() => setBlogModalOpen(true)}
+      />
       <View style={[styles.content, { backgroundColor: colors.bg }]}>
         {tab === "jobs" &&
           (isEmployer ? (
@@ -601,6 +616,7 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
               onActiveThreadChange={setIsInsideChat}
               autoFocusReply={autoFocusReply}
               onAutoFocusReplyHandled={() => setAutoFocusReply(false)}
+              onOpenJob={(jobId) => setOpenJobId(jobId)}
             />
           ) : (
             <GuestGate
@@ -685,6 +701,15 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
           employerName={qrTarget.app.job?.employer?.companyName ?? qrTarget.app.job?.employer?.fullName}
           isEmployer={!!isEmployer}
           onClose={() => setQrTarget(null)}
+        />
+      )}
+
+      {blogModalOpen && (
+        <BlogWebViewModal
+          visible={blogModalOpen}
+          url="https://gunubirlik.qrders.com.tr/blog"
+          title="Günübirlik Rehber & Blog"
+          onClose={() => setBlogModalOpen(false)}
         />
       )}
     </View>
