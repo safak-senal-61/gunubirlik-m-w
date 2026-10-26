@@ -15,6 +15,7 @@ import {
 import { Badge, Card, Chip, C, EmptyState, Loading, PrimaryButton, useTheme, type ThemeColors } from "@/components/ui";
 import { BrandRefreshFlatList } from "@/components/BrandPullToRefresh";
 import { useCachedList } from "@/hooks/use-cached-list";
+import { useAuth } from "@/hooks/use-auth";
 import { fetchCategories, fetchJobs, suggestAddress } from "@/lib/api";
 import { toggleSaved, useSavedIds } from "@/lib/saved-store";
 import type { ApiCategory, ApiJob, GeocodeSuggestion, JobCategory } from "@/lib/types";
@@ -61,11 +62,14 @@ export default function JobsScreen({
   userCoords,
   onOpenJob,
   refreshKey,
+  onRequestLogin,
 }: {
   userCoords: { lat: number; lng: number } | null;
   onOpenJob: (job: ApiJob) => void;
   refreshKey: number;
+  onRequestLogin?: () => void;
 }) {
+  const { user } = useAuth();
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
@@ -196,6 +200,17 @@ export default function JobsScreen({
   };
 
   const handleSave = async (job: ApiJob) => {
+    if (!user) {
+      Alert.alert(
+        "Giriş Yapmanız Gerekiyor",
+        "İlanları kaydetmek için lütfen hesabınıza giriş yapın.",
+        [
+          { text: "Vazgeç", style: "cancel" },
+          { text: "Giriş Yap", onPress: () => onRequestLogin?.() },
+        ]
+      );
+      return;
+    }
     if (saving) return;
     setSaving(job.id);
     try {

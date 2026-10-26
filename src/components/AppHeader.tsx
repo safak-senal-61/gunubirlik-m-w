@@ -9,6 +9,7 @@ const BRAND_LOGO = require("../../assets/brand-logo.png");
 interface AppHeaderProps {
   unreadCount?: number;
   onPressNotifications?: () => void;
+  onRequestLogin?: () => void;
   title?: string;
   subtitle?: string;
 }
@@ -16,6 +17,7 @@ interface AppHeaderProps {
 export function AppHeader({
   unreadCount = 0,
   onPressNotifications,
+  onRequestLogin,
   title,
   subtitle,
 }: AppHeaderProps) {
@@ -40,13 +42,25 @@ export function AppHeader({
           <Text style={[styles.brandTitle, { color: colors.text }]}>Günübirlik</Text>
         </View>
 
-        {/* Right Actions: Role Pill + Theme Toggle (Dark/Light) + Notification Bell */}
+        {/* Right Actions: Role Pill / Login Button + Theme Toggle (Dark/Light) + Notification Bell */}
         <View style={styles.rightActions}>
-          {user && (
+          {user ? (
             <View style={[styles.roleBadge, { backgroundColor: colors.primarySoft, borderColor: colors.border }]}>
               <Text style={[styles.roleText, { color: colors.primary }]}>{roleLabel}</Text>
             </View>
-          )}
+          ) : onRequestLogin ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.loginButton,
+                { backgroundColor: colors.primary, borderColor: colors.primary },
+                pressed && { opacity: 0.85 },
+              ]}
+              onPress={onRequestLogin}
+              hitSlop={6}
+            >
+              <Text style={styles.loginButtonText}>Giriş Yap</Text>
+            </Pressable>
+          ) : null}
 
           {/* Hızlı Tema Değiştirme Butonu (Karanlık / Aydınlık Mod) */}
           <Pressable
@@ -153,6 +167,20 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontFamily: "PlusJakartaSans_600SemiBold",
     fontWeight: "600",
+    letterSpacing: 0.1,
+  },
+  loginButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+  },
+  loginButtonText: {
+    fontSize: 12,
+    fontFamily: "PlusJakartaSans_700Bold",
+    fontWeight: "700",
+    color: "#FFFFFF",
     letterSpacing: 0.1,
   },
   iconButton: {

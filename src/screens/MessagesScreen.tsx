@@ -42,6 +42,8 @@ import {
   MapPinIcon,
   ExternalLinkIcon,
   ClockIcon,
+  RotateCcwIcon,
+  CopyIcon,
 } from '../components/icons';
 import { elasticSearchJobs } from '../lib/elasticJobSearch';
 
@@ -97,7 +99,7 @@ function parseJobCard(content: string): ParsedJobCard | null {
   }
 
   // Format 2: Mevcut veritabanındaki veya paylaşılan metin formatları
-  // Örn: "💼 [İş İlanı] ..." veya "gunubirlik.qrders.com.tr/jobs/..."
+  // Örn: "[İş İlanı] ..." veya "gunubirlik.qrders.com.tr/jobs/..."
   if (content.includes('[İş İlanı]') || content.includes('/jobs/')) {
     const idMatch = content.match(/jobs\/([a-zA-Z0-9_-]+)/);
     const linkMatch = content.match(/(https?:\/\/[^\s]+)/);
@@ -643,7 +645,6 @@ export function MessagesScreen({
 
           <View style={styles.headerAvatarContainer}>
             <Avatar name={displayName} size={38} />
-            <View style={styles.onlineBadge} />
           </View>
 
           <View style={styles.headerInfo}>
@@ -770,24 +771,29 @@ export function MessagesScreen({
 
                       {/* İnteraktif Zengin İlan Kartı */}
                       {parsedJob ? (
-                        <View style={styles.jobShareWidget}>
+                        <View style={[styles.jobShareWidget, { backgroundColor: colors.card, borderColor: colors.border }]}>
                           <View style={styles.jobShareWidgetHeader}>
-                            <BriefcaseIcon size={14} color="#0D6847" />
-                            <Text style={styles.jobShareWidgetBadge}>Günübirlik İş İlanı</Text>
+                            <BriefcaseIcon size={14} color={colors.primary} />
+                            <Text style={[styles.jobShareWidgetBadge, { color: colors.primary }]}>Günübirlik İş İlanı</Text>
                           </View>
-                          <Text style={styles.jobShareWidgetTitle}>{parsedJob.title}</Text>
+                          <Text style={[styles.jobShareWidgetTitle, { color: colors.text }]}>{parsedJob.title}</Text>
                           <View style={styles.jobShareWidgetMetaRow}>
                             {parsedJob.wage ? (
-                              <Text style={styles.jobShareWidgetWage}>₺{parsedJob.wage} / gün</Text>
+                              <Text style={[styles.jobShareWidgetWage, { color: colors.primary, backgroundColor: colors.primarySoft }]}>
+                                ₺{parsedJob.wage} / gün
+                              </Text>
                             ) : null}
                             {(parsedJob.district || parsedJob.city) && (
-                              <Text style={styles.jobShareWidgetLoc}>
-                                📍 {parsedJob.district ?? ''} {parsedJob.city ?? ''}
-                              </Text>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                                <MapPinIcon size={12} color={colors.muted} />
+                                <Text style={[styles.jobShareWidgetLoc, { color: colors.muted }]}>
+                                  {parsedJob.district ?? ''} {parsedJob.city ?? ''}
+                                </Text>
+                              </View>
                             )}
                           </View>
                           <TouchableOpacity
-                            style={styles.jobShareWidgetBtn}
+                            style={[styles.jobShareWidgetBtn, { backgroundColor: colors.primary }]}
                             onPress={() => void Linking.openURL(parsedJob.link)}
                           >
                             <Text style={styles.jobShareWidgetBtnText}>İlanı İncele & Başvur</Text>
@@ -837,29 +843,29 @@ export function MessagesScreen({
 
           {/* Yanıtlama Çubuğu */}
           {replyingMessage && (
-            <View style={styles.replyBar}>
-              <View style={styles.replyBarIndicator} />
+            <View style={[styles.replyBar, { backgroundColor: colors.primarySoft, borderTopColor: colors.border }]}>
+              <View style={[styles.replyBarIndicator, { backgroundColor: colors.primary }]} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.replyBarSender}>
+                <Text style={[styles.replyBarSender, { color: colors.primary }]}>
                   {replyingMessage.senderId === currentUserId ? 'Kendinize yanıt veriyorsunuz' : 'Yanıtlanan Mesaj'}
                 </Text>
-                <Text style={styles.replyBarText} numberOfLines={1}>
+                <Text style={[styles.replyBarText, { color: colors.muted }]} numberOfLines={1}>
                   {replyingMessage.content}
                 </Text>
               </View>
               <TouchableOpacity onPress={() => setReplyingMessage(null)} hitSlop={8}>
-                <XIcon size={16} color="#717673" />
+                <XIcon size={16} color={colors.muted} />
               </TouchableOpacity>
             </View>
           )}
 
           {/* Düzenleme Çubuğu */}
           {editingMessage && (
-            <View style={[styles.replyBar, { backgroundColor: '#FEF3C7' }]}>
-              <View style={[styles.replyBarIndicator, { backgroundColor: '#D97706' }]} />
+            <View style={[styles.replyBar, { backgroundColor: colors.cardSecondary, borderTopColor: colors.border }]}>
+              <View style={[styles.replyBarIndicator, { backgroundColor: colors.amber }]} />
               <View style={{ flex: 1 }}>
-                <Text style={[styles.replyBarSender, { color: '#B45309' }]}>Mesajı Düzenliyorsunuz</Text>
-                <Text style={styles.replyBarText} numberOfLines={1}>
+                <Text style={[styles.replyBarSender, { color: colors.amber }]}>Mesajı Düzenliyorsunuz</Text>
+                <Text style={[styles.replyBarText, { color: colors.text }]} numberOfLines={1}>
                   {editingMessage.content}
                 </Text>
               </View>
@@ -870,7 +876,7 @@ export function MessagesScreen({
                 }}
                 hitSlop={8}
               >
-                <XIcon size={16} color="#B45309" />
+                <XIcon size={16} color={colors.muted} />
               </TouchableOpacity>
             </View>
           )}
@@ -917,24 +923,26 @@ export function MessagesScreen({
           onRequestClose={() => setActionMessage(null)}
         >
           <Pressable style={styles.actionModalOverlay} onPress={() => setActionMessage(null)}>
-            <View style={styles.actionModalContent}>
-              <Text style={styles.actionModalTitle} numberOfLines={1}>
+            <View style={[styles.actionModalContent, { backgroundColor: colors.card }]}>
+              <Text style={[styles.actionModalTitle, { color: colors.muted }]} numberOfLines={1}>
                 {actionMessage?.content}
               </Text>
-              <View style={styles.actionDivider} />
+              <View style={[styles.actionDivider, { backgroundColor: colors.border }]} />
 
               <TouchableOpacity
                 style={styles.actionItem}
                 onPress={() => actionMessage && handleActionReply(actionMessage)}
               >
-                <Text style={styles.actionItemText}>↩️ Yanıtla</Text>
+                <RotateCcwIcon size={16} color={colors.primary} />
+                <Text style={[styles.actionItemText, { color: colors.text }]}>Yanıtla</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.actionItem}
                 onPress={() => actionMessage && handleActionCopy(actionMessage)}
               >
-                <Text style={styles.actionItemText}>📋 Kopyala</Text>
+                <CopyIcon size={16} color={colors.muted} />
+                <Text style={[styles.actionItemText, { color: colors.text }]}>Kopyala</Text>
               </TouchableOpacity>
 
               {actionMessage?.senderId === currentUserId && (
@@ -943,15 +951,17 @@ export function MessagesScreen({
                     style={styles.actionItem}
                     onPress={() => actionMessage && handleActionEdit(actionMessage)}
                   >
-                    <Text style={styles.actionItemText}>✏️ Düzenle</Text>
+                    <EditIcon size={16} color={colors.muted} />
+                    <Text style={[styles.actionItemText, { color: colors.text }]}>Düzenle</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={styles.actionItem}
                     onPress={() => actionMessage && handleActionDelete(actionMessage)}
                   >
-                    <Text style={[styles.actionItemText, { color: '#DC2626' }]}>
-                      🗑️ Mesajı Geri Çek / Sil
+                    <TrashIcon size={16} color={colors.danger} />
+                    <Text style={[styles.actionItemText, { color: colors.danger }]}>
+                      Mesajı Sil
                     </Text>
                   </TouchableOpacity>
                 </>
@@ -980,27 +990,27 @@ export function MessagesScreen({
                   </Text>
                 </View>
                 <TouchableOpacity onPress={() => setShareJobModalOpen(false)} hitSlop={8}>
-                  <XIcon size={20} color="#717673" />
+                  <XIcon size={20} color={colors.muted} />
                 </TouchableOpacity>
               </View>
 
               {/* Elastic Search Canlı Arama Çubuğu */}
-              <View style={styles.jobSearchBar}>
-                <SearchIcon size={16} color="#717673" />
+              <View style={[styles.jobSearchBar, { backgroundColor: colors.inputBg, borderColor: colors.border }]}>
+                <SearchIcon size={16} color={colors.muted} />
                 <TextInput
-                  style={styles.jobSearchInput}
+                  style={[styles.jobSearchInput, { color: colors.text }]}
                   placeholder="Ara… (Örn: kadikoy, boyaci usta, restorant)"
-                  placeholderTextColor="#8C928E"
+                  placeholderTextColor={colors.muted}
                   value={jobSearchQuery}
                   onChangeText={setJobSearchQuery}
                   autoFocus
                 />
                 {jobSearchQuery.length > 0 && (
                   <TouchableOpacity onPress={() => setJobSearchQuery('')} hitSlop={6}>
-                    <XIcon size={16} color="#717673" />
+                    <XIcon size={16} color={colors.muted} />
                   </TouchableOpacity>
                 )}
-                {searchingJobs && <ActivityIndicator size="small" color="#0D6847" />}
+                {searchingJobs && <ActivityIndicator size="small" color={colors.primary} />}
               </View>
 
               {/* Kategori Filtre Hapları */}
@@ -1023,12 +1033,14 @@ export function MessagesScreen({
                     onPress={() => setJobCategoryFilter(chip.id)}
                     style={[
                       styles.modalCategoryChip,
+                      { backgroundColor: colors.card, borderColor: colors.border },
                       jobCategoryFilter === chip.id && styles.modalCategoryChipActive,
                     ]}
                   >
                     <Text
                       style={[
                         styles.modalCategoryChipText,
+                        { color: colors.muted },
                         jobCategoryFilter === chip.id && styles.modalCategoryChipTextActive,
                       ]}
                     >
@@ -1042,8 +1054,8 @@ export function MessagesScreen({
               <ScrollView style={{ maxHeight: 360 }} keyboardShouldPersistTaps="handled">
                 {filteredElasticJobs.length === 0 && !searchingJobs ? (
                   <View style={{ paddingVertical: 28, alignItems: 'center', gap: 6 }}>
-                    <BriefcaseIcon size={28} color="#C5DDD0" />
-                    <Text style={{ fontSize: 13, color: '#717673', fontFamily: 'PlusJakartaSans_500Medium' }}>
+                    <BriefcaseIcon size={28} color={colors.border} />
+                    <Text style={{ fontSize: 13, color: colors.muted, fontFamily: 'PlusJakartaSans_500Medium' }}>
                       {jobSearchQuery
                         ? 'Aradığınız kriterlere uygun ilan bulunamadı.'
                         : 'Aramak için anahtar kelime yazın.'}
@@ -1053,11 +1065,11 @@ export function MessagesScreen({
                   filteredElasticJobs.map((job) => (
                     <TouchableOpacity
                       key={job.id}
-                      style={styles.jobSearchCard}
+                      style={[styles.jobSearchCard, { backgroundColor: colors.cardSecondary, borderColor: colors.border }]}
                       onPress={() => handleShareSelectedJob(job)}
                     >
-                      <View style={styles.jobSearchIconBox}>
-                        <BriefcaseIcon size={18} color="#0D6847" />
+                      <View style={[styles.jobSearchIconBox, { backgroundColor: colors.primarySoft }]}>
+                        <BriefcaseIcon size={18} color={colors.primary} />
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
                         <Text style={styles.jobSearchTitle} numberOfLines={1}>
@@ -1189,7 +1201,6 @@ export function MessagesScreen({
             >
               <View style={styles.cardAvatarContainer}>
                 <Avatar name={name} size={46} />
-                <View style={styles.onlineDot} />
               </View>
 
               <View style={styles.cardCenter}>
@@ -1215,7 +1226,7 @@ export function MessagesScreen({
                 <View style={styles.cardBottomRow}>
                   <Text style={[styles.cardLastMsg, { color: colors.muted }]} numberOfLines={1}>
                     {lastMsg.includes('[JOB_CARD]') || lastMsg.includes('[İş İlanı]')
-                      ? '💼 Paylaşılan İş İlanı'
+                      ? 'Paylaşılan İş İlanı'
                       : lastMsg}
                   </Text>
                   {unreadCount > 0 && (
@@ -1350,17 +1361,6 @@ const createStyles = (colors: ThemeColors) =>
   },
   cardAvatarContainer: {
     position: 'relative',
-  },
-  onlineDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10B981',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   cardCenter: {
     flex: 1,
@@ -1497,17 +1497,6 @@ const createStyles = (colors: ThemeColors) =>
   headerAvatarContainer: {
     position: 'relative',
   },
-  onlineBadge: {
-    position: 'absolute',
-    bottom: -1,
-    right: -1,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
-    backgroundColor: '#10B981',
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-  },
   headerInfo: {
     flex: 1,
     gap: 2,
@@ -1571,7 +1560,7 @@ const createStyles = (colors: ThemeColors) =>
   dateLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E2E0D8',
+    backgroundColor: colors.border,
   },
   datePill: {
     backgroundColor: colors.cardSecondary,
@@ -1628,11 +1617,11 @@ const createStyles = (colors: ThemeColors) =>
   },
   quotedBubbleMe: {
     backgroundColor: 'rgba(0, 0, 0, 0.15)',
-    borderLeftColor: '#A7F3D0',
+    borderLeftColor: colors.primarySoft,
   },
   quotedBubbleOther: {
     backgroundColor: colors.bg,
-    borderLeftColor: '#0D6847',
+    borderLeftColor: colors.primary,
   },
   quotedSender: {
     fontSize: 10,
@@ -1756,7 +1745,7 @@ const createStyles = (colors: ThemeColors) =>
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: '#C5DDD0',
+    borderTopColor: colors.border,
     gap: 8,
   },
   replyBarIndicator: {
@@ -1785,7 +1774,7 @@ const createStyles = (colors: ThemeColors) =>
     paddingVertical: 8,
     backgroundColor: colors.card,
     borderTopWidth: 1,
-    borderTopColor: '#E8E6DF',
+    borderTopColor: colors.border,
     gap: 8,
   },
   textInput: {
@@ -1812,7 +1801,7 @@ const createStyles = (colors: ThemeColors) =>
     backgroundColor: colors.primary,
   },
   sendButtonDisabled: {
-    backgroundColor: '#C5DDD0',
+    backgroundColor: colors.cardSecondary,
   },
 
   typingContainer: {
@@ -1883,8 +1872,11 @@ const createStyles = (colors: ThemeColors) =>
     marginVertical: 4,
   },
   actionItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
     borderRadius: 8,
   },
   actionItemText: {
@@ -1913,7 +1905,7 @@ const createStyles = (colors: ThemeColors) =>
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: colors.border,
     alignSelf: 'center',
     marginBottom: 6,
   },

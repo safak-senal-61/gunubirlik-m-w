@@ -51,12 +51,14 @@ export default function JobDetailScreen({
   onStartChat,
   onShowQR,
   onScanQR,
+  onRequestLogin,
 }: {
   jobId: string;
   onBack: () => void;
   onStartChat?: (participantId: string, jobId: string) => void;
   onShowQR?: (job: ApiJob) => void;
   onScanQR?: () => void;
+  onRequestLogin?: () => void;
 }) {
   const { user } = useAuth();
   const { colors } = useTheme();
@@ -80,6 +82,17 @@ export default function JobDetailScreen({
   const [deleteBusy, setDeleteBusy] = useState(false);
 
   const handleToggleSave = async () => {
+    if (!user) {
+      Alert.alert(
+        "Giriş Yapmalısınız",
+        "İlanları kaydetmek ve cihazlarınızda eşitlemek için lütfen giriş yapın.",
+        [
+          { text: "Vazgeç", style: "cancel" },
+          { text: "Giriş Yap", onPress: () => onRequestLogin?.() },
+        ],
+      );
+      return;
+    }
     if (saveBusy) return;
     setSaveBusy(true);
     try {
@@ -212,7 +225,20 @@ export default function JobDetailScreen({
               <PrimaryButton
                 label="Sohbet Başlat"
                 variant="outline"
-                onPress={() => onStartChat(job.employerId, job.id)}
+                onPress={() => {
+                  if (!user) {
+                    Alert.alert(
+                      "Giriş Yapmalısınız",
+                      "İşverenle mesajlaşabilmek için lütfen giriş yapın.",
+                      [
+                        { text: "Vazgeç", style: "cancel" },
+                        { text: "Giriş Yap", onPress: () => onRequestLogin?.() },
+                      ],
+                    );
+                    return;
+                  }
+                  onStartChat(job.employerId, job.id);
+                }}
               />
             )}
             {(onScanQR || onShowQR) && job.myApplication && (
@@ -223,7 +249,23 @@ export default function JobDetailScreen({
               />
             )}
             {job.myApplication ? null : job.status === "OPEN" ? (
-              <PrimaryButton label="Bu işe başvur" onPress={() => setApplyOpen(true)} />
+              <PrimaryButton
+                label="Bu işe başvur"
+                onPress={() => {
+                  if (!user) {
+                    Alert.alert(
+                      "Giriş Yapmalısınız",
+                      "Bu ilana başvurabilmek için lütfen giriş yapın veya kayıt olun.",
+                      [
+                        { text: "Vazgeç", style: "cancel" },
+                        { text: "Giriş Yap", onPress: () => onRequestLogin?.() },
+                      ],
+                    );
+                    return;
+                  }
+                  setApplyOpen(true);
+                }}
+              />
             ) : (
               <Badge label="Başvuruya kapalı" color={C.muted} bg={C.stoneBg} />
             )}

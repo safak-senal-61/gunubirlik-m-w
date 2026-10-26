@@ -28,7 +28,8 @@ import ProfileScreen from "@/screens/ProfileScreen";
 import QRScreen from "@/screens/QRScreen";
 import QrScannerScreen from "@/screens/QrScannerScreen";
 import { Card, C, EmptyState, PrimaryButton, ThemeProvider, useTheme, lightColors, type ThemeColors } from "@/components/ui";
-import { BookmarkIcon, QrScanIcon } from "@/components/icons";
+import { BookmarkIcon, QrScanIcon, ApplicationsIcon, BellIcon, MessageIcon, UserIcon } from "@/components/icons";
+import { GuestGate } from "@/components/GuestGate";
 import { useCachedList } from "@/hooks/use-cached-list";
 import AnimatedSplashScreen from "@/components/AnimatedSplashScreen";
 import { AnimatedTabBar } from "@/components/AnimatedTabBar";
@@ -259,8 +260,12 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
   // Push bildirimi "Yanıtla" butonundan geldiyse mesaj kutusuna otomatik odaklan
   const [autoFocusReply, setAutoFocusReply] = useState(false);
 
-  // Bildirim sayacı (30 sn'de bir)
+  // Bildirim sayacı (giriş yapılmışsa 30 sn'de bir sorgular, misafir modunda 401 üretmez)
   useEffect(() => {
+    if (!user) {
+      setUnread(0);
+      return;
+    }
     let active = true;
     const load = () => {
       fetchNotifications()
@@ -275,7 +280,7 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
       active = false;
       clearInterval(t);
     };
-  }, [refreshKey]);
+  }, [refreshKey, user]);
 
   const openJob = useCallback((job: ApiJob) => setOpenJobId(job.id), []);
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
@@ -398,6 +403,7 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
         <JobDetailScreen
           jobId={openJobId}
           onBack={() => { setOpenJobId(null); bumpRefresh(); }}
+          onRequestLogin={onRequestLogin}
           onStartChat={(participantId, jobId) => {
             setOpenJobId(null);
             startChat(participantId, jobId);
@@ -437,6 +443,7 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
         <AppHeader
           unreadCount={unread}
           onPressNotifications={() => handleTabPress("notifications")}
+          onRequestLogin={!user ? onRequestLogin : undefined}
         />
       )}
       <View style={[styles.content, { backgroundColor: colors.bg }]}>
@@ -448,38 +455,77 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
               onNavigateApplications={() => handleTabPress("applications")}
             />
           ) : (
-            <JobsScreen userCoords={user ? null : null} onOpenJob={openJob} refreshKey={refreshKey} />
+            <JobsScreen
+              userCoords={user ? null : null}
+              onOpenJob={openJob}
+              refreshKey={refreshKey}
+              onRequestLogin={onRequestLogin}
+            />
           ))}
-        {tab === "saved" && <SavedScreen onOpenJob={openJob} refreshKey={refreshKey} />}
-        {tab === "applications" && (
-          <ApplicationsScreen
-            refreshKey={refreshKey}
-            onStartChat={startChat}
-            onShowQR={showAppQR}
-            onScanQR={() => setScannerOpen(true)}
-          />
-        )}
-        {tab === "messages" && (
-          <MessagesScreen
-            refreshKey={refreshKey}
-            openConversationId={openConversationId}
-            onOpenConversationHandled={() => setOpenConversationId(null)}
-            onActiveThreadChange={setIsInsideChat}
-            autoFocusReply={autoFocusReply}
-            onAutoFocusReplyHandled={() => setAutoFocusReply(false)}
-          />
-        )}
-        {tab === "notifications" && (
-          <NotificationsScreen
-            refreshKey={refreshKey}
-            onChanged={bumpRefresh}
-            onOpenJob={(jobId) => setOpenJobId(jobId)}
-            onOpenNotificationSettings={() => {
-              setProfileOpenTab("notifications");
-              setTab("profile");
-            }}
-          />
-        )}
+        {tab === "saved" &&
+          (user ? (
+            <SavedScreen onOpenJob={openJob} refreshKey={refreshKey} />
+          ) : (
+            <GuestGate
+              title="Kaydedilen İlanlar"
+              description="Beğendiğiniz iş ilanlarını kaydedip daha sonra incelemek ve tek tıkla başvurmak için giriş yapın."
+              icon={<BookmarkIcon size={28} color={colors.primary} />}
+              onLogin={onRequestLogin}
+            />
+          ))}
+        {tab === "applications" &&
+          (user ? (
+            <ApplicationsScreen
+              refreshKey={refreshKey}
+              onStartChat={startChat}
+              onShowQR={showAppQR}
+              onScanQR={() => setScannerOpen(true)}
+            />
+          ) : (
+            <GuestGate
+              title="Başvurularım"
+              description="Yaptığınız iş başvurularının durumunu takip etmek, kabul edilen işleri görmek ve QR kod ile işe başlamak için giriş yapın."
+              icon={<ApplicationsIcon size={28} color={colors.primary} />}
+              onLogin={onRequestLogin}
+            />
+          ))}
+        {tab === "messages" &&
+          (user ? (
+            <MessagesScreen
+              refreshKey={refreshKey}
+              openConversationId={openConversationId}
+              onOpenConversationHandled={() => setOpenConversationId(null)}
+              onActiveThreadChange={setIsInsideChat}
+              autoFocusReply={autoFocusReply}
+              onAutoFocusReplyHandled={() => setAutoFocusReply(false)}
+            />
+          ) : (
+            <GuestGate
+              title="Mesajlar"
+              description="İşverenlerle anlık mesajlaşmak, konum ve ilan paylaşmak için hesabınıza giriş yapın."
+              icon={<MessageIcon size={28} color={colors.primary} />}
+              onLogin={onRequestLogin}
+            />
+          ))}
+        {tab === "notifications" &&
+          (user ? (
+            <NotificationsScreen
+              refreshKey={refreshKey}
+              onChanged={bumpRefresh}
+              onOpenJob={(jobId) => setOpenJobId(jobId)}
+              onOpenNotificationSettings={() => {
+                setProfileOpenTab("notifications");
+                setTab("profile");
+              }}
+            />
+          ) : (
+            <GuestGate
+              title="Bildirimler"
+              description="İş başvurusu onayları, yeni acil ilanlar ve önemli güncellemelerden anında haberdar olmak için giriş yapın."
+              icon={<BellIcon size={28} color={colors.primary} />}
+              onLogin={onRequestLogin}
+            />
+          ))}
         {tab === "profile" &&
           (user ? (
             <ProfileScreen
@@ -492,18 +538,12 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
               }}
             />
           ) : (
-            <View style={{ flex: 1, padding: 24, justifyContent: "center", alignItems: "center", gap: 12 }}>
-              <Text style={{ fontSize: 20, fontWeight: "800", color: colors.text, textAlign: "center" }}>
-                Hesabınıza Giriş Yapın
-              </Text>
-              <Text style={{ fontSize: 13, color: colors.muted, textAlign: "center", lineHeight: 18, maxWidth: 280 }}>
-                Başvurularınızı yönetmek, ilan vermek ve mesajlaşmak için lütfen giriş yapın.
-              </Text>
-              <PrimaryButton
-                label="Giriş Yap / Kayıt Ol"
-                onPress={() => onRequestLogin?.()}
-              />
-            </View>
+            <GuestGate
+              title="Profil ve Ayarlar"
+              description="Profil bilgilerinizi yönetmek, cüzdanınızı takip etmek ve güvenlik ayarlarınızı yapılandırmak için giriş yapın."
+              icon={<UserIcon size={28} color={colors.primary} />}
+              onLogin={onRequestLogin}
+            />
           ))}
       </View>
       {!isInsideChat && (
@@ -515,9 +555,8 @@ function MainTabs({ onRequestLogin }: { onRequestLogin?: () => void }) {
         />
       )}
 
-      {/* QR tarama FAB'ı sadece İşler ve Başvuru sekmelerinde görünür;
-          Mesajlar ekranında mesaj yazma/gönderme alanının üstüne biniyordu. */}
-      {!isEmployer && (tab === "jobs" || tab === "applications") && (
+      {/* QR tarama FAB'ı sadece giriş yapmış işçiler için İşler ve Başvuru sekmelerinde görünür */}
+      {user && !isEmployer && (tab === "jobs" || tab === "applications") && (
         <Pressable style={styles.scanFab} onPress={() => setScannerOpen(true)}>
           <QrScanIcon size={18} color="#FFFFFF" />
           <Text style={styles.scanFabText}>QR Tara</Text>
